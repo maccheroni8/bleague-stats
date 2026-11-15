@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { postseasonLabel } from "../../shared/gameType";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { TeamLogo } from "../components/TeamLogo";
@@ -8,7 +8,20 @@ import { FilterBar } from "../components/FilterBar";
 import { usePlayoffZonePresets } from "../lib/playoffZone";
 import { simpleSelectAxis, teamMultiAxis, type FilterAxis } from "../lib/filterAxes";
 import { ConditionTitle } from "../components/ConditionTitle";
-import { clubSelectionLabels, composeLabels, multiSelectLabels } from "../lib/conditionLabels";
+import { ExportImageButton } from "../components/ExportImageButton";
+import { ExportTarget } from "../components/ExportTarget";
+import { buildExportFilename, clubSelectionLabels, composeLabels, multiSelectLabels } from "../lib/conditionLabels";
+import {
+  SCHEDULE_PERIOD_MODE_LABELS,
+  SCHEDULE_SAVE_MAX_DAYS,
+  addDays,
+  clampToDates,
+  daysInclusive,
+  schedulePeriod,
+  schedulePeriodLabel,
+  weeksCovering,
+  type SchedulePeriodMode,
+} from "../lib/schedulePeriod";
 import { divisionPresets } from "../lib/divisionGroups";
 import { fetchDivisionHistory, fetchGameSummaries, fetchSchedule, fetchTeamColors, fetchTeamHistory, fetchTeams } from "../lib/data";
 import { teamDivisionForSeason } from "../../scripts/lib/divisions";
@@ -303,6 +316,7 @@ export function SchedulePage({ season }: { season: string }) {
   const { data: teams } = useJsonData(() => fetchTeams(season, league), [season, league]);
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const [jumpDate, setJumpDate] = useState("");
+  const saveFrameRef = useRef<HTMLDivElement>(null);
   const [, setSearchParams] = useSearchParams();
   // 「今日」ボタン（2026-09-26）: 過去のシーズンを表示中なら今のシーズンに切り替え、データが読み込まれてから移る。
   // 表示（リスト/カレンダー）はシーズンごとに記憶しているため、押したときの表示を持ち越す
@@ -318,6 +332,11 @@ export function SchedulePage({ season }: { season: string }) {
   const [statusFilter, setStatusFilter] = usePageState<ScheduleStatusFilter>(pk("statusFilter"), "all");
   // 大会の絞り込み（EASL の試合の有無）。リスト・カレンダーの両方に効く
   const [competitionFilter, setCompetitionFilter] = usePageState<ScheduleCompetitionFilter>(pk("competitionFilter"), "all");
+  // 画像として保存する期間（設計書399章）。null＝表示に合わせた初期値（リスト＝今日を含む週、カレンダー＝表示中の月）
+  const [saveMode, setSaveMode] = useState<SchedulePeriodMode | null>(null);
+  const [saveDate, setSaveDate] = useState<string | null>(null);
+  const [saveFrom, setSaveFrom] = useState("");
+  const [saveTo, setSaveTo] = useState("");
 
   // シーズンが変わったらチームフィルタ・カレンダー月・ステータス絞り込みの選択状態をリセットする
   // （前シーズンのチーム構成・月範囲・絞り込み条件は引き継がない）。初回マウント時は、usePageStateで復元した値を
@@ -329,6 +348,10 @@ export function SchedulePage({ season }: { season: string }) {
     setCalendarMonth(null);
     setStatusFilter("all");
     setCompetitionFilter("all");
+    setSaveMode(null);
+    setSaveDate(null);
+    setSaveFrom("");
+    setSaveTo("");
   }, [season]);
 
   // 開催前のシーズンは teams.json に試合をしたクラブしか無いため、前シーズンのクラブ一覧と改称の履歴（team-history.json）で
@@ -413,6 +436,23 @@ export function SchedulePage({ season }: { season: string }) {
 
   const defaultMonth = useMemo(() => defaultCalendarMonth(rows), [rows]);
   const effectiveMonth = calendarMonth ?? defaultMonth;
+
+  // 画像として保存する期間。窓の中で選ぶ。保存画像の枠（下の SaveFrame）が、この期間の試合だけを持つ
+  const gameDateRange = useMemo(() => {
+    const dates = rows.filter((r) => r.status !== "cancelled").map((r) => r.date).sort();
+    return { first: dates[0], last: dates[dates.length - 1] };
+  }, [rows]);
+  const effectiveSaveMode: SchedulePeriodMode = saveMode ?? (view === "calendar" ? "month" : "week");
+  const effectiveSaveDate = saveDate ?? (view === "calendar" ? `${effectiveMonth}-01` : clampToDates(todayJst(), gameDateRange.first, gameDateRange.last));
+  const savePeriod = schedulePeriod(effectiveSaveMode, effectiveSaveDate, saveFrom || effectiveSaveDate, saveTo || addDays(effectiveSaveDate, 6));
+  const saveMaxDays = SCHEDULE_SAVE_MAX_DAYS[view === "calendar" ? "calendar" : "list"];
+  const saveDays = daysInclusive(savePeriod.from, savePeriod.to);
+  const saveTooLong = saveDays > saveMaxDays;
+  const saveRows = useMemo(() => {
+    if (saveTooLong) return [];
+    const source = view === "calendar" ? filteredRows : listRows;
+    return source.filter((r) => r.date >= savePeriod.from && r.date <= savePeriod.to);
+  }, [saveTooLong, view, filteredRows, listRows, savePeriod.from, savePeriod.to]);
 
   const jumpToToday = (targetView: ScheduleView) => {
     const target = todayJumpTarget(targetView === "list" ? listRows : filteredRows);
@@ -550,6 +590,62 @@ export function SchedulePage({ season }: { season: string }) {
     setSelectedTeamIds(null);
   };
 
+  const saveConditions = composeLabels(
+    schedulePeriodLabel(savePeriod),
+    view === "list" && statusFilter !== "all" ? { upcoming: "今後の試合", finished: "終了した試合", all: "" }[statusFilter] : null,
+    competitionFilter === "league" ? "B.LEAGUEのみ" : competitionFilter === "easl" ? "EASLのみ" : competitionFilter === "cup" ? "天皇杯のみ" : null,
+    selectedTeamIds === null ? null : scheduleClubLabels,
+  );
+  const saveDisabledReason = saveTooLong
+    ? `画像として保存できるのは${saveMaxDays}日分までです（いまは${saveDays}日分）。期間を短くしてください${view === "list" ? "。1か月ぶんを1枚にしたいときはカレンダー表示から保存できます" : ""}`
+    : saveRows.length === 0
+      ? "この期間に当てはまる試合がありません"
+      : undefined;
+  const saveOptions = (
+    <>
+      <span className="export-option-group" role="group" aria-label="保存する期間の選び方">
+        <span className="export-option-label">期間</span>
+        {(Object.keys(SCHEDULE_PERIOD_MODE_LABELS) as SchedulePeriodMode[]).map((m) => (
+          <button
+            type="button"
+            key={m}
+            className={effectiveSaveMode === m ? "active" : ""}
+            onClick={() => {
+              if (m === "custom") {
+                setSaveFrom(savePeriod.from);
+                setSaveTo(savePeriod.to);
+              }
+              setSaveMode(m);
+            }}
+          >
+            {SCHEDULE_PERIOD_MODE_LABELS[m]}
+          </button>
+        ))}
+      </span>
+      {effectiveSaveMode === "custom" ? (
+        <span className="schedule-save-dates">
+          <label>
+            開始日 <input type="date" value={saveFrom || effectiveSaveDate} onChange={(e) => e.target.value && setSaveFrom(e.target.value)} />
+          </label>
+          <label>
+            終了日 <input type="date" value={saveTo || addDays(effectiveSaveDate, 6)} onChange={(e) => e.target.value && setSaveTo(e.target.value)} />
+          </label>
+        </span>
+      ) : (
+        <span className="schedule-save-dates">
+          <label>
+            {effectiveSaveMode === "day" ? "日付" : effectiveSaveMode === "week" ? "この日を含む週" : "この日を含む月"}{" "}
+            <input type="date" value={effectiveSaveDate} onChange={(e) => e.target.value && setSaveDate(e.target.value)} />
+          </label>
+        </span>
+      )}
+      <span className="schedule-save-range">{schedulePeriodLabel(savePeriod).replace("期間: ", "")}（{saveDays}日間・{saveRows.length}試合）</span>
+    </>
+  );
+  const saveGroups = groupByDate(saveRows);
+  const saveWeeks = weeksCovering(savePeriod);
+  const saveGamesByDate = new Map(saveGroups);
+
   return (
     <div className="schedule-page" data-design="v2">
       <h1>日程</h1>
@@ -567,6 +663,13 @@ export function SchedulePage({ season }: { season: string }) {
             カレンダー表示
           </button>
         </div>
+        <ExportImageButton
+          targetRef={saveFrameRef}
+          filename={buildExportFilename([`${season}シーズン`, "日程", view === "calendar" ? "カレンダー" : "リスト", schedulePeriodLabel(savePeriod).replaceAll("/", "-")])}
+          baseDate={{ kind: "season", season, gameType: "both" }}
+          options={saveOptions}
+          disabledReason={saveDisabledReason}
+        />
       </div>
 
       <FilterBar axes={filterAxes} stateKey="schedule" onClearAll={clearFilters} />
@@ -639,8 +742,88 @@ export function SchedulePage({ season }: { season: string }) {
           onNextMonth={() => setCalendarMonth(addMonthsToKey(effectiveMonth, 1))}
         />
       )}
+
+      {/* 画像として保存する範囲。画面には出さず（見えない位置に置く）、保存のときだけ複製して描く。選んだ期間の試合だけを持つ */}
+      <ExportTarget ref={saveFrameRef} className={`schedule-save-target ${view === "calendar" ? "schedule-save-calendar" : "schedule-save-list"}`} baseDate={{ kind: "season", season, gameType: "both" }}>
+        <div aria-hidden="true">
+          <ConditionTitle title={`${season}シーズン 日程`} conditions={saveConditions} />
+          {saveRows.length > 0 &&
+            (view === "list" ? (
+              saveGroups.map(([date, gamesOnDate]) => (
+                <section key={date} className="schedule-date-group">
+                  <h2>{formatDateHeading(date)}</h2>
+                  <div className="table-scroll">
+                    <table className="sortable-table schedule-table">
+                      <colgroup>
+                        <col className="schedule-col-home" />
+                        <col className="schedule-col-result" />
+                        <col className="schedule-col-away" />
+                        <col className="schedule-col-venue" />
+                      </colgroup>
+                      <thead>
+                        <tr>
+                          <th className="align-left">ホーム</th>
+                          <th className="align-center">結果</th>
+                          <th className="align-right">アウェイ</th>
+                          <th className="align-left">会場</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {gamesOnDate.map((row) => (
+                          <ScheduleRowView key={row.scheduleKey} row={row} teamColors={teamColors ?? undefined} emphasize />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              ))
+            ) : (
+              <div className="schedule-calendar">
+                <div className="calendar-grid">
+                  {["月", "火", "水", "木", "金", "土", "日"].map((w) => (
+                    <div key={w} className="calendar-weekday">
+                      {w}
+                    </div>
+                  ))}
+                  {saveWeeks.flat().map((date) => {
+                    const inPeriod = date >= savePeriod.from && date <= savePeriod.to;
+                    const first = date === saveWeeks[0]![0] || date.endsWith("-01");
+                    const [, mm, dd] = date.split("-");
+                    return (
+                      <div key={date} className={`calendar-cell${inPeriod ? "" : " calendar-cell-outside"}`}>
+                        <div className="calendar-cell-date">{first ? `${Number(mm)}/${Number(dd)}` : Number(dd)}</div>
+                        <div className="calendar-cell-games">
+                          {inPeriod && (saveGamesByDate.get(date) ?? []).map((row) => <CalendarGameChip key={row.scheduleKey} row={row} detail />)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+        </div>
+      </ExportTarget>
     </div>
   );
+}
+
+/** 勝った側の点数を太く、負けた側を薄くして出す（保存画像の枠だけ。同点・得点なしはそのまま） */
+function ScoreText({ row, emphasize }: { row: ScheduleRow; emphasize?: boolean }) {
+  const { homeScore: h, awayScore: a } = row;
+  if (!emphasize || h == null || a == null || h === a) return <>{`${h}-${a}`}</>;
+  return (
+    <>
+      <span className={h > a ? "score-win" : "score-lose"}>{h}</span>-<span className={a > h ? "score-win" : "score-lose"}>{a}</span>
+    </>
+  );
+}
+
+/** 終わった試合の勝った側・負けた側の印（保存画像の枠だけ） */
+function sideClass(row: ScheduleRow, side: "home" | "away", emphasize?: boolean): string {
+  const { homeScore: h, awayScore: a } = row;
+  if (!emphasize || row.status !== "final" || h == null || a == null || h === a) return "";
+  const won = side === "home" ? h > a : a > h;
+  return won ? " side-win" : " side-lose";
 }
 
 function MaybeLink({ to, children }: { to?: string; children: ReactNode }) {
@@ -664,10 +847,10 @@ function EaslLink({ url, children }: { url: string; children: ReactNode }) {
 }
 
 /** EASL の試合のスコアの欄 */
-function EaslResult({ row }: { row: ScheduleRow }) {
+function EaslResult({ row, emphasize }: { row: ScheduleRow; emphasize?: boolean }) {
   return (
     <>
-      {row.status === "final" && <span>{`${row.homeScore}-${row.awayScore}`}</span>}
+      {row.status === "final" && <span><ScoreText row={row} emphasize={emphasize} /></span>}
       {row.status === "live" && <span className="live-badge">進行中</span>}
       {row.status === "cancelled" && <span className="cancelled-badge">中止</span>}
       {row.status === "upcoming" && (row.tipoffTime ? <span className="schedule-tipoff">{row.tipoffTime}</span> : <span className="upcoming-badge">予定</span>)}
@@ -676,19 +859,19 @@ function EaslResult({ row }: { row: ScheduleRow }) {
   );
 }
 
-function EaslRowView({ row, easl }: { row: ScheduleRow; easl: NonNullable<ScheduleRow["easl"]> }) {
+function EaslRowView({ row, easl, emphasize }: { row: ScheduleRow; easl: NonNullable<ScheduleRow["easl"]>; emphasize?: boolean }) {
   return (
     <tr className={`schedule-row status-${row.status} schedule-row-easl`}>
-      <td className="align-left schedule-team-cell">
+      <td className={`align-left schedule-team-cell${sideClass(row, "home", emphasize)}`}>
         <EaslLink url={easl.url}>
           {easl.homeClub.id ? <TeamLogo teamId={easl.homeClub.id} size={24} /> : <EaslLogo club={easl.homeClub} size={24} />}
           <span className="schedule-team-chip"><EaslClubName club={easl.homeClub} /></span>
         </EaslLink>
       </td>
       <td className="align-center">
-        <EaslLink url={easl.url}><EaslResult row={row} /></EaslLink>
+        <EaslLink url={easl.url}><EaslResult row={row} emphasize={emphasize} /></EaslLink>
       </td>
-      <td className="align-right schedule-team-cell">
+      <td className={`align-right schedule-team-cell${sideClass(row, "away", emphasize)}`}>
         <EaslLink url={easl.url}>
           <span className="schedule-team-chip schedule-team-chip-away"><EaslClubName club={easl.awayClub} /></span>
           {easl.awayClub.id ? <TeamLogo teamId={easl.awayClub.id} size={24} /> : <EaslLogo club={easl.awayClub} size={24} />}
@@ -708,10 +891,10 @@ function CupLink({ url, children }: { url: string; children: ReactNode }) {
   );
 }
 
-function CupRowView({ row, cup }: { row: ScheduleRow; cup: NonNullable<ScheduleRow["cup"]> }) {
+function CupRowView({ row, cup, emphasize }: { row: ScheduleRow; cup: NonNullable<ScheduleRow["cup"]>; emphasize?: boolean }) {
   return (
     <tr className={`schedule-row status-${row.status} schedule-row-cup${cup.projected ? " cup-projected" : ""}`}>
-      <td className="align-left schedule-team-cell">
+      <td className={`align-left schedule-team-cell${sideClass(row, "home", emphasize)}`}>
         <CupLink url={cup.url}>
           <CupLogo club={cup.homeClub} size={24} />
           <span className="schedule-team-chip"><CupClubName club={cup.homeClub} /></span>
@@ -719,7 +902,7 @@ function CupRowView({ row, cup }: { row: ScheduleRow; cup: NonNullable<ScheduleR
       </td>
       <td className="align-center">
         <CupLink url={cup.url}>
-          {row.status === "final" && <span>{`${row.homeScore}-${row.awayScore}`}</span>}
+          {row.status === "final" && <span><ScoreText row={row} emphasize={emphasize} /></span>}
           {row.status === "live" && <span className="live-badge">進行中</span>}
           {row.status === "cancelled" && <span className="cancelled-badge">中止</span>}
           {row.status === "upcoming" && (row.tipoffTime ? <span className="schedule-tipoff">{row.tipoffTime}</span> : <span className="upcoming-badge">予定</span>)}
@@ -728,7 +911,7 @@ function CupRowView({ row, cup }: { row: ScheduleRow; cup: NonNullable<ScheduleR
           {cup.projected && <span className="cup-round-text">（勝ち上がった場合）</span>}
         </CupLink>
       </td>
-      <td className="align-right schedule-team-cell">
+      <td className={`align-right schedule-team-cell${sideClass(row, "away", emphasize)}`}>
         <CupLink url={cup.url}>
           <span className="schedule-team-chip schedule-team-chip-away"><CupClubName club={cup.awayClub} /></span>
           <CupLogo club={cup.awayClub} size={24} />
@@ -739,9 +922,9 @@ function CupRowView({ row, cup }: { row: ScheduleRow; cup: NonNullable<ScheduleR
   );
 }
 
-function ScheduleRowView({ row, teamColors }: { row: ScheduleRow; teamColors?: Record<string, TeamColors> }) {
-  if (row.easl) return <EaslRowView row={row} easl={row.easl} />;
-  if (row.cup) return <CupRowView row={row} cup={row.cup} />;
+function ScheduleRowView({ row, teamColors, emphasize }: { row: ScheduleRow; teamColors?: Record<string, TeamColors>; emphasize?: boolean }) {
+  if (row.easl) return <EaslRowView row={row} easl={row.easl} emphasize={emphasize} />;
+  if (row.cup) return <CupRowView row={row} cup={row.cup} emphasize={emphasize} />;
   // 開催予定はまだ生データ（試合詳細ページのソース）が無いのでリンクしない
   // 開催予定・中止はリンクしない（試合詳細の生データが無い）
   const linkTo = row.status === "upcoming" || row.status === "cancelled" || row.resultOnly ? undefined : `/games/${row.scheduleKey}`;
@@ -749,7 +932,7 @@ function ScheduleRowView({ row, teamColors }: { row: ScheduleRow; teamColors?: R
   const awayColor = row.awayTeamId ? teamColors?.[row.awayTeamId]?.primary : undefined;
   return (
     <tr className={`schedule-row status-${row.status}`}>
-      <td className="align-left schedule-team-cell">
+      <td className={`align-left schedule-team-cell${sideClass(row, "home", emphasize)}`}>
         <MaybeLink to={linkTo}>
           {row.homeTeamId && <TeamLogo teamId={row.homeTeamId} size={24} />}
           <span className="schedule-team-chip" style={homeColor ? { borderLeftColor: homeColor } : undefined}>
@@ -760,7 +943,9 @@ function ScheduleRowView({ row, teamColors }: { row: ScheduleRow; teamColors?: R
       <td className="align-center">
         <MaybeLink to={linkTo}>
           {row.status === "final" && (
-            <span title={row.resultOnly ? resultOnlyReasonLabel(row.resultOnly) : undefined}>{`${row.homeScore}-${row.awayScore}`}</span>
+            <span title={row.resultOnly ? resultOnlyReasonLabel(row.resultOnly) : undefined}>
+              <ScoreText row={row} emphasize={emphasize} />
+            </span>
           )}
           {row.resultOnly === "forfeit" && <span className="cancelled-badge">不戦勝</span>}
           {row.status === "live" && <span className="live-badge">進行中</span>}
@@ -774,7 +959,7 @@ function ScheduleRowView({ row, teamColors }: { row: ScheduleRow; teamColors?: R
           {row.gameType === "playoff" && <span className="playoff-badge">PO</span>}
         </MaybeLink>
       </td>
-      <td className="align-right schedule-team-cell">
+      <td className={`align-right schedule-team-cell${sideClass(row, "away", emphasize)}`}>
         <MaybeLink to={linkTo}>
           <span className="schedule-team-chip schedule-team-chip-away" style={awayColor ? { borderRightColor: awayColor } : undefined}>
             <ResponsiveTeamName teamId={row.awayTeamId ?? ""} name={row.awayTeamName} />
@@ -850,9 +1035,9 @@ function CalendarView({
   );
 }
 
-function CalendarGameChip({ row }: { row: ScheduleRow }) {
-  if (row.easl) return <EaslCalendarChip row={row} easl={row.easl} />;
-  if (row.cup) return <CupCalendarChip row={row} cup={row.cup} />;
+function CalendarGameChip({ row, detail }: { row: ScheduleRow; detail?: boolean }) {
+  if (row.easl) return <EaslCalendarChip row={row} easl={row.easl} detail={detail} />;
+  if (row.cup) return <CupCalendarChip row={row} cup={row.cup} detail={detail} />;
   const linkTo = row.status === "upcoming" || row.status === "cancelled" || row.resultOnly ? undefined : `/games/${row.scheduleKey}`;
   const scoreLabel = row.status === "final" ? ` ${row.homeScore}-${row.awayScore}` : "";
   const tipoffLabel = row.status === "upcoming" && row.tipoffTime ? ` ${row.tipoffTime}` : "";
@@ -861,7 +1046,7 @@ function CalendarGameChip({ row }: { row: ScheduleRow }) {
   const middle =
     row.status === "final" ? (
       <span className="calendar-game-chip-score">
-        {row.homeScore}-{row.awayScore}
+        <ScoreText row={row} emphasize={detail} />
       </span>
     ) : row.status === "cancelled" ? (
       <span className="calendar-game-chip-cancelled">中止</span>
@@ -871,10 +1056,19 @@ function CalendarGameChip({ row }: { row: ScheduleRow }) {
       <span className="calendar-game-chip-vs">-</span>
     );
   const content = (
-    <span className={`calendar-game-chip status-${row.status}`} title={title}>
-      {row.homeTeamId ? <TeamLogo teamId={row.homeTeamId} size={32} /> : <span className="calendar-game-chip-noimg" />}
+    <span className={`calendar-game-chip status-${row.status}${detail ? " chip-detail" : ""}`} title={title}>
+      <span className={`calendar-game-chip-side${sideClass(row, "home", detail)}`}>
+        {row.homeTeamId ? <TeamLogo teamId={row.homeTeamId} size={32} /> : <span className="calendar-game-chip-noimg" />}
+      </span>
       {middle}
-      {row.awayTeamId ? <TeamLogo teamId={row.awayTeamId} size={32} /> : <span className="calendar-game-chip-noimg" />}
+      <span className={`calendar-game-chip-side${sideClass(row, "away", detail)}`}>
+        {row.awayTeamId ? <TeamLogo teamId={row.awayTeamId} size={32} /> : <span className="calendar-game-chip-noimg" />}
+      </span>
+      {detail && (
+        <span className="calendar-game-chip-names">
+          {teamShortName(row.homeTeamId ?? "", row.homeTeamName)}－{teamShortName(row.awayTeamId ?? "", row.awayTeamName)}
+        </span>
+      )}
     </span>
   );
   return linkTo ? (
@@ -886,7 +1080,7 @@ function CalendarGameChip({ row }: { row: ScheduleRow }) {
   );
 }
 
-function EaslCalendarChip({ row, easl }: { row: ScheduleRow; easl: NonNullable<ScheduleRow["easl"]> }) {
+function EaslCalendarChip({ row, easl, detail }: { row: ScheduleRow; easl: NonNullable<ScheduleRow["easl"]>; detail?: boolean }) {
   const score = row.status === "final" ? ` ${row.homeScore}-${row.awayScore}` : row.status === "upcoming" && row.tipoffTime ? ` ${row.tipoffTime}` : "";
   const title = `EASL ${easl.homeClub.name}${score} vs ${easl.awayClub.name}（EASL公式の試合ページを新しいタブで開く）`;
   const logo = (club: CalendarClub) => (club.id ? <TeamLogo teamId={club.id} size={32} /> : <EaslLogo club={club} size={32} />);
@@ -895,7 +1089,7 @@ function EaslCalendarChip({ row, easl }: { row: ScheduleRow; easl: NonNullable<S
       <span className={`calendar-game-chip calendar-game-chip-easl status-${row.status}`}>
         {logo(easl.homeClub)}
         {row.status === "final" ? (
-          <span className="calendar-game-chip-score">{row.homeScore}-{row.awayScore}</span>
+          <span className="calendar-game-chip-score"><ScoreText row={row} emphasize={detail} /></span>
         ) : row.status === "cancelled" ? (
           <span className="calendar-game-chip-cancelled">中止</span>
         ) : row.tipoffTime ? (
@@ -910,7 +1104,7 @@ function EaslCalendarChip({ row, easl }: { row: ScheduleRow; easl: NonNullable<S
   );
 }
 
-function CupCalendarChip({ row, cup }: { row: ScheduleRow; cup: NonNullable<ScheduleRow["cup"]> }) {
+function CupCalendarChip({ row, cup, detail }: { row: ScheduleRow; cup: NonNullable<ScheduleRow["cup"]>; detail?: boolean }) {
   const score = row.status === "final" ? ` ${row.homeScore}-${row.awayScore}` : row.status === "upcoming" && row.tipoffTime ? ` ${row.tipoffTime}` : "";
   const title = `天皇杯 ${cup.round}${cup.projected ? "（勝ち上がった場合）" : ""} ${cup.homeClub.name}${score} vs ${cup.awayClub.name}（天皇杯公式サイトの試合ページを新しいタブで開く）`;
   return (
@@ -918,7 +1112,7 @@ function CupCalendarChip({ row, cup }: { row: ScheduleRow; cup: NonNullable<Sche
       <span className={`calendar-game-chip calendar-game-chip-cup status-${row.status}${cup.projected ? " cup-projected" : ""}`}>
         <CupLogo club={cup.homeClub} size={32} />
         {row.status === "final" ? (
-          <span className="calendar-game-chip-score">{row.homeScore}-{row.awayScore}</span>
+          <span className="calendar-game-chip-score"><ScoreText row={row} emphasize={detail} /></span>
         ) : row.status === "cancelled" ? (
           <span className="calendar-game-chip-cancelled">中止</span>
         ) : row.tipoffTime ? (

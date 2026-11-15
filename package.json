@@ -123,6 +123,7 @@
     "validate:season-worst": "node --experimental-strip-types scripts/validate-season-worst.ts",
     "validate:attendance-ranking": "esbuild scripts/validate-attendance-ranking.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-attendance-ranking.mjs && node node_modules/.cache/validate-attendance-ranking.mjs",
     "validate:streak-records": "esbuild scripts/validate-streak-records.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-streak-records.mjs && node node_modules/.cache/validate-streak-records.mjs",
+    "validate:schedule-period": "node --experimental-strip-types scripts/validate-schedule-period.ts",
     "validate:annual-schedule": "node --experimental-strip-types scripts/validate-annual-schedule.ts",
     "validate:one-game-matchups": "node --experimental-strip-types scripts/validate-one-game-matchups.ts",
     "scrape:annual-schedule": "node --experimental-strip-types scripts/scrape-annual-schedule.ts",

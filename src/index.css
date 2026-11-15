@@ -9126,3 +9126,101 @@ table.sortable-table.tts-table th {
   width: 100%;
   height: 8px;
 }
+
+/* 日程の画像保存（DESIGN.md 398章）。保存する範囲は画面の外（見えない位置）に置いた専用の枠で、複製して描くときだけ見える形にする */
+.export-target.schedule-save-target {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 1000px;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: -1;
+  overflow: hidden;
+}
+
+.export-rendering.schedule-save-target {
+  position: static;
+  visibility: visible;
+  pointer-events: auto;
+  z-index: auto;
+  overflow: visible;
+  width: 1120px;
+  max-width: none;
+}
+
+.export-rendering.schedule-save-target .schedule-table {
+  width: 100%;
+}
+
+.export-rendering.schedule-save-target .table-scroll {
+  overflow: visible;
+  max-width: none;
+  border: none;
+}
+
+.schedule-save-target .calendar-grid {
+  min-width: 0;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+/* 勝った側を太く・負けた側を薄く（日程の画像だけ） */
+.schedule-save-target .score-win {
+  font-weight: 800;
+}
+
+.schedule-save-target .score-lose {
+  opacity: 0.6;
+}
+
+.schedule-save-target td.side-win .schedule-team-chip {
+  font-weight: 800;
+}
+
+.schedule-save-target td.side-lose {
+  opacity: 0.6;
+}
+
+/* カレンダーの1試合は、ロゴの下にチーム名を添える */
+.calendar-game-chip-side {
+  display: contents;
+}
+
+.calendar-game-chip.chip-detail {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.chip-detail .calendar-game-chip-side {
+  display: inline-flex;
+}
+
+.chip-detail .calendar-game-chip-side.side-lose {
+  opacity: 0.5;
+}
+
+.chip-detail .calendar-game-chip-names {
+  flex-basis: 100%;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* 保存の窓の中の期間の選び方 */
+.schedule-save-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 13px;
+}
+
+.schedule-save-dates input[type="date"] {
+  min-height: 36px;
+  padding: 0 8px;
+}
+
+.schedule-save-range {
+  font-size: 13px;
+  color: var(--muted);
+}
