@@ -1,0 +1,23 @@
+/* 試合詳細の「画像を保存（6枚）」のボタンと、見本の一覧の画面 */
+.game-images-button-row { display: flex; align-items: center; gap: 12px; margin: 12px 0; }
+.game-images-loading { color: var(--muted); font-size: 0.9rem; }
+.game-images-dialog { box-sizing: border-box; width: min(1180px, 96vw); max-width: 96vw; max-height: 94dvh; padding: 20px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); }
+.game-images-dialog::backdrop { background: #0008; }
+.game-images-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.game-images-heading h2 { margin: 0; font-size: 1.2rem; }
+.game-images-lead { margin: 8px 0 12px; color: var(--muted); font-size: 0.92rem; }
+.game-images-dialog button { padding: 8px 12px; min-height: 40px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); font: inherit; cursor: pointer; }
+.game-images-dialog button:disabled { cursor: default; opacity: 0.5; }
+.game-images-dialog button.game-images-primary { border-color: var(--fg); background: var(--fg); color: var(--bg); font-weight: 700; }
+.game-images-dialog :focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.game-images-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
+.game-images-notice { font-size: 0.92rem; }
+.game-images-notice-error { color: #c62828; font-weight: 700; }
+.game-images-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.game-images-item { margin: 0; }
+.game-images-thumb { border: 1px solid var(--border); border-radius: 4px; overflow: hidden; background: #ffffff; line-height: 0; }
+.game-images-thumb .game-image-svg { display: block; width: 100%; height: auto; }
+.game-images-item figcaption { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin-top: 6px; font-size: 0.9rem; }
+.game-images-item label { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; cursor: pointer; }
+@media (max-width: 900px) { .game-images-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .game-images-dialog { padding: 12px; } .game-images-grid { grid-template-columns: minmax(0, 1fr); } }

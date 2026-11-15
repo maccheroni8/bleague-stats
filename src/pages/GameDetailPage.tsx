@@ -7,7 +7,7 @@ import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchGame, fetchPlayers, fetchSeasonRules, fetchTeamColors, fetchYahooGamePbp } from "../lib/data";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { useJsonData } from "../lib/useJsonData";
-import { useLeague } from "../lib/league";
+import { LEAGUE_LABELS, useLeague } from "../lib/league";
 import { seasonRuleFor } from "../../shared/seasonRules";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import { formatPct } from "../lib/format";
@@ -18,6 +18,7 @@ import { loadSeasonRegistrations } from "../lib/registrationScope";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, ShotTypeBreakdown } from "../../shared/types";
 import { gameFlowFor } from "../lib/gameFlowForGame";
 import { KeyStatsSection } from "../components/KeyStatsSection";
+import { GameImagesButton } from "../components/GameImagesButton";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
 import { SubstitutionBarChart, type SubstitutionRow } from "../components/SubstitutionBarChart";
 import { orderPlayersByPlayTime } from "../lib/boxscoreOrder";
@@ -553,6 +554,20 @@ export function GameDetailPage({ season }: { season: string }) {
           <div className="scoreboard-score">{game.awayScore}</div>
         </div>
       </div>
+
+      {/* 保存画像（6枚）。押したときに画像の部品を読み込む（DESIGN.md 画像保存の章） */}
+      <GameImagesButton
+        input={{
+          game,
+          leagueLabel: LEAGUE_LABELS[league],
+          classificationById,
+          homeColor,
+          awayColor,
+          pbpSupported,
+          shotChartSupported,
+          maxForeignOnCourt,
+        }}
+      />
 
       {typeof (game.meta as { source?: unknown } | undefined)?.source === "string" &&
         String((game.meta as { source?: string }).source).startsWith("manual:") && (
