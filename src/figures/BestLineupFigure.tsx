@@ -47,6 +47,12 @@ const rangeCodec: UrlCodec<string | null> = {
   read: p => { const v = p.get('blse'); return v && /^\d{4}-\d{2}$/.test(v) ? v : undefined; },
   write: (p, v) => { if (v !== null) p.set('blse', v); },
 };
+/** チーム。無ければ全チーム、あればそのチームの組だけ（チームIDの文字列） */
+const teamCodec: UrlCodec<string | null> = {
+  keys: ['blt'],
+  read: p => { const v = p.get('blt'); return v && /^\d+$/.test(v) ? v : undefined; },
+  write: (p, v) => { if (v !== null) p.set('blt', v); },
+};
 /** OC（組の中の外国籍・帰化・アジア特別枠の人数）。無ければすべて */
 const ocCodec: UrlCodec<number | null> = {
   keys: ['bloc'],
@@ -66,6 +72,7 @@ export default function BestLineupFigure({ season, category }: FigureProps) {
   const [minParam, setMin] = useUrlState(minCodec, null);
   const [rangeParam, setRange] = useUrlState(rangeCodec, null);
   const [ocParam, setOc] = useUrlState(ocCodec, null);
+  const [teamParam, setTeam] = useUrlState(teamCodec, null);
   const size = Number(sizeParam) as BestLineupSize;
   const slider = BEST_LINEUP_SLIDER[size];
   const minPoss = minParam !== null ? clampBestLineupMin(size, minParam) : BEST_LINEUP_MIN_POSS_DEFAULT[size];
@@ -76,19 +83,24 @@ export default function BestLineupFigure({ season, category }: FigureProps) {
   const seasons = request.data?.seasons ?? [];
   // 読み込む前は、URL の範囲をそのまま使う。読み込んだあと、ファイルに無いシーズンは歴代に戻す
   const rangeSeason = rangeParam !== null && (!request.data || seasons.includes(rangeParam)) ? rangeParam : null;
-  const groups = useMemo(() => bestLineupGroupsInSeason(allGroups, rangeSeason), [allGroups, rangeSeason]);
+  const groupsInRange = useMemo(() => bestLineupGroupsInSeason(allGroups, rangeSeason), [allGroups, rangeSeason]);
+  // チームの選択肢は、対象期間に組があったすべてのクラブ（名前は最後のシーズンの名称。強調するクラブと同じ並び）
+  const clubs = useMemo(() => {
+    const byId = new Map<string, { teamId: string; teamName: string; season: string }>();
+    for (const g of groupsInRange) { const c = byId.get(g.teamId); if (!c || g.season > c.season) byId.set(g.teamId, { teamId: g.teamId, teamName: g.teamName, season: g.season }); }
+    return [...byId.values()].sort((a, b) => a.teamId.localeCompare(b.teamId, undefined, { numeric: true }));
+  }, [groupsInRange]);
+  // 読み込む前は URL のチームをそのまま使う。読み込んだあと、対象期間に組の無いチームは全チームに戻す
+  const teamId = teamParam !== null && (!request.data || clubs.some(c => c.teamId === teamParam)) ? teamParam : null;
+  const groups = useMemo(() => teamId === null ? groupsInRange : groupsInRange.filter(g => g.teamId === teamId), [groupsInRange, teamId]);
   const ocValues = useMemo(() => ocChoices(groups, size), [groups, size]);
   const oc = ocParam !== null && ocValues.includes(ocParam) ? ocParam : null;
   const ranked = useMemo(() => queryBestLineups(groups, { gameType, oc, minPoss, sort }), [groups, gameType, oc, minPoss, sort]);
   const shown = useMemo(() => topBestLineups(ranked, top), [ranked, top]);
-  // 強調するクラブの選択肢は、対象期間に組があったすべてのクラブ（名前は最後のシーズンの名称）
-  const clubs = useMemo(() => {
-    const byId = new Map<string, { teamId: string; teamName: string; season: string }>();
-    for (const g of groups) { const c = byId.get(g.teamId); if (!c || g.season > c.season) byId.set(g.teamId, { teamId: g.teamId, teamName: g.teamName, season: g.season }); }
-    return [...byId.values()].sort((a, b) => a.teamId.localeCompare(b.teamId, undefined, { numeric: true }));
-  }, [groups]);
   const hl = useHighlightClubs({ season, category, teams: clubs, divisionOf: () => undefined, allTime: true });
-  const outside = useMemo(() => highlightedBest(ranked, shown, hl.ids), [ranked, shown, hl.ids]);
+  // チームを選んでいるときは、強調するクラブは使わない（1チームだけの並びなので）
+  const hlIds = teamId === null ? hl.ids : [];
+  const outside = useMemo(() => highlightedBest(ranked, shown, hlIds), [ranked, shown, hlIds.join(',')]);
   const colors = useTeamColorsForChip();
   const colorOf = (teamId: string) => teamChipColor(teamId, colors)?.split('|')[0] ?? 'var(--accent)';
   const names = useMemo(() => [...shown, ...outside.flatMap(o => o.best ? [o.best] : [])].flatMap(r => r.row.group.players.map(p => p.name)), [shown, outside]);
@@ -100,6 +112,7 @@ export default function BestLineupFigure({ season, category }: FigureProps) {
   const gameLabels = seasonGameTypeLabels(null);
   const axes: FilterAxis[] = [
     { kind: 'select', id: 'blRange', label: '範囲', tier: 'primary', value: rangeSeason ?? 'all', defaultValue: 'all', options: rangeOptions, onChange: v => { setRange(v === 'all' ? null : v); setOc(null); } },
+    { kind: 'select', id: 'blTeam', label: 'チーム', tier: 'primary', value: teamId ?? 'all', defaultValue: 'all', options: [{ value: 'all', label: '全チーム' }, ...(clubs.length ? clubs.map(c => ({ value: c.teamId, label: teamShortName(c.teamId, c.teamName) })) : teamParam ? [{ value: teamParam, label: teamParam }] : [])], onChange: v => { setTeam(v === 'all' ? null : v); setOc(null); } },
     { kind: 'select', id: 'blSize', label: '人数', tier: 'primary', value: sizeParam, defaultValue: '5', options: SIZE_VALUES.map(v => ({ value: v, label: `${v}人` })), onChange: v => { setSize(v as `${BestLineupSize}`); setMin(null); setOc(null); } },
     { kind: 'select', id: 'blSort', label: '並び順', tier: 'primary', value: sort, defaultValue: 'net', options: BEST_LINEUP_SORTS.map(s => ({ value: s, label: s === 'def' ? `${BEST_LINEUP_SORT_LABELS[s]}（低い順）` : `${BEST_LINEUP_SORT_LABELS[s]}（${s === 'min' ? '長い' : '高い'}順）` })), onChange: v => setSort(v as BestLineupSort) },
     gameTypeAxis(gameType, setGameType, null),
@@ -107,15 +120,16 @@ export default function BestLineupFigure({ season, category }: FigureProps) {
       content: <EligibilitySlider label="ポゼッション（攻守とも）" value={minPoss} min={slider.min} max={slider.max} step={slider.step} format={v => String(v)} onChange={v => setMin(v === BEST_LINEUP_MIN_POSS_DEFAULT[size] ? null : v)} /> },
     { kind: 'select', id: 'blOc', label: 'オンザコート', tier: 'primary', value: oc === null ? 'all' : String(oc), defaultValue: 'all', options: [{ value: 'all', label: 'すべて' }, ...ocValues.map(v => ({ value: String(v), label: `OC${v}` }))], onChange: v => setOc(v === 'all' ? null : Number(v)) },
     { kind: 'select', id: 'blTop', label: '表示', tier: 'primary', value: topParam, defaultValue: '10', options: [{ value: '10', label: '上位10組' }, { value: '20', label: '上位20組' }], onChange: v => setTop(v as '10' | '20') },
-    hl.axis,
+    ...(teamId === null ? [hl.axis] : []),
   ];
-  const conditions = [range, `${size}人`, gameLabels[gameType], `攻守とも${minPoss}ポゼッション以上`, ...(oc === null ? [] : [`OC${oc}`]), sortLabel(sort), ...hl.labels];
+  const teamLabel = teamId === null ? null : teamShortName(teamId, clubs.find(c => c.teamId === teamId)?.teamName ?? teamId);
+  const conditions = [range, ...(teamLabel ? [teamLabel] : []), `${size}人`, gameLabels[gameType], `攻守とも${minPoss}ポゼッション以上`, ...(oc === null ? [] : [`OC${oc}`]), sortLabel(sort), ...(teamId === null ? hl.labels : [])];
   const title = '最強ラインナップ';
   const baseDate = rangeSeason === null ? { kind: 'allTime' as const, gameType } : isCurrent ? { kind: 'season' as const, season: rangeSeason, gameType } : undefined;
-  const reset = () => { setRange(null); setSize('5'); setSort('net'); setGameType('regular'); setTop('10'); setMin(null); setOc(null); hl.setIds([]); };
+  const reset = () => { setRange(null); setTeam(null); setSize('5'); setSort('net'); setGameType('regular'); setTop('10'); setMin(null); setOc(null); hl.setIds([]); };
 
   if (category !== 'premier') return <section aria-label="最強ラインナップ"><p className="empty-message">この図は B.PREMIER（旧B1）だけです。</p></section>;
-  const card = (r: RankedBestLineup) => <LineupCard key={r.row.group.key} item={r} size={size} sort={sort} highlighted={hl.ids.includes(r.row.group.teamId)} color={colorOf(r.row.group.teamId)} playerLabel={playerLabel} />;
+  const card = (r: RankedBestLineup) => <LineupCard key={r.row.group.key} item={r} size={size} sort={sort} highlighted={hlIds.includes(r.row.group.teamId)} color={colorOf(r.row.group.teamId)} playerLabel={playerLabel} />;
   return <section aria-label="最強ラインナップ">
     <FilterBar axes={axes} stateKey="figures:best-lineup" onClearAll={reset} />
     {request.loading ? <p role="status">読み込み中…</p> : request.error || !request.data ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : <>
