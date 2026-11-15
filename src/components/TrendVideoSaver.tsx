@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { SaveModal, SaveModalPreview } from "./SaveModal";
 import { baseDateFooterText } from "../lib/exportFormat";
 import { exportHeadingLines } from "../lib/exportHeading";
 import { resolveBaseDate } from "../lib/dataBaseDate";
@@ -67,6 +68,7 @@ export function TrendVideoSaver({
   const league = useLeague();
   const [chartKey, setChartKey] = useState(charts[0]?.key ?? "");
   const [speed, setSpeed] = useState<SpeedChoice>("standard");
+  const [open, setOpen] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -81,9 +83,6 @@ export function TrendVideoSaver({
 
   const chart = charts.find((c) => c.key === chartKey) ?? charts[0];
   if (!chart) return null;
-  if (!format) {
-    return <p className="savable-reason">この環境では動画を作れません（パソコンの Chrome で開いてください）</p>;
-  }
 
   const make = async () => {
     const ac = new AbortController();
@@ -97,6 +96,7 @@ export function TrendVideoSaver({
       ]);
       const heading = exportHeadingLines(chart.title, LEAGUE_LABELS[league], seasonLabel, leagueScopeLabel(league, true));
       const movingMs = movingMsOf(speed, chart.rows.length);
+      if (!format) throw new Error("no-recorder");
       const result = await recordTrendVideo(
         {
           scope: heading.scope,
@@ -140,51 +140,69 @@ export function TrendVideoSaver({
   const making = progress !== null;
   const movingMs = movingMsOf(speed, chart.rows.length);
   const totalSec = Math.round((VIDEO_HOLD_START_MS + movingMs + VIDEO_HOLD_END_MS) / 1000);
+  const heading = exportHeadingLines(chart.title, LEAGUE_LABELS[league], seasonLabel, leagueScopeLabel(league, true));
 
   return (
-    <div className="savable-bar savable-bar-choice trend-video-bar" role="group" aria-label="動画として保存">
-      <span className="export-option-label">動画として保存</span>
-      {charts.length > 1 && (
-        <label className="trend-video-field">
-          グラフ
-          <select value={chart.key} disabled={making} onChange={(e) => setChartKey(e.target.value)} aria-label="動画にするグラフ">
-            {charts.map((c) => (
-              <option key={c.key} value={c.key}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      <label className="trend-video-field">
-        速さ
-        <select value={speed} disabled={making} onChange={(e) => setSpeed(e.target.value as SpeedChoice)} aria-label="動画の速さ">
-          {SPEED_ORDER.map((k) => (
-            <option key={k} value={k}>
-              {SPEED_LABELS[k]}
-            </option>
-          ))}
-        </select>
-      </label>
-      {making ? (
-        <>
-          <span role="status">作成中… {Math.round((progress ?? 0) * 100)}%（このタブを表示したままにしてください）</span>
-          <button type="button" onClick={() => abortRef.current?.abort()}>
-            中止
-          </button>
-        </>
-      ) : disabledReason ? (
-        <span className="savable-reason">{disabledReason}</span>
-      ) : (
-        <button type="button" className="trend-video-button" onClick={() => void make()}>
-          動画を作る（約{totalSec}秒・{VIDEO_WIDTH}×{VIDEO_HEIGHT}・{format.ext === "mp4" ? "MP4" : "WebM"}）
-        </button>
-      )}
-      {message && (
-        <span className="savable-reason" role="status">
-          {message}
-        </span>
-      )}
-    </div>
+    <>
+      <button type="button" className="export-image-button" onClick={() => setOpen(true)} aria-haspopup="dialog">
+        {making ? `動画を作成中… ${Math.round((progress ?? 0) * 100)}%` : "動画として保存"}
+      </button>
+      <SaveModal open={open} title="動画として保存" onClose={() => setOpen(false)}>
+        <SaveModalPreview scope={heading.scope} name={heading.name} subtitle={chart.subtitleAt(undefined)} />
+        <div className="save-modal-options">
+          {charts.length > 1 && (
+            <label className="save-modal-field">
+              グラフ
+              <select value={chart.key} disabled={making} onChange={(e) => setChartKey(e.target.value)} aria-label="動画にするグラフ">
+                {charts.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="save-modal-field">
+            速さ
+            <select value={speed} disabled={making} onChange={(e) => setSpeed(e.target.value as SpeedChoice)} aria-label="動画の速さ">
+              {SPEED_ORDER.map((k) => (
+                <option key={k} value={k}>
+                  {SPEED_LABELS[k]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <p className="save-modal-note">
+          {VIDEO_WIDTH}×{VIDEO_HEIGHT}・{format ? (format.ext === "mp4" ? "MP4" : "WebM") : "—"}・約{totalSec}秒。作っている間は、このタブを表示したままにしてください。
+        </p>
+        {making && (
+          <>
+            <progress className="save-modal-progress" max={1} value={progress ?? 0} aria-label="動画の作成の進み具合" />
+            <p className="save-modal-status" role="status">
+              作成中… {Math.round((progress ?? 0) * 100)}%
+            </p>
+          </>
+        )}
+        {!format && <p className="save-modal-reason">この環境では動画を作れません（パソコンの Chrome で開いてください）</p>}
+        {disabledReason && <p className="save-modal-reason">{disabledReason}</p>}
+        {message && (
+          <p className="save-modal-status" role="status">
+            {message}
+          </p>
+        )}
+        <div className="save-modal-actions">
+          {making ? (
+            <button type="button" className="save-modal-secondary" onClick={() => abortRef.current?.abort()}>
+              中止
+            </button>
+          ) : (
+            <button type="button" className="save-modal-primary" disabled={!format || !!disabledReason} onClick={() => void make()}>
+              動画を作る
+            </button>
+          )}
+        </div>
+      </SaveModal>
+    </>
   );
 }

@@ -612,12 +612,14 @@ function TrendSaveFrame({
   rangeOptions,
   range,
   onRangeChange,
+  videoCharts,
   children,
 }: {
   name: string;
   season: string;
   seasonLabel: string;
   isAnimating: boolean;
+  videoCharts: TrendVideoChart[];
   rangeOptions: { value: string; label: string }[];
   range: string;
   onRangeChange: (v: string) => void;
@@ -631,6 +633,15 @@ function TrendSaveFrame({
       baseDate={{ kind: "season", season, gameType: "regular" }}
       className="export-target-trend"
       unavailableReason={isAnimating ? "アニメーションの再生が終わると画像として保存できます（保存されるのは全期間の最後の形です）" : undefined}
+      extraButtons={
+        <TrendVideoSaver
+          tabName={name}
+          season={season}
+          seasonLabel={seasonLabel}
+          charts={videoCharts}
+          disabledReason={isAnimating ? "アニメーションの再生が終わると作れます" : undefined}
+        />
+      }
     >
       <ExportScopeLine scope={seasonLabel} />
       {children}
@@ -683,14 +694,7 @@ function MetricTrendTab(props: TrendTabProps) {
           {props.isAnimating ? "再生中..." : "▶ アニメーション再生"}
         </button>
       </div>
-      <TrendVideoSaver
-        tabName={name}
-        season={props.season}
-        seasonLabel={props.seasonLabel}
-        charts={props.videoCharts}
-        disabledReason={props.isAnimating ? "アニメーションの再生が終わると作れます" : undefined}
-      />
-      <TrendSaveFrame name={name} season={props.season} seasonLabel={props.seasonLabel} isAnimating={props.isAnimating} rangeOptions={props.rangeOptions} range={props.range} onRangeChange={props.onRangeChange}>
+      <TrendSaveFrame videoCharts={props.videoCharts} name={name} season={props.season} seasonLabel={props.seasonLabel} isAnimating={props.isAnimating} rangeOptions={props.rangeOptions} range={props.range} onRangeChange={props.onRangeChange}>
       {props.divisionGroups.length === 0 ? (
         <StandingsLineChart
           title={name}
@@ -1137,9 +1141,25 @@ export function StandingsPage({ season }: { season: string }) {
 
       {activeTab === "standings" && (
         <div>
-          {/* 画像として保存する表を選ぶ（選んだ表だけを保存する。画面の表は変わらない） */}
-          <div className="savable-bar savable-bar-choice">
-            <span className="export-option-group" role="group" aria-label="保存する表">
+          {/* 画像として保存する表は、保存の窓の中で選ぶ（選んだ表だけを保存する。画面の表は変わらない） */}
+          <div className="savable-bar">
+            <ExportImageButton
+              targetRef={saveTargetRef}
+              filename={buildExportFilename([
+                  seasonLabel,
+                  saveWhich === "wildcard"
+                    ? "ワイルドカード順位表"
+                    : saveWhich === "overall"
+                      ? "全体順位表"
+                      : saveWhich.startsWith("div:")
+                        ? `${DIVISION_LABELS[saveWhich.slice(4) as Division]} 順位表`
+                        : "順位表",
+                  asOfLabel,
+                ])}
+              baseDate={{ kind: "season", season, gameType: "regular" }}
+              disabledReason={saveWhich === "overall" && !overallStandingsExpanded ? "「全チームの全体順位表」を開くと保存できます" : undefined}
+              options={
+                <span className="export-option-group" role="group" aria-label="保存する表">
               <span className="export-option-label">保存する表</span>
               <button type="button" className={saveWhich === "divisions" ? "active" : ""} onClick={() => setSaveWhich("divisions")}>
                 {divisionStandingsGroups.length > 0 ? "地区順位（全地区まとめて）" : "順位表"}
@@ -1167,25 +1187,8 @@ export function StandingsPage({ season }: { season: string }) {
                 </button>
               )}
             </span>
-            {saveWhich === "overall" && !overallStandingsExpanded ? (
-              <span className="savable-reason">「全チームの全体順位表」を開くと保存できます</span>
-            ) : (
-              <ExportImageButton
-                targetRef={saveTargetRef}
-                filename={buildExportFilename([
-                  seasonLabel,
-                  saveWhich === "wildcard"
-                    ? "ワイルドカード順位表"
-                    : saveWhich === "overall"
-                      ? "全体順位表"
-                      : saveWhich.startsWith("div:")
-                        ? `${DIVISION_LABELS[saveWhich.slice(4) as Division]} 順位表`
-                        : "順位表",
-                  asOfLabel,
-                ])}
-                baseDate={{ kind: "season", season, gameType: "regular" }}
-              />
-            )}
+              }
+            />
           </div>
           <ExportTarget
             ref={(el) => {
@@ -1522,14 +1525,7 @@ export function StandingsPage({ season }: { season: string }) {
               {isAnimating ? "再生中..." : "▶ アニメーション再生"}
             </button>
           </div>
-          <TrendVideoSaver
-            tabName="順位推移"
-            season={season}
-            seasonLabel={seasonLabel}
-            charts={videoCharts("順位推移", "rank", rankData, divisionRankData, wildcardRankData)}
-            disabledReason={isAnimating ? "アニメーションの再生が終わると作れます" : undefined}
-          />
-          <TrendSaveFrame name="順位推移" season={season} seasonLabel={seasonLabel} isAnimating={isAnimating} rangeOptions={trendRangeOptions} range={saveDiv} onRangeChange={setSaveDiv}>
+          <TrendSaveFrame videoCharts={videoCharts("順位推移", "rank", rankData, divisionRankData, wildcardRankData)} name="順位推移" season={season} seasonLabel={seasonLabel} isAnimating={isAnimating} rangeOptions={trendRangeOptions} range={saveDiv} onRangeChange={setSaveDiv}>
           {divisionGroups.length === 0 ? (
             <StandingsLineChart
               title="順位推移"
