@@ -19,7 +19,7 @@ import { ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import { foulColumnsSplit } from "../lib/ruleChange";
 import { CompareCategoryBar } from "../components/CompareCategoryBar";
-import { ComparisonTable, type ComparisonRow } from "../components/ComparisonTable";
+import { ComparisonTable, type ComparisonRow, type ComparisonStatDef } from "../components/ComparisonTable";
 import { CompareSlotFilter } from "../components/CompareSlotFilter";
 import { BOXSCORE_TABS, type BoxscoreTabKey } from "../components/BoxscoreTable";
 import {
@@ -61,6 +61,11 @@ import { resultOnlyCompareNote } from "../lib/resultOnlyGames";
 import { isDefaultFilter } from "../lib/situational";
 import type { ResultOnlyGameEntry } from "../../shared/resultOnlyGames";
 import { seasonsScope } from "../lib/exportHeading";
+import { useTeamSeasonRanking, type TeamRankingParams } from "../lib/teamSeasonRanking";
+import { DEFAULT_STAT_CONDITIONS } from "../lib/statConditions";
+import { matchRankColumn, rankText, teamRankOf } from "../lib/compareRank";
+import { usePlayerCompareRanks } from "../lib/playerCompareRank";
+import { rankDirectionOf } from "../lib/rankDirection";
 
 type Mode = "team" | "player";
 
@@ -297,6 +302,9 @@ interface ViewCommonProps {
   cat: BoxscoreTabKey;
   onCat: (key: BoxscoreTabKey) => void;
   onUpdateSlot: (index: number, next: Partial<SlotValue>) => void;
+  /** 値の下に順位を出すか（既定は出す。URL rk=0 で出さない） */
+  showRank: boolean;
+  onShowRank: (v: boolean) => void;
 }
 
 // --- チーム比較 ---
@@ -317,6 +325,8 @@ function TeamCompareView({
   teamsBySeason,
   resultOnlyBySeason,
   onUpdateSlot,
+  showRank,
+  onShowRank,
 }: ViewCommonProps & {
   perspective: TeamPerspective;
   onPerspective: (v: TeamPerspective) => void;
@@ -336,6 +346,42 @@ function TeamCompareView({
     useTeamCompareSlot({ teamId: slots[1]!.id, season: slots[1]!.season, filter: slots[1]!.filter, gameType: slots[1]!.gameType, active: valid[1]!, divisionHistory, seasons, league }),
     useTeamCompareSlot({ teamId: slots[2]!.id, season: slots[2]!.season, filter: slots[2]!.filter, gameType: slots[2]!.gameType, active: valid[2]!, divisionHistory, seasons, league }),
   ];
+
+  // 順位: ランキング（チーム・シーズン成績）と同じ計算（useTeamSeasonRanking）を、スロットの条件（シーズン・試合区分・絞り込み）で全チームに掛ける。リーグ平均には付けない
+  // 比較の Scoring には、ランキングでは Misc にある項目（PAINT2M・MID2% など）も並ぶので、そのときは Misc の表からも探す
+  // フックの呼び出し数を変えないため、2つ目は Scoring 以外では何も読まない（enabled=false）
+  const rankCategories: [BoxscoreTabKey, BoxscoreTabKey, boolean][] = [[cat, cat, true], [cat === "scoring" ? "misc" : cat, cat, cat === "scoring"]];
+  const rankSources = rankCategories.map(([category, , active]) =>
+    SLOT_INDEXES.map((i) => {
+      const slot = slots[i]!;
+      const params: TeamRankingParams = {
+        category,
+        statKey: "",
+        displayMode: "perGame",
+        gameType: slot.gameType,
+        perspective,
+        filter: slot.filter,
+        turnoverDirection: "forced",
+        period: "all",
+        statConditions: DEFAULT_STAT_CONDITIONS,
+      };
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      return useTeamSeasonRanking(slot.season, params, { enabled: active && showRank && valid[i]! && slot.id !== LEAGUE_TEAM_ID, skipConditionItems: true, league });
+    }),
+  );
+  const teamRankOfDef = (def: ComparisonStatDef<TeamPageRow>, item: TeamPageRow): string | undefined => {
+    if (!showRank || item.isLeague) return undefined;
+    const i = Number(item.key.slice(4));
+    for (const source of rankSources) {
+      const r = source[i];
+      if (!r || r.gameLogsLoading || !r.gameLogsByTeam) continue;
+      const col = matchRankColumn(r.columns, def);
+      if (!col) continue;
+      const rank = teamRankOf(r.boxRows, col, perspective, item.teamId);
+      return rank === null ? undefined : rankText(rank);
+    }
+    return undefined;
+  };
 
   const rows: ComparisonRow<TeamPageRow>[] = [];
   const descriptions: string[] = [];
@@ -411,7 +457,7 @@ function TeamCompareView({
           />
         ))}
       </div>
-      <CompareCategoryBar category={cat} onCategory={onCat} perspective={perspective} onPerspective={onPerspective} />
+      <CompareCategoryBar category={cat} onCategory={onCat} perspective={perspective} onPerspective={onPerspective} showRank={showRank} onShowRank={onShowRank} />
       <ExportImageButton
         targetRef={exportRef}
         filename={filename}
@@ -440,6 +486,7 @@ function TeamCompareView({
           subLabel={(r) => r.subLabel}
           avatar={(r) => (r.isLeague ? null : <TeamLogo teamId={r.teamId} size={64} />)}
           jaNames
+          rankOf={teamRankOfDef}
           emptyMessage={anyBusy ? "データ取得中..." : "比較するチームを選んでください"}
         />
       </ExportTarget>
@@ -464,6 +511,8 @@ function PlayerCompareView({
   playersBySeason,
   pickerSources,
   onUpdateSlot,
+  showRank,
+  onShowRank,
 }: ViewCommonProps & { playersBySeason: Map<string, PlayerSummary[] | null> | null; pickerSources: PickerSources }) {
   const teamLabel = useTeamLabel();
   const exportRef = useRef<HTMLDivElement>(null);
@@ -483,6 +532,24 @@ function PlayerCompareView({
     usePlayerCompareSlot({ playerId: slots[1]!.id, season: slots[1]!.season, filter: slots[1]!.filter, gameType: slots[1]!.gameType, active: valid[1]!, divisionHistory, league }),
     usePlayerCompareSlot({ playerId: slots[2]!.id, season: slots[2]!.season, filter: slots[2]!.filter, gameType: slots[2]!.gameType, active: valid[2]!, divisionHistory, league }),
   ];
+
+  // 順位: ランキング（個人・シーズン成績）と同じ決め方。条件なしのレギュラーシーズンの枠だけ（絞り込み・プレーオフ・合算の枠はランキングに同じ条件の表が無いので出さない）。20位以内だけ
+  const rankLabels = SLOT_INDEXES.map((i) => {
+    const slot = slots[i]!;
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    return usePlayerCompareRanks({
+      season: slot.season,
+      league,
+      tab: cat,
+      playerId: slot.id,
+      enabled: showRank && valid[i]! && slot.gameType === "regular" && isDefaultFilter(slot.filter),
+      neutral: (key) => rankDirectionOf(key) === "neutral",
+    });
+  });
+  const playerRankOfDef = (def: ComparisonStatDef<PlayerPageRow>, item: PlayerPageRow): string | undefined => {
+    if (!showRank) return undefined;
+    return rankLabels[Number(item.key.slice(4))]?.get(def.key);
+  };
 
   const rows: ComparisonRow<PlayerPageRow>[] = [];
   const descriptions: string[] = [];
@@ -554,7 +621,7 @@ function PlayerCompareView({
           />
         ))}
       </div>
-      <CompareCategoryBar category={cat} onCategory={onCat} />
+      <CompareCategoryBar category={cat} onCategory={onCat} showRank={showRank} onShowRank={onShowRank} />
       <ExportImageButton
         targetRef={exportRef}
         filename={filename}
@@ -584,6 +651,7 @@ function PlayerCompareView({
           caption={(r) => r.teamName}
           captionTeamId={(r) => r.teamId ?? undefined}
           jaNames
+          rankOf={playerRankOfDef}
           emptyMessage={anyBusy ? "データ取得中..." : "比較する選手を選んでください"}
         />
       </ExportTarget>
@@ -696,6 +764,8 @@ export function ComparePage({ season }: { season: string }) {
     divisionHistory: divisionHistory ?? null,
     cat,
     onCat: (key: BoxscoreTabKey) => setOrDelete("cat", key, "traditional"),
+    showRank: searchParams.get("rk") !== "0",
+    onShowRank: (v: boolean) => setOrDelete("rk", v ? "1" : "0", "1"),
   };
 
   return (

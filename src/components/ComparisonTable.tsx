@@ -60,6 +60,8 @@ interface ComparisonTableProps<T> {
   captionTeamId?: (row: T) => string | undefined;
   /** 項目名（略称）の下に日本語名を小さく添える（比較ページ・チーム詳細・個人詳細の比較タブ。画面・保存画像とも。辞書で略称と同じ項目は出さない） */
   jaNames?: boolean;
+  /** 指定時、値の下に小さく順位（「3位」「5位相当」）を添える。undefined を返した対象・項目には何も出さない（比較ページ。DESIGN.md 404章） */
+  rankOf?: (def: ComparisonStatDef<T>, item: T) => string | undefined;
   emptyMessage?: string;
   /** 項目名の説明（lib/statDescriptions.ts）をチームの表として引くか選手の表として引くか。既定は選手 */
   statScope?: StatScope;
@@ -78,6 +80,7 @@ export function ComparisonTable<T>({
   caption,
   captionTeamId,
   jaNames,
+  rankOf,
   emptyMessage = "比較する項目を選んでください",
   statScope = "player",
 }: ComparisonTableProps<T>) {
@@ -204,6 +207,9 @@ export function ComparisonTable<T>({
                         <span className="result-only-mark" title={def.suffixNote(rows[col]!.item)}>
                           {RESULT_ONLY_MARK}
                         </span>
+                      ) : null}
+                      {formatted[col] !== "-" && rankOf?.(def, rows[col]!.item) ? (
+                        <span className="compare-rank">{rankOf(def, rows[col]!.item)}</span>
                       ) : null}
                     </td>
                   ),

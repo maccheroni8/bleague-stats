@@ -189,6 +189,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 398章: **試合詳細の md**（上の行の「md」ボタン。試合の基本・キースタッツ・ゲームリーダー・試合の流れ・シュート・オンザコートと起用・ボックススコア全項目。`src/lib/gameMd.ts`・`GameMdButton.tsx`・`GameMdDialog.tsx`。ボックススコアの選手の行・合計は表の部品から切り出した `buildBoxscoreTeamData`、数字は保存画像の `buildGameImageModel` と同じ。見本づくりは `npm run sample:game-md -- 2026-27 506381 premier`、検証は `npm run validate:game-md`）と、上の行（左「チーム一覧に戻る」・右端に「md」「画像を保存（6枚）」）。**画面だけの変更でキー不変**
 - 399章: **日程の画像保存**（リスト・カレンダー。保存の窓で期間〔1日・1週間・1か月・開始日と終了日〕を選ぶ。保存する範囲は画面外の専用の枠〔`SchedulePage.tsx` の `.schedule-save-target`〕で、選んだ期間の試合だけを持つ。勝った側を太く。上限はリスト31日・カレンダー62日。`src/lib/schedulePeriod.ts`・`npm run validate:schedule-period`。手元の書き出しは `scripts/export-schedule-image.mjs`）。**画面だけの変更でキー不変**
 - 403章: **ランキング（チーム・シーズン成績）の登録区分別**（Traditional〜Scoring。全チームスタッツと同じ選択肢・集計〔`useClassSplitSource`・`sumClassTotals`〕・URL `cls`。区間・前季比較とも併用。PACE・ORtg 等と「失点」・+/- の視点は選べない。`src/lib/teamSeasonRanking.ts` の `isClassUnavailableStat`）。**画面だけの変更でキー不変**
+- 404章: **比較ページの順位**（値の下に「3位」。チームはランキング（チーム・シーズン成績）と同じ `useTeamSeasonRanking` を全チームに掛けて出す。選手は選手 md と同じ `buildRankLines` で20位以内だけ・出場率が足りない選手は「◯位相当」・追加の基準に届かないときは出さない。`src/lib/compareRank.ts`・`playerCompareRank.ts`。「順位を表示」URL `rk=0`。**画面だけの変更でキー不変**）
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

@@ -43,6 +43,16 @@ export interface RankLine {
   ties: number;
   /** 良い悪いの向き。none は向きが決まっていない項目（順位を付けない） */
   direction: string;
+  /** 掲載基準の出場率に届かない選手が、もし基準を満たしていたら何位にあたるか（比較ページの「◯位相当」。equivalent を指定したときだけ） */
+  equivalent?: boolean;
+}
+
+/** buildRankLines の追加の指定（選手 md は何も渡さない） */
+export interface RankLinesOptions {
+  /** 作るカテゴリ（traditional・advanced・misc・scoring・shooting）。省略は全部 */
+  only?: readonly string[];
+  /** 出場率が届かない選手にも「基準を満たしたら何位」を付ける（追加の基準〔FGM・3PM など〕は満たすときだけ） */
+  equivalent?: boolean;
 }
 
 
@@ -55,7 +65,7 @@ export function rankLogPlayers(players: PlayerSummary[], teams: TeamSummary[]): 
 
 type CtxOf = (p: PlayerSummary) => SeasonBoxscoreCtx | null;
 
-export function buildRankLines(data: AiPlayerRankData, target: PlayerSummary): RankLine[] {
+export function buildRankLines(data: AiPlayerRankData, target: PlayerSummary, options: RankLinesOptions = {}): RankLine[] {
   const { season, players, teams } = data;
   const startYear = Number(season.slice(0, 4));
   const foulSplit = foulColumnsSplit([season]);
@@ -85,6 +95,7 @@ export function buildRankLines(data: AiPlayerRankData, target: PlayerSummary): R
 
   const lines: RankLine[] = [];
   const rankItems = (category: string, items: PlayerRankItem[], ctxFor: (key: string) => CtxOf, pool: PlayerSummary[], keep: (p: PlayerSummary, key: string) => boolean) => {
+    if (options.only && !options.only.includes(category)) return;
     for (const item of items) {
       // G・GS・MIN・PTS は Traditional だけ（ほかの表では繰り返さない）
       if (category !== 'traditional' && category !== 'shooting' && ['g', 'gs', 'min', 'pts'].includes(item.key)) continue;
@@ -110,7 +121,17 @@ export function buildRankLines(data: AiPlayerRankData, target: PlayerSummary): R
       const value = text(target);
       const base = { category, key: item.key, label: item.label, value, total: rows.length, direction } as const;
       if (value === '-') lines.push({ ...base, rank: null, note: '値なし（順位なし）', ties: 0 });
-      else if (!isEligible) lines.push({ ...base, rank: null, note: '掲載基準未達', ties: 0 });
+      else if (!isEligible) {
+        // 出場率だけが足りない選手は、基準を満たした人たちの中に入れたときの順位を付けられる（追加の基準を満たさないときは付けない）
+        const meetsExtra = filterEligiblePlayers([target], teams, 0, extraRuleKey(item.key), EXTRA_ELIGIBILITY_RULES[extraRuleKey(item.key)]?.defaultValue ?? 0).length === 1;
+        const canEquate = !!options.equivalent && category !== 'shooting' && meetsExtra && pool.some(p => p.playerId === target.playerId) && keep(target, item.key);
+        if (canEquate) {
+          const withTarget = [...rows, target].map(p => ({ p, v: num(p), t: text(p) })).sort((a, b) => (higher ? b.v - a.v : a.v - b.v));
+          const rk = rankPositions(withTarget.map(x => x.t));
+          const idx = withTarget.findIndex(x => x.p.playerId === target.playerId);
+          lines.push({ ...base, rank: rk[idx]!, note: '出場率が基準に届かないため、基準を満たしたと仮定した順位', ties: withTarget.filter(x => x.t === withTarget[idx]!.t).length, equivalent: true });
+        } else lines.push({ ...base, rank: null, note: '掲載基準未達', ties: 0 });
+      }
       else if (at < 0) lines.push({ ...base, rank: null, note: 'この項目の対象外（値なし）', ties: 0 });
       else lines.push({ ...base, rank: ranks[at]!, note: '', ties: sorted.filter(x => x.t === sorted[at]!.t).length });
     }
