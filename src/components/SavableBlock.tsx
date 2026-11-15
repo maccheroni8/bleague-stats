@@ -13,6 +13,7 @@ export function SavableBlock({
   baseDate,
   className,
   unavailableReason,
+  extraControls,
   children,
 }: {
   filename: string;
@@ -20,12 +21,15 @@ export function SavableBlock({
   /** 保存範囲の種類ごとの大きさの指定（index.css の .export-target-… ） */
   className?: string;
   unavailableReason?: string;
+  /** ボタンの左に出す選択（保存する地区など） */
+  extraControls?: ReactNode;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   return (
     <div className="savable-block">
-      <div className="savable-bar">
+      <div className={extraControls ? "savable-bar savable-bar-choice" : "savable-bar"}>
+        {extraControls}
         {unavailableReason ? (
           <p className="savable-reason" role="status">
             {unavailableReason}
