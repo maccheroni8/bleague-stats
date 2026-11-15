@@ -8909,3 +8909,24 @@ table.sortable-table.tts-table th {
   text-align: center;
   font-size: 14px;
 }
+
+/* 推移の動画保存（DESIGN.md 395章）。保存画像の外（画面だけ）の操作行 */
+.trend-video-bar {
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin: 8px 0;
+}
+.trend-video-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+.trend-video-field select {
+  font: inherit;
+}
+.trend-video-button {
+  font: inherit;
+  cursor: pointer;
+}

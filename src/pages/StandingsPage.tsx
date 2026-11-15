@@ -15,7 +15,7 @@ import { ONE_STANDINGS_TAB_REASONS } from "../lib/leagueAvailability";
 import { useAllTeamGameLogs } from "../lib/teamRankingData";
 import { useTrendPlayback, type TrendPlayback } from "../lib/trendPlayback";
 import { SortableTable, type Column } from "../components/SortableTable";
-import { StandingsLineChart, type ChartTeam, type FixedYAxis } from "../components/StandingsLineChart";
+import { StandingsLineChart, fallbackColor, type ChartTeam, type FixedYAxis } from "../components/StandingsLineChart";
 import { AnnualSchedule } from "../components/AnnualSchedule";
 import { enumParam, useUrlState } from "../lib/urlState";
 import { TeamLogo } from "../components/TeamLogo";
@@ -33,6 +33,8 @@ import { ExportImageButton } from "../components/ExportImageButton";
 import { ExportTarget } from "../components/ExportTarget";
 import { sortOrderLabel } from "../components/SortMark";
 import { SavableBlock } from "../components/SavableBlock";
+import { TrendVideoSaver, type TrendVideoChart } from "../components/TrendVideoSaver";
+import { autoAxis, type TrendVideoTeam } from "../lib/trendVideo";
 import { buildExportFilename, clubSelectionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { formatDecimal, formatPct, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { pendingUpcomingGames } from "../lib/pendingUpcoming";
@@ -649,6 +651,8 @@ type TrendTabProps = {
   rangeOptions: { value: string; label: string }[];
   range: string;
   onRangeChange: (v: string) => void;
+  /** 動画にできるグラフ（全体・地区別・ワイルドカード） */
+  videoCharts: TrendVideoChart[];
   divisionGroups: { division: Division; teams: StandingsTeamSnapshot[] }[];
   teams: StandingsTeamSnapshot[];
   teamColors?: Record<string, TeamColors>;
@@ -679,6 +683,13 @@ function MetricTrendTab(props: TrendTabProps) {
           {props.isAnimating ? "再生中..." : "▶ アニメーション再生"}
         </button>
       </div>
+      <TrendVideoSaver
+        tabName={name}
+        season={props.season}
+        seasonLabel={props.seasonLabel}
+        charts={props.videoCharts}
+        disabledReason={props.isAnimating ? "アニメーションの再生が終わると作れます" : undefined}
+      />
       <TrendSaveFrame name={name} season={props.season} seasonLabel={props.seasonLabel} isAnimating={props.isAnimating} rangeOptions={props.rangeOptions} range={props.range} onRangeChange={props.onRangeChange}>
       {props.divisionGroups.length === 0 ? (
         <StandingsLineChart
@@ -1045,6 +1056,54 @@ export function StandingsPage({ season }: { season: string }) {
       : (divisionGroups.find(
           (g) => g.teams.length === h2hSelectedTeamIds.size && g.teams.every((t) => h2hSelectedTeamIds.has(t.teamId)),
         )?.division ?? "all");
+  // 動画にできるグラフ（全体または地区別＋ワイルドカード）。値・軸・色・サブタイトルは画面のグラフと同じもの（設計書395章）
+  const videoTeamsOf = (list: { teamId: string; teamName: string }[]): TrendVideoTeam[] =>
+    list.map((t, i) => ({
+      teamId: t.teamId,
+      label: teamShortName(t.teamId, t.teamName),
+      color: teamColors?.[t.teamId]?.primary ?? fallbackColor(i, list.length),
+    }));
+  const videoCharts = (
+    name: string,
+    kind: "rank" | "metric",
+    allData: Record<string, number | string>[],
+    divData: Record<string, number | string>[],
+    wcData: Record<string, number | string>[],
+    fixed?: FixedYAxis,
+  ): TrendVideoChart[] => {
+    const make = (
+      key: string,
+      label: string,
+      title: string,
+      rows: Record<string, number | string>[],
+      list: { teamId: string; teamName: string }[],
+      rankMax: number,
+      offset: number,
+      connectGaps: boolean,
+      conditionsAt: (playbackIndex?: number) => string[],
+    ): TrendVideoChart => ({
+      key,
+      label,
+      title,
+      rows,
+      teams: videoTeamsOf(list),
+      connectGaps,
+      axis:
+        kind === "rank"
+          ? { min: 1, max: Math.max(rankMax, 2), ticks: Array.from({ length: rankMax }, (_, i) => i + 1), format: (v) => String(v), reversed: true }
+          : fixed
+            ? { min: fixed.domain[0], max: fixed.domain[1], ticks: fixed.ticks, format: fixed.format, reversed: false, referenceLine: fixed.referenceLine }
+            : autoAxis(rows, list.map((t) => t.teamId), (v) => String(v)),
+      subtitleAt: (index) => conditionsAt(index === undefined ? undefined : offset + index).join("／"),
+    });
+    if (divisionGroups.length === 0) return [make("all", "全体", name, allData, teams, teams.length, 0, true, trendConditionsAt)];
+    return [
+      ...divisionGroups.map((g) => make(g.division, DIVISION_LABELS[g.division], `${DIVISION_LABELS[g.division]}${name}`, divData, g.teams, g.teams.length, 0, true, trendConditionsAt)),
+      ...(wildcardTeams.length > 0
+        ? [make("wildcard", "ワイルドカード", `ワイルドカード${name}`, wcData, wildcardTeams, wildcardRankDomainMax, wildcardPlaybackOffset, false, wildcardTrendConditionsAt)]
+        : []),
+    ];
+  };
   // 勝ち星推移・勝率推移・貯金推移で共通の部品に渡すもの（再生・地区別・ワイルドカードの構成は3つで同じ）
   const trendTabShared = {
     season,
@@ -1463,6 +1522,13 @@ export function StandingsPage({ season }: { season: string }) {
               {isAnimating ? "再生中..." : "▶ アニメーション再生"}
             </button>
           </div>
+          <TrendVideoSaver
+            tabName="順位推移"
+            season={season}
+            seasonLabel={seasonLabel}
+            charts={videoCharts("順位推移", "rank", rankData, divisionRankData, wildcardRankData)}
+            disabledReason={isAnimating ? "アニメーションの再生が終わると作れます" : undefined}
+          />
           <TrendSaveFrame name="順位推移" season={season} seasonLabel={seasonLabel} isAnimating={isAnimating} rangeOptions={trendRangeOptions} range={saveDiv} onRangeChange={setSaveDiv}>
           {divisionGroups.length === 0 ? (
             <StandingsLineChart
@@ -1518,12 +1584,13 @@ export function StandingsPage({ season }: { season: string }) {
       )}
 
       {activeTab === "winsTrend" && (
-        <MetricTrendTab {...trendTabShared} name="勝ち星推移" data={winsData} wildcardData={wildcardWinsData} />
+        <MetricTrendTab {...trendTabShared} videoCharts={videoCharts("勝ち星推移", "metric", winsData, winsData, wildcardWinsData)} name="勝ち星推移" data={winsData} wildcardData={wildcardWinsData} />
       )}
 
       {activeTab === "winPctTrend" && (
         <MetricTrendTab
           {...trendTabShared}
+          videoCharts={videoCharts("勝率推移", "metric", winPctData, winPctData, wildcardWinPctData, WIN_PCT_Y_AXIS)}
           name="勝率推移"
           data={winPctData}
           wildcardData={wildcardWinPctData}
@@ -1532,7 +1599,7 @@ export function StandingsPage({ season }: { season: string }) {
       )}
 
       {activeTab === "gamesAboveTrend" && (
-        <MetricTrendTab {...trendTabShared} name="貯金推移" data={gamesAboveData} wildcardData={wildcardGamesAboveData} />
+        <MetricTrendTab {...trendTabShared} videoCharts={videoCharts("貯金推移", "metric", gamesAboveData, gamesAboveData, wildcardGamesAboveData)} name="貯金推移" data={gamesAboveData} wildcardData={wildcardGamesAboveData} />
       )}
     </div>
   );

@@ -55,3 +55,24 @@ export function useTeamLogoSources(teamIds: readonly string[]): (teamId: string)
   }, [key]);
   return (teamId) => cache.get(teamId) ?? teamLogoUrl(teamId);
 }
+
+/** 動画用: チームのロゴを画像として読み込む（読み込めなかったチームは含めない） */
+export async function loadLogoImages(teamIds: readonly string[]): Promise<Map<string, HTMLImageElement>> {
+  const urls = await Promise.all(teamIds.map((id) => loadLogoDataUrl(id)));
+  const out = new Map<string, HTMLImageElement>();
+  await Promise.all(
+    teamIds.map(async (id, i) => {
+      const url = urls[i];
+      if (!url) return;
+      const img = new Image();
+      img.src = url;
+      try {
+        await img.decode();
+        out.set(id, img);
+      } catch {
+        /* 読み込めなかったロゴは点で描く */
+      }
+    }),
+  );
+  return out;
+}

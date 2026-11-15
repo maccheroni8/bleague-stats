@@ -58,7 +58,7 @@ export interface FixedYAxis {
 }
 
 /** チーム数に応じて均等に色相を割り振る簡易パレット。teamColorsに無いチーム用のフォールバック */
-function fallbackColor(index: number, total: number): string {
+export function fallbackColor(index: number, total: number): string {
   const hue = Math.round((index * 360) / Math.max(total, 1));
   return `hsl(${hue}, 65%, 55%)`;
 }
