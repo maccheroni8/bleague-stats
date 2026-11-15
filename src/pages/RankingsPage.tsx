@@ -84,6 +84,7 @@ import {
   gameTypeLabels,
   perspectiveLabels,
   periodLabels,
+  teamClassLabels,
   SEASON_TOTAL_ONLY_LABELS,
   SITUATIONAL_DEFAULT_LABEL,
   situationalFilterLabels,
@@ -100,7 +101,7 @@ import { DEFAULT_STAT_CONDITIONS, statConditionsTitle } from "../lib/statConditi
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { clearUrlParams, enumParam, numberParam, situationalParam, statConditionsParam, stringParam, useUrlState, type UrlCodec } from "../lib/urlState";
 import { opponentDivisionChoices, seasonDivisions } from "../lib/divisionGroups";
-import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PAIR_UNIT_PARAM, PERSPECTIVE_PARAM, PLAYER_SEASON_PERIOD_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARAM, PLAYER_GROUP_PARAM, TEAM_SEASON_PERIOD_PARAM } from "../lib/urlFilterParams";
+import { CLASSIFICATION_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PAIR_UNIT_PARAM, PERSPECTIVE_PARAM, PLAYER_SEASON_PERIOD_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARAM, PLAYER_GROUP_PARAM, TEAM_SEASON_PERIOD_PARAM } from "../lib/urlFilterParams";
 import { OVERTIME_ELIGIBILITY_LABEL, OVERTIME_ELIGIBILITY_REASON, OVERTIME_GAMES_NOTE, SEASON_PERIOD_OPTIONS, subsetEligibilityLabel, subsetEligibilityReason, SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason, hasShortGameSeason } from "../lib/seasonPeriod";
 import { OVERTIME_MIN_TEAM_GAMES_FOR_RANKING } from "../lib/teamPeriodTotals";
 import { PeriodIndexFailure } from "../components/PeriodIndexFailure";
@@ -119,6 +120,7 @@ import {
   isBoxscoreCategory,
   teamDefaultStatKey,
   useTeamSeasonRanking,
+  isClassUnavailableStat,
   type TeamRankingCategory,
   type TurnoverDirection,
 } from "../lib/teamSeasonRanking";
@@ -350,6 +352,8 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
   const [period, setPeriod] = useUrlState(TEAM_SEASON_PERIOD_PARAM, "all");
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
+  // 登録区分別（全チームスタッツと同じ選択肢・同じ集計。Traditional〜Scoring のタブだけで効く）
+  const [classFilter, setClassFilter] = useUrlState(CLASSIFICATION_PARAM, "all");
 
   // 集計（行・値の定義・スタッツの条件の項目）は src/lib/teamSeasonRanking.ts。前シーズン比較の前季でも同じ処理を使う（DESIGN.md 218章）
   const {
@@ -366,6 +370,12 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
     rawGamesFailedCount,
     retryRawGames,
     periodDataReady,
+    classBlocked,
+    classActive,
+    classLoading,
+    classUnreadable,
+    classPeriodMissing,
+    retryClass,
     conditionItems,
     conditionActive,
     columns,
@@ -378,7 +388,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
     teamsWithForcedTurnovers,
     forcedTurnoverScoped,
     scopedLogsByTeam: teamScopedLogs,
-  } = useTeamSeasonRanking(season, { category, statKey, displayMode, gameType, perspective, filter, turnoverDirection, period, statConditions }, { league });
+  } = useTeamSeasonRanking(season, { category, statKey, displayMode, gameType, perspective, filter, turnoverDirection, period, statConditions, classFilter }, { league });
   // Shooting・Forced TOV は、スポーツナビの記録がある試合（レギュラーシーズン）の試合数と勝敗
   const yahooRecords = useMemo(
     () => yahooRecordByTeam(category === "forcedTurnovers" && forcedTurnoverScoped ? teamScopedLogs : gameLogsByTeam, category === "forcedTurnovers" && forcedTurnoverScoped),
@@ -404,7 +414,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
   useCompareCleanup(season, compareParam, () => setCompareParam("off"));
   const prevRanking = useTeamSeasonRanking(
     prevSeason ?? season,
-    { category, statKey, displayMode, gameType, perspective, filter, turnoverDirection, period, statConditions: DEFAULT_STAT_CONDITIONS },
+    { category, statKey, displayMode, gameType, perspective, filter, turnoverDirection, period, statConditions: DEFAULT_STAT_CONDITIONS, classFilter },
     { enabled: compareActive, skipConditionItems: true, league },
   );
   // ファウルの列は、2026-27以降のシーズンではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF。そのシーズンに無い項目・条件は外す（DESIGN.md 16-8章）
@@ -412,6 +422,12 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
   useFoulStatKeyCleanup(season, statKey, () => setStatKey(defaultTeamStat));
   // シーズンで意味が変わるフィルタ（地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外す（DESIGN.md 164・165章）
   useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType, league });
+  // 登録区分別では出せない項目（PACE・ORtg など）と +/- の視点は選べない。URL に書いてあれば、既定の項目・自チームに戻す
+  useEffect(() => {
+    if (!classActive) return;
+    if (isClassUnavailableStat(statKey)) setStatKey(defaultTeamStat);
+    if (perspective === "diff") setPerspective("own");
+  }, [classActive, statKey, perspective, defaultTeamStat, setStatKey, setPerspective]);
 
   const selectCategory = (next: TeamRankingCategory) => {
     setCategory(next);
@@ -485,6 +501,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
       displayModeLabels(displayMode),
       gameTypeLabels(gameType, season),
       perspectiveLabels(perspective),
+      classActive ? teamClassLabels(classFilter, perspective) : [],
       situationalFilterLabels(filter),
       periodLabels(periodOption),
     ),
@@ -522,7 +539,11 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
   const teamScopedReason = turnoverScopedOk ? undefined : teamFilterDisabledReason;
   const teamFilterAxes: FilterAxis[] = [
     gameTypeAxis(gameType, setGameType, season, { disabledReason: teamScopedReason }),
-    perspectiveAxis(perspective, setPerspective, { disabledReason: teamFilterDisabledReason }),
+    perspectiveAxis(perspective, setPerspective, { disabledReason: teamFilterDisabledReason, disabledValues: classActive ? ["diff"] : undefined }),
+    classificationAxis(classFilter, setClassFilter, {
+      disabledReason: isBoxscore ? undefined : "登録区分別の値は Traditional〜Scoring のタブでだけ見られます。",
+      season,
+    }),
     displayModeAxis(displayMode, setDisplayMode, { disabledReason: teamDisplayDisabledReason }),
     periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, { disabledReason: teamFilterDisabledReason }),
     ...situationalAxes(filter, setFilter, {
@@ -539,6 +560,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
     setPerspective("own");
     setDisplayMode("perGame");
     setPeriod("all");
+    setClassFilter("all");
     setFilter({ range: { kind: "all" } });
     setCompareParam("off");
     setStatConditions({ ...statConditions, conditions: [] });
@@ -610,7 +632,9 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
                 : columns
                     .filter((c) => c.key !== "paint2games")
                     // クラッチの被ファウルは「値なし」なので選べない（設計書375章）
-                    .map((c) => (period === "clutch" && c.key === "fd" ? { ...c, label: `${c.label}（クラッチは対象外）`, disabled: true } : c)),
+                    .map((c) => (period === "clutch" && c.key === "fd" ? { ...c, label: `${c.label}（クラッチは対象外）`, disabled: true } : c))
+                    // 登録区分別では出せない項目は選べない
+                    .map((c) => (classActive && isClassUnavailableStat(c.key) ? { ...c, label: `${c.label}（登録区分別は対象外）`, disabled: true } : c)),
             statKey,
             setStatKey,
             "team",
@@ -683,6 +707,19 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
             </ExportTarget>
           </>
         )
+      ) : classBlocked ? (
+        <p className="empty-message">{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p>
+      ) : classLoading ? (
+        <p className="loading">読み込み中...</p>
+      ) : classUnreadable ? (
+        <div className="error-message">
+          <p>このシーズンの登録区分別の値を読み込めませんでした。</p>
+          <button type="button" className="load-more-button" onClick={retryClass}>
+            再読み込み
+          </button>
+        </div>
+      ) : classPeriodMissing ? (
+        <p className="empty-message">このシーズンの区間別の登録区分の値を読み込めませんでした。時間をおいて開き直すか、区間を「試合全体」にしてください。</p>
       ) : rawGamesFailedCount > 0 ? (
         <div className="error-message">
           <p>このシーズンの区間別の値を読み込めませんでした。Q別・前後半の表は表示していません。</p>
