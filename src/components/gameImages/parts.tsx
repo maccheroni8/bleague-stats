@@ -217,7 +217,7 @@ export function Frame({ model, logos, index, note, children }: { model: GameImag
       {/* タイトル（何が載っているか） */}
       <rect x={PAD} y={176} width={7} height={32} rx={3.5} fill={NAVY} />
       <T x={PAD + 20} y={202} size={27} weight={800} maxWidth={W - PAD * 2 - 20}>
-        {gameImageTitle(index, model.home.name, model.away.name)}
+        {gameImageTitle(index, model.home.name, model.away.name, false)}
       </T>
       {children}
       {/* 下端: 左に略語の説明、右にアカウント名 */}

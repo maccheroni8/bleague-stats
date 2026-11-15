@@ -113,7 +113,6 @@ function Row({ line, y, h, team, kind }: { line: BoxLine; y: number; h: number; 
 
 export function PageBox({ model, logos, side }: { model: GameImageModel; logos: Logos; side: "home" | "away" }) {
   const team = side === "home" ? model.home : model.away;
-  const opp = side === "home" ? model.away : model.home;
   const data: BoxTeam = model.box[side];
   const index = side === "home" ? 4 : 5;
   const titleY = CONTENT_TOP;
@@ -135,9 +134,6 @@ export function PageBox({ model, logos, side }: { model: GameImageModel; logos: 
       <rect x={LEFT + 60} y={titleY + 4} width={7} height={42} rx={3.5} fill={team.color} />
       <T x={LEFT + 78} y={titleY + 34} size={26} weight={800} maxWidth={560}>
         {team.name}
-      </T>
-      <T x={RIGHT} y={titleY + 34} size={17} fill={MUTED} anchor="end">
-        {`${team.won ? "勝ち" : team.score === opp.score ? "引き分け" : "負け"}　${team.score} − ${opp.score}　対 ${opp.shortName}`}
       </T>
       <HeaderRow y={tableY} first="選手" />
       {data.players.map((p, i) => {

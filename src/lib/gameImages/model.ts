@@ -208,8 +208,8 @@ export interface GameImageModel {
 
 export const GAME_IMAGE_COUNT = 6;
 
-/** 各画像のタイトル（何が載っているか）。5・6枚目はチーム名を添える */
-export function gameImageTitle(index: number, homeName: string, awayName: string): string {
+/** 各画像のタイトル（何が載っているか）。5・6枚目は、一覧ではチーム名を添える（画像の中の見出しは添えない。すぐ下にチーム名が出るため） */
+export function gameImageTitle(index: number, homeName: string, awayName: string, withTeam = true): string {
   switch (index) {
     case 0:
       return "スコア・キースタッツ・ゲームリーダー";
@@ -220,9 +220,9 @@ export function gameImageTitle(index: number, homeName: string, awayName: string
     case 3:
       return "オンザコートの起用とよく使ったラインナップ";
     case 4:
-      return `ボックススコア　${homeName}`;
+      return withTeam ? `ボックススコア　${homeName}` : "ボックススコア";
     default:
-      return `ボックススコア　${awayName}`;
+      return withTeam ? `ボックススコア　${awayName}` : "ボックススコア";
   }
 }
 
