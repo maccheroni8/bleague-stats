@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { fetchGameSummaries, fetchPlayerGameLogs, fetchPlayers, fetchTeamGameLogs, fetchTeams } from "./data";
 import { buildRankLines, rankLogPlayers, type AiPlayerRankData, type RankLine } from "./aiPlayerRank";
 import { COMPARE_PLAYER_RANK_LIMIT, rankText } from "./compareRank";
-import type { League } from "./league";
+import { leagueCacheKey, type League } from "./league";
 import type { PlayerGameLog, PlayerSummary, TeamGameLog } from "../../shared/types";
 import type { SeasonBoxTabKey } from "./playerSeasonBoxscore";
 
@@ -22,7 +22,7 @@ const baseCache = new Map<string, Promise<AiPlayerRankData>>();
 
 /** 1シーズン分の順位の材料。Misc・Scoring・Advanced は試合ログから出す項目があるので、掲載基準を満たす選手の試合ログも読む（Traditional は読まない） */
 function loadRankData(season: string, league: League, withLogs: boolean): Promise<AiPlayerRankData> {
-  const key = `${league}:${season}:${withLogs ? "logs" : "plain"}`;
+  const key = `${leagueCacheKey(season, league)}:${withLogs ? "logs" : "plain"}`;
   let p = baseCache.get(key);
   if (!p) {
     p = (async () => {
@@ -96,6 +96,6 @@ export function usePlayerCompareRanks(opts: {
     };
     // neutral は定義への参照で変わらない
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, key, withLogs]);
+  }, [enabled, key, withLogs, league, season, tab, playerId]);
   return enabled && state?.key === key ? state.labels : null;
 }
