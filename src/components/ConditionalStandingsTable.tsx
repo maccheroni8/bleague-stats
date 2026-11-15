@@ -8,8 +8,10 @@ import { SortableTable, type Column } from "./SortableTable";
 import { TeamLogo } from "./TeamLogo";
 import { FilterBar } from "./FilterBar";
 import { simpleSelectAxis, teamMultiAxis, type FilterAxis, type FilterAxisOption } from "../lib/filterAxes";
-import { ConditionLine } from "./ConditionTitle";
-import { clubSelectionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
+import { ConditionTitle } from "./ConditionTitle";
+import { sortOrderLabel } from "./SortMark";
+import { SavableBlock } from "./SavableBlock";
+import { buildExportFilename, clubSelectionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { formatPct, formatSigned, formatWinPct } from "../lib/format";
 import { safeDiv } from "../../shared/formulas";
 import { currentStreak, formatTeamStreak } from "../../shared/teamRecords";
@@ -195,6 +197,8 @@ export function ConditionalStandingsTable({
   const biweekPeriods = useMemo(() => (summaries ? buildBiweekPeriods(summaries) : []), [summaries]);
 
   const [condition, setCondition] = useState<ConditionalCondition>({ kind: "all" });
+  /** 表の今の並び（保存画像のサブタイトルに出す） */
+  const [sortText, setSortText] = useState("");
   const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string> | null>(null);
 
   // シーズンが変わったら条件・チーム絞り込みをリセットする（前シーズンの選択を引き継がない）
@@ -399,6 +403,25 @@ export function ConditionalStandingsTable({
     },
   ];
 
+  const savedConditions = composeLabels(
+    `${season}シーズン`,
+    gameTypeLabels("regular", null),
+    selectedTeamIds === null
+      ? multiSelectLabels("対象クラブ", [], "全クラブ")
+      : selectedTeamIds.size === 0
+        ? "対象クラブ: なし"
+        : clubSelectionLabels(
+            "対象クラブ",
+            [...selectedTeamIds],
+            teamOptions.map((t) => ({ value: t.teamId, label: teamShortName(t.teamId, t.teamName) })),
+            divisionPresets(
+              teamOptions.map((t) => t.teamId),
+              (id) => divisionByTeamId.get(id),
+              league,
+            ).map((g) => ({ label: g.label, values: g.teamIds })),
+          ),
+  );
+
   if (gameLogsLoading) return <p className="loading">読み込み中...</p>;
   if (teams.length === 0) return <p className="empty-message">データがありません</p>;
 
@@ -410,7 +433,7 @@ export function ConditionalStandingsTable({
           {numberKind === "count" ? "人数" : "点数"}：
           <NumberTextInput
             kind="count"
-            aria-label={numberKind === "count" ? "外国籍の人数" : "点数"}
+            aria-label={numberKind === "count" ? "人数" : "点数"}
             value={String(numbers[numberKind])}
             onCommit={(t) => {
               const n = Math.floor(Number(t));
@@ -424,50 +447,41 @@ export function ConditionalStandingsTable({
         </p>
       )}
 
-      <h2>{describeCondition(condition)} 順位表</h2>
-      {/* 見出しは条件（単一軸）のみ。シーズン・対象試合・チーム絞り込みは条件行で補う（Batch 5、DESIGN.md 99章） */}
-      <ConditionLine
-        conditions={composeLabels(
-          `${season}シーズン`,
-          gameTypeLabels("regular", null),
-          selectedTeamIds === null
-            ? multiSelectLabels("対象クラブ", [], "全クラブ")
-            : selectedTeamIds.size === 0
-              ? "対象クラブ: なし"
-              : clubSelectionLabels(
-                  "対象クラブ",
-                  [...selectedTeamIds],
-                  teamOptions.map((t) => ({ value: t.teamId, label: teamShortName(t.teamId, t.teamName) })),
-                  divisionPresets(
-                    teamOptions.map((t) => t.teamId),
-                    (id) => divisionByTeamId.get(id),
-                    league,
-                  ).map((g) => ({ label: g.label, values: g.teamIds })),
-                ),
+      <SavableBlock
+        filename={buildExportFilename([`${season}シーズン`, `${describeCondition(condition)} 順位表`, ...savedConditions])}
+        baseDate={{ kind: "season", season, gameType: "regular" }}
+        className="export-target-standings"
+      >
+        {/* 見出しは条件（単一軸）のみ。シーズン・対象試合・チーム絞り込みは条件行で補う（Batch 5、DESIGN.md 99章） */}
+        <ConditionTitle
+          title={`${describeCondition(condition)} 順位表`}
+          exportScope={`${season}シーズン`}
+          conditions={[...savedConditions, ...(sortText ? [sortText] : [])]}
+        />
+        {opponentWinRateCoverage && (
+          <p className="standings-tab-note">
+            相手が{MIN_GAMES_FOR_OPPONENT_WIN_RATE}試合以上を消化した時点の試合だけを数えます（対象 {opponentWinRateCoverage.counted}／
+            {opponentWinRateCoverage.total}試合。クラブごとの試合を延べで数えています）。
+          </p>
         )}
-      />
-      {opponentWinRateCoverage && (
-        <p className="standings-tab-note">
-          相手が{MIN_GAMES_FOR_OPPONENT_WIN_RATE}試合以上を消化した時点の試合だけを数えます（対象 {opponentWinRateCoverage.counted}／
-          {opponentWinRateCoverage.total}試合。クラブごとの試合を延べで数えています）。
-        </p>
-      )}
-      {rows.length === 0 ? (
-        <p className="empty-message">選択したチームがありません</p>
-      ) : (
-        <div className="table-scroll">
-          <SortableTable
-            statScope="team"
-            columns={columns}
-            rows={rows}
-            rowKey={(r) => r.team.teamId}
-            defaultSortKey="rank"
-            defaultSortDir="asc"
-            linkTo={(r) => `/teams/${r.team.teamId}`}
-            rowAccentColor={(r) => teamColors?.[r.team.teamId]?.primary}
-          />
-        </div>
-      )}
+        {rows.length === 0 ? (
+          <p className="empty-message">選択したチームがありません</p>
+        ) : (
+          <div className="table-scroll">
+            <SortableTable
+              statScope="team"
+              columns={columns}
+              rows={rows}
+              rowKey={(r) => r.team.teamId}
+              defaultSortKey="rank"
+              defaultSortDir="asc"
+              linkTo={(r) => `/teams/${r.team.teamId}`}
+              rowAccentColor={(r) => teamColors?.[r.team.teamId]?.primary}
+              onSortChange={(s) => setSortText(sortOrderLabel(s.label, s.dir === "desc"))}
+            />
+          </div>
+        )}
+      </SavableBlock>
       <GlossaryNote anchor={GLOSSARY_ANCHORS.conditionalStandings} label="条件別順位表" />
     </div>
   );

@@ -8827,4 +8827,106 @@ table.sortable-table.tts-table th {
   font-weight: 400;
   color: var(--muted);
   white-space: nowrap;
+/* 順位表ページの画像保存（DESIGN.md 393章）。保存ボタンは保存範囲の右上。保存画像の幅は表の幅に合わせる（横に長い表は長いまま。PC幅で見る前提） */
+.savable-block {
+  margin-top: 12px;
+}
+
+.savable-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.savable-bar-choice {
+  justify-content: space-between;
+}
+
+.savable-reason {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* 保存画像の先頭の1行目だけを出す見出し（複数の表を1枚にまとめるとき） */
+.export-target .export-heading-solo {
+  text-align: center;
+}
+
+.export-wide .export-heading-solo {
+  margin: 0 0 12px;
+}
+
+.export-wide.export-target-standings,
+.export-wide.export-target-wide-table,
+.export-wide.export-target-annual {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.export-rendering.export-target-standings,
+.export-rendering.export-target-wide-table,
+.export-rendering.export-target-annual {
+  width: max-content;
+  max-width: none;
+}
+
+.export-rendering.export-target-standings .table-scroll,
+.export-rendering.export-target-wide-table .table-scroll,
+.export-rendering.export-target-annual .annual-scroll {
+  overflow: visible;
+  max-width: none;
+  border: none;
+}
+
+.export-rendering.export-target-annual .annual-division-section h3 {
+  text-align: left;
+}
+
+/* 順位推移・勝ち星推移・勝率推移・貯金推移: 全部のグラフを縦に並べて1枚にする。幅は固定（グラフは画面の幅で描くので、PCの画面で保存する） */
+.export-wide.export-target-trend {
+  width: 100%;
+  max-width: 1000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.export-rendering.export-target-trend {
+  width: 1064px;
+  max-width: none;
+}
+
+.export-wide.export-target-trend .standings-chart h3 {
+  margin: 16px 0 4px;
+  font-size: 22px;
+  text-align: center;
+}
+
+.export-wide.export-target-trend .condition-line {
+  text-align: center;
+  font-size: 14px;
+}
+
+/* 推移の動画保存（DESIGN.md 395章）。保存画像の外（画面だけ）の操作行 */
+.trend-video-bar {
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin: 8px 0;
+}
+.trend-video-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+.trend-video-field select {
+  font: inherit;
+}
+.trend-video-button {
+  font: inherit;
+  cursor: pointer;
 }

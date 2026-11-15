@@ -180,6 +180,10 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 388章: **旧B1（2016-17〜2025-26）の登録区分を日付で切り替える台帳**（根拠 `docs/registration-history/`〔キー対象外〕と、集計に使う区分表 `data/{season}/registrations.json.gz`〔`scripts/build-registration-history.ts` が根拠から作る〕を分ける。`SPLIT_CLASSIFICATION_FIRST_SEASON` は 2016-17。上限の超過が増えていないかは `validate:registration-history`。**保存キーが変わった**）
 - 390章: 図解（チーム）の散布図・ベン図に**「条件付きの勝率」**（その条件に当てはまる試合だけの勝率。条件は条件別順位表と同じ部品〔`src/lib/conditionalCondition.ts`・`figureCondWinPct.ts`〕で、同じ条件なら同じ勝敗。相手の勝率は●以上／●未満を数字で選ぶ。散布図は軸・条件の試合数の下限〔`fmin`〕・除いたチーム数、ベン図は円の以上／未満・条件を変えて複数の円に。保存した設定の初期の2つ〔`seedCondWinPctPresets`〕）。検証は `npm run validate:figure-cond-winpct`。**画面だけの変更でキー不変**
 - 391章: **ランキングの順位の基準は `src/lib/rankDirection.ts` の1か所**（多いほど良い／少ないほど良い／良し悪しなし。opp 視点は反転。ランキング・選手 md が使う。比較・チーム詳細も新しい項目の向きはここを使う）。シュートタイプ・エリア別の成功率の最低試投数＝その期間のチームの試合数の半分（切り上げ。`filterShotPctMinAttempts`）、1試合記録の成功率は同じ率なら成功数の多い順（`recordTieBreak.ts`）。個人ランキングの POSS はランキング側だけで計算（列定義は保存キーの対象で「-」のまま）。検証は `npm run validate:rank-direction`。**画面だけの変更でキー不変**
+- 392章: **外国籍の人数の条件は3つ**（外国籍の出場人数・外国籍・帰化・アジアの出場人数・最長のオンザコート人数。名前・判定・行は `src/lib/situationalRecords.ts` の `FOREIGN_MEASURE_LABELS`・`matchesForeignCount`・`foreignSituationalGroups`、条件は `conditionalCondition.ts`。出場人数は試合ログの `foreignPlayedCount`・`intlPlayedCount`〔`shared/playedForeignCount.ts`〕）。**保存キーが変わった**。検証は `npm run validate:conditional-situational`
+- 393章: **順位表ページの画像保存**（順位表〔地区順位まとめて／ワイルドカード／全体を選んで保存〕・星取り表・勝敗表・年間スケジュール〔期間を選ぶ欄を足した。62日分まで〕・条件別順位表・順位／勝ち星／勝率／貯金推移〔再生中は保存不可。グラフ内のロゴは `logoDataUrl.ts` で埋め込み〕）。共通の枠は `SavableBlock`、1枚に表が複数あるときの1行目は `ExportScopeLine`＋`ConditionTitle` の `exportScopeHidden`、並び順は `SortableTable` の `onSortChange`。**PC で使う前提**（横に長い表はそのまま横長）。推移の動画保存は調べただけ（391-2章）。**画面だけの変更でキー不変**
+- 394章: **地区ごとの保存**（順位表・勝敗表・推移4種は「保存する範囲」で地区を選ぶ。星取り表は地区ボタンで対象クラブを絞る。画面だけの変更・キー不変）。
+- 395章: **推移グラフの動画（MP4）保存**（4つの推移タブ。canvas に画面と同じ式で描いて MediaRecorder で録画。1本＝1グラフ・速さ3択・最初と最後を止める。`src/lib/trendVideo.ts`・`TrendVideoSaver.tsx`。画面だけ・キー不変）。
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

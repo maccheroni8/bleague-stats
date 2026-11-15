@@ -29,7 +29,11 @@ export function isMultiSeasonScope(scope: string): boolean {
  */
 export function exportHeadingLines(title: string, leagueLabel: string, scope?: string, formerLabel?: string): ExportHeadingLines {
   const labelFor = (range: string) => (formerLabel && isMultiSeasonScope(range) ? formerLabel : leagueLabel);
-  if (scope) return { scope: joinScope(labelFor(scope), scope), name: title };
+  if (scope) {
+    // 見出しの先頭に同じ範囲が書いてあるとき（「2026-27シーズン 順位表」）は、範囲を2行目から外す
+    const rest = title.startsWith(`${scope} `) ? title.slice(scope.length + 1) : title;
+    return { scope: joinScope(labelFor(scope), scope), name: rest };
+  }
   const m = SCOPE_PATTERN.exec(title);
   if (m) return { scope: joinScope(labelFor(m[1]!), m[1]!), name: m[2]! };
   return { scope: leagueLabel, name: title };

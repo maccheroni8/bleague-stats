@@ -99,7 +99,7 @@ import {
 } from "../lib/filterAxes";
 import { periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import { gameHasOvertime } from "../lib/gamePeriods";
-import { isCenturyGame, leadStatusFromLog, marginAtLeast, matchesBothScores, matchesForeignCount, matchesTeamScore } from "../lib/situationalRecords";
+import { isCenturyGame, leadStatusFromLog, marginAtLeast, foreignSituationalGroups, matchesBothScores, matchesTeamScore } from "../lib/situationalRecords";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { TeamDetailPublicMediaScope, TeamDetailPublicLogo, TeamDetailPublicPlayerPhoto } from "../components/TeamDetailPublicMedia";
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
@@ -1848,15 +1848,8 @@ export function buildSituationalRecordGroups(
           }))
         : [],
     },
-    {
-      key: "foreignPlayerCount",
-      label: "自チーム外国籍人数",
-      rows: [0, 1, 2, 3].map((n) => ({
-        key: `own${n}`,
-        label: `${n}人`,
-        predicate: (g: TeamGameLog) => matchesForeignCount(g, "eq", n),
-      })),
-    },
+    // 外国籍の人数（外国籍の出場人数・外国籍・帰化・アジアの出場人数・最長のオンザコート人数。条件別順位表と同じ判定。設計書392章）
+    ...foreignSituationalGroups<TeamGameLog>(["own"]),
     {
       key: "score",
       label: "得点/失点",
@@ -3676,24 +3669,8 @@ export function TeamDetailPage({ season }: { season: string }) {
           }))
         : [],
     },
-    {
-      key: "foreignPlayerCount",
-      label: "自チーム外国籍人数",
-      rows: [0, 1, 2, 3].map((n) => ({
-        key: `own${n}`,
-        label: `${n}人`,
-        predicate: (g: TeamGameLog) => g.foreignPlayerCount === n,
-      })),
-    },
-    {
-      key: "opponentForeignPlayerCount",
-      label: "相手チーム外国籍人数",
-      rows: [0, 1, 2, 3].map((n) => ({
-        key: `opp${n}`,
-        label: `${n}人`,
-        predicate: (g: TeamGameLog) => g.opponentForeignPlayerCount === n,
-      })),
-    },
+    // 外国籍の人数（3つの数え方×自チーム・相手。条件別順位表と同じ判定。設計書392章）
+    ...foreignSituationalGroups<TeamGameLog>(["own", "opp"]),
   ];
   const situationalTeamGroups: TeamSituationalStatsGroup[] = situationalTeamGroupDefs
     .map((group) => ({

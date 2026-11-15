@@ -58,6 +58,7 @@ export function ConditionTitle({
   statConditions,
   exportScope,
   exportNameHidden = false,
+  exportScopeHidden = false,
   exportOmitLabels,
 }: {
   title: string;
@@ -66,6 +67,8 @@ export function ConditionTitle({
   conditions: string[];
   /** 保存画像の見出しから2行目（図の名前）を外す（比較。1行目の範囲と表の間を詰める）。画面の見出しは変えない */
   exportNameHidden?: boolean;
+  /** 保存画像の見出しから1行目（リーグと範囲）を外す。1枚の画像に見出しが複数ある表で、1行目を画像の先頭の ExportScopeLine に1回だけ出すとき */
+  exportScopeHidden?: boolean;
   /** 保存画像の条件の行から外すラベル（比較の「平均」「合計」）。画面の条件の行は変えない */
   exportOmitLabels?: readonly string[];
   section?: boolean;
@@ -99,7 +102,7 @@ export function ConditionTitle({
       {hasClutchTimeLabel(shown) && <span data-clutch-time hidden />}
       <h2 className="export-hide">{renderTitle(title)}</h2>
       <div className="export-only export-heading">
-        <p className="export-heading-scope">{heading.scope}</p>
+        {!exportScopeHidden && <p className="export-heading-scope">{heading.scope}</p>}
         {!exportNameHidden && <h2>{renderTitle(heading.name)}</h2>}
       </div>
       {shown.length > 0 &&
@@ -137,5 +140,19 @@ export function ConditionLine({ conditions }: { conditions: string[] }) {
       {hasClutchTimeLabel(shown) && <span data-clutch-time hidden />}
       {joinLabels(shown)}
     </p>
+  );
+}
+
+/**
+ * 保存画像の先頭に1回だけ出す、見出しの1行目（「B.PREMIER 2026-27シーズン」）。画面には出ない。
+ * 1枚の画像に見出し（ConditionTitle）が複数並ぶときは、各 ConditionTitle に exportScopeHidden を付けてこれを先頭に置く
+ */
+export function ExportScopeLine({ scope }: { scope: string }) {
+  const league = useLeague();
+  const heading = exportHeadingLines("", LEAGUE_LABELS[league], scope, leagueScopeLabel(league, true));
+  return (
+    <div className="export-only export-heading export-heading-solo">
+      <p className="export-heading-scope">{heading.scope}</p>
+    </div>
   );
 }

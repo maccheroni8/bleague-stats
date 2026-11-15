@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { SeasonLink as Link } from "./SeasonLink";
 import { ExternalLinkIcon } from "./ExternalLinkIcon";
 import { StatHeaderLabel } from "./StatHeaderLabel";
@@ -53,6 +53,8 @@ interface SortableTableProps<T> {
   pinnedRows?: T[];
   /** 指定時、先頭に「#」の列を足し、今の並びで上から 1, 2, 3… の通し番号を出す（並べ替え・絞り込みのたびに振り直す。左端に固定。リーグ平均の行は空欄） */
   rowNumbers?: boolean;
+  /** 並び（列の見出しとその向き）が変わったとき、最初の表示のときにも呼ぶ。保存画像のサブタイトルに並び順を出す呼び出し側が使う */
+  onSortChange?: (sort: { key: string; label: string; dir: "asc" | "desc" }) => void;
 }
 
 export function SortableTable<T>({
@@ -70,9 +72,16 @@ export function SortableTable<T>({
   statScope = "player",
   pinnedRows,
   rowNumbers,
+  onSortChange,
 }: SortableTableProps<T>) {
   const [sortKey, setSortKey] = useState(defaultSortKey);
   const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortDir);
+  const sortLabel = columns.find((c) => c.key === sortKey)?.label ?? "";
+  useEffect(() => {
+    onSortChange?.({ key: sortKey, label: sortLabel, dir: sortDir });
+    // 並びが変わったときだけ知らせる（onSortChange の作り直しでは呼ばない）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortKey, sortDir, sortLabel]);
 
   const sortedRows = useMemo(() => {
     const column = columns.find((c) => c.key === sortKey);

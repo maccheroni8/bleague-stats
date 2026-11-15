@@ -44,6 +44,7 @@ import {
   type OnCourtReconstruction,
   type PlayerOnCourtRatings,
 } from "../shared/onCourt.ts";
+import { playedForeignCounts, playedForeignFields, type PlayedForeignCount } from "../shared/playedForeignCount.ts";
 import { benchForeignCounts, on4Feasible, on4RuleApplies } from "../shared/on4Possible.ts";
 import { judgeClutch } from "../shared/clutchTime.ts";
 import { computeForeignPlayerCourtSeconds, foreignCourtSecondsArray, playerForeignOnCourt, type ForeignOverLimitTally, type PlayerForeignOnCourt } from "../shared/foreignOnCourt.ts";
@@ -768,6 +769,8 @@ export async function aggregateSeason(season: string, category: Category = "prem
   const seasonRules = (await readJson<SeasonRules[]>(path.join(DATA_DIR, "season-rules.json"))) ?? [];
   const maxForeignOnCourt = seasonRuleFor(seasonRules, season, category)?.maxForeignOnCourt;
   const foreignOverLimit: ForeignOverLimitTally = { stints: 0, seconds: 0 };
+  /** 出場した外国籍の人数で、区分が分からず数えなかった選手（のべ人数・試合。設計書392章） */
+  const playedUnknownTally = { players: 0, games: new Set<string>() };
   const rawGames = await readAllGames(season, category);
   // 結果だけの試合（ボックススコアが公式に無い試合・不戦勝。schedule.json の resultOnlyGames、DESIGN.md 228章）のうちレギュラーシーズンの分。
   // 勝敗・得失点（teams.json の wins/losses・順位表・星取り表）にだけ数える。スタッツ・試合ログ・ランキングには入れない。生データがある試合は除く
@@ -870,6 +873,14 @@ export async function aggregateSeason(season: string, category: Category = "prem
       ? computeForeignPlayerCourtSeconds(onCourt.lineupStints, (id) => classifyAt(id, game.date), maxForeignOnCourt, foreignOverLimit)
       : new Map<string, Map<number, number>>();
     const foreignPlayerCounts = computeForeignPlayerCounts(foreignPlayerCourtSeconds);
+    // 出場した外国籍・帰化・アジア特別枠の人数（試合の日の登録区分。区分の分からない選手は数えない。設計書392章）
+    const playedCounts = playedForeignCounts([...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores], (id) => classifyAt(id, game.date));
+    for (const c of playedCounts.values()) {
+      if (c.unknown > 0) {
+        playedUnknownTally.players += c.unknown;
+        playedUnknownTally.games.add(game.scheduleKey);
+      }
+    }
     // on4 が可能だった試合（ベンチ入りの人数から。353章）。同時出場の上限が4人のシーズンだけ
     const on4Counts = on4RuleApplies(maxForeignOnCourt) ? benchForeignCounts(game, (id, date) => classifyAt(id, date)) : null;
     // 個人PACE用の在コート区間ポゼッション（DESIGN.md参照）。既存のPACE表示ポリシー
@@ -923,6 +934,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       offensiveFoulCountsByPlayer,
       clutch,
       onCourtMaterials,
+      playedCounts,
     );
     // 選手の On-Court Foreign の人数別の材料（別のファイル player-foreign.json に書く。試合ログを読む画面を重くしないため。DESIGN.md 304章）
     for (const team of onCourtMaterials?.byTeam.values() ?? []) {
@@ -952,6 +964,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       teamRuns,
       onCourtMaterials,
       on4Counts,
+      playedCounts,
     );
     processLineups(game, teamLineups, teamLineupGames, onCourt);
     if (writeTeamStints) collectTeamStints(game, teamStints, onCourt);
@@ -973,6 +986,9 @@ export async function aggregateSeason(season: string, category: Category = "prem
   }
   if (resultOnlyRegular.length > 0) {
     console.log(`[${season}] 結果だけの試合（勝敗にだけ数える）: ${resultOnlyRegular.map((g) => g.scheduleKey).join(", ")}`);
+  }
+  if (playedUnknownTally.players > 0) {
+    console.log(`[${season}] 出場した外国籍の人数: 区分が分からず数えなかった選手 のべ${playedUnknownTally.players}人・${playedUnknownTally.games.size}試合`);
   }
   if (foreignOverLimit.stints > 0) {
     console.log(
@@ -1628,6 +1644,7 @@ function processPlayers(
   offensiveFoulCountsByPlayer: Map<string, OffensiveFoulCounts>,
   clutchByPlayerId: Map<string, number[]>,
   onCourtMaterials: GameOnCourtMaterials | null,
+  playedCounts: Map<string, PlayedForeignCount>,
 ): void {
   const rows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores];
   for (const row of pickTeamRow(rows, 1)) {
@@ -1733,6 +1750,7 @@ function processPlayers(
       pt2nd: secondChanceByPlayer.get(row.PlayerID) ?? 0,
       foreignPlayerCount: foreignPlayerCounts.get(isHome ? game.homeTeam.id : game.awayTeam.id),
       opponentForeignPlayerCount: foreignPlayerCounts.get(opponent.id),
+      ...playedForeignFields(playedCounts, isHome ? game.homeTeam.id : game.awayTeam.id, opponent.id),
       ptsOffTov: ptsOffTovByPlayer.get(row.PlayerID) ?? 0,
       dunks: miscEventsByPlayer.get(row.PlayerID)?.dunks ?? 0,
       basketCounts: miscEventsByPlayer.get(row.PlayerID)?.basketCounts ?? 0,
@@ -1884,6 +1902,7 @@ function processTeams(
   teamRuns: [TeamRun | null, TeamRun | null],
   onCourtMaterials: GameOnCourtMaterials | null,
   on4Counts: ReturnType<typeof benchForeignCounts> | null,
+  playedCounts: Map<string, PlayedForeignCount>,
 ): void {
   const homeRow = pickTeamRow(game.raw.HomeBoxscores, 3)[0];
   const awayRow = pickTeamRow(game.raw.AwayBoxscores, 3)[0];
@@ -2047,6 +2066,7 @@ function processTeams(
     ...runFields(teamRuns[0]),
     foreignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
     opponentForeignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
+    ...playedForeignFields(playedCounts, game.homeTeam.id, game.awayTeam.id),
     ...foreignCourtFields(foreignPlayerCourtSeconds.get(game.homeTeam.id), foreignPlayerCourtSeconds.get(game.awayTeam.id)),
     ...on4Fields(on4Counts, game.homeTeam.id),
     ...teamOnCourtFields(onCourtMaterials, game.homeTeam.id),
@@ -2102,6 +2122,7 @@ function processTeams(
     ...runFields(teamRuns[1]),
     foreignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
     opponentForeignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
+    ...playedForeignFields(playedCounts, game.awayTeam.id, game.homeTeam.id),
     ...foreignCourtFields(foreignPlayerCourtSeconds.get(game.awayTeam.id), foreignPlayerCourtSeconds.get(game.homeTeam.id)),
     ...on4Fields(on4Counts, game.awayTeam.id),
     ...teamOnCourtFields(onCourtMaterials, game.awayTeam.id),

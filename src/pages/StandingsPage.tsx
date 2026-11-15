@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
 import {
@@ -15,7 +15,7 @@ import { ONE_STANDINGS_TAB_REASONS } from "../lib/leagueAvailability";
 import { useAllTeamGameLogs } from "../lib/teamRankingData";
 import { useTrendPlayback, type TrendPlayback } from "../lib/trendPlayback";
 import { SortableTable, type Column } from "../components/SortableTable";
-import { StandingsLineChart, type ChartTeam, type FixedYAxis } from "../components/StandingsLineChart";
+import { StandingsLineChart, fallbackColor, type ChartTeam, type FixedYAxis } from "../components/StandingsLineChart";
 import { AnnualSchedule } from "../components/AnnualSchedule";
 import { enumParam, useUrlState } from "../lib/urlState";
 import { TeamLogo } from "../components/TeamLogo";
@@ -28,8 +28,14 @@ import { teamMultiAxis } from "../lib/filterAxes";
 import { playoffZonePreset } from "../lib/playoffZone";
 import { playoffLineSortValue, playoffLineStatus, playoffLineText, playoffWinLine, type PlayoffWinLine } from "../lib/playoffWinLine";
 import { ConditionalStandingsTable } from "../components/ConditionalStandingsTable";
-import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
-import { clubSelectionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
+import { ConditionLine, ConditionTitle, ExportScopeLine } from "../components/ConditionTitle";
+import { ExportImageButton } from "../components/ExportImageButton";
+import { ExportTarget } from "../components/ExportTarget";
+import { sortOrderLabel } from "../components/SortMark";
+import { SavableBlock } from "../components/SavableBlock";
+import { TrendVideoSaver, type TrendVideoChart } from "../components/TrendVideoSaver";
+import { autoAxis, type TrendVideoTeam } from "../lib/trendVideo";
+import { buildExportFilename, clubSelectionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { formatDecimal, formatPct, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { pendingUpcomingGames } from "../lib/pendingUpcoming";
 import { computeOpponentStrength, type OpponentStrength } from "../lib/opponentStrength";
@@ -62,6 +68,7 @@ import type {
   TeamGameLog,
   UpcomingGameEntry,
 } from "../../shared/types";
+
 
 type StandingsTab =
   | "annual"
@@ -566,7 +573,74 @@ const WIN_PCT_Y_AXIS: FixedYAxis = {
   width: 40,
 };
 
+/** 「保存する範囲」の選択（全地区まとめて／地区ごと／ワイルドカード）。保存画像だけが変わり、画面の表示は変わらない */
+function SaveRangeChoice({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <span className="export-option-group" role="group" aria-label="保存する範囲">
+      <span className="export-option-label">保存する範囲</span>
+      {options.map((o) => (
+        <button key={o.value} type="button" className={value === o.value ? "active" : ""} onClick={() => onChange(o.value)}>
+          {o.label}
+        </button>
+      ))}
+    </span>
+  );
+}
+
+/** 選んだ範囲以外のグラフ・表を保存画像から外すためのクラス（画面では何も変わらない） */
+function hideUnless(selected: string, key: string): string | undefined {
+  return selected !== "all" && selected !== key ? "export-hide" : undefined;
+}
+
+/**
+ * 推移タブ（順位・勝ち星・勝率・貯金）の画像保存の枠。グラフを全部（地区別とワイルドカード）まとめて1枚にする。
+ * 再生中は保存できない（再生が終わると全期間の最後の形で保存する。再生中の途中の形は保存しない）
+ */
+function TrendSaveFrame({
+  name,
+  season,
+  seasonLabel,
+  isAnimating,
+  rangeOptions,
+  range,
+  onRangeChange,
+  children,
+}: {
+  name: string;
+  season: string;
+  seasonLabel: string;
+  isAnimating: boolean;
+  rangeOptions: { value: string; label: string }[];
+  range: string;
+  onRangeChange: (v: string) => void;
+  children: ReactNode;
+}) {
+  const rangeLabel = rangeOptions.find((o) => o.value === range && o.value !== "all")?.label;
+  return (
+    <SavableBlock
+      extraControls={rangeOptions.length > 1 ? <SaveRangeChoice value={range} onChange={onRangeChange} options={rangeOptions} /> : undefined}
+      filename={buildExportFilename([seasonLabel, ...(rangeLabel ? [rangeLabel] : []), name, "レギュラーシーズン"])}
+      baseDate={{ kind: "season", season, gameType: "regular" }}
+      className="export-target-trend"
+      unavailableReason={isAnimating ? "アニメーションの再生が終わると画像として保存できます（保存されるのは全期間の最後の形です）" : undefined}
+    >
+      <ExportScopeLine scope={seasonLabel} />
+      {children}
+    </SavableBlock>
+  );
+}
+
 type TrendTabProps = {
+  season: string;
+  seasonLabel: string;
   /** タブの名前（グラフのタイトルの元。「東地区勝ち星推移」のように地区名・ワイルドカードを前に付ける） */
   name: string;
   data: Record<string, number | string>[];
@@ -574,6 +648,11 @@ type TrendTabProps = {
   fixedYAxis?: FixedYAxis;
   isAnimating: boolean;
   onPlay: () => void;
+  rangeOptions: { value: string; label: string }[];
+  range: string;
+  onRangeChange: (v: string) => void;
+  /** 動画にできるグラフ（全体・地区別・ワイルドカード） */
+  videoCharts: TrendVideoChart[];
   divisionGroups: { division: Division; teams: StandingsTeamSnapshot[] }[];
   teams: StandingsTeamSnapshot[];
   teamColors?: Record<string, TeamColors>;
@@ -604,6 +683,14 @@ function MetricTrendTab(props: TrendTabProps) {
           {props.isAnimating ? "再生中..." : "▶ アニメーション再生"}
         </button>
       </div>
+      <TrendVideoSaver
+        tabName={name}
+        season={props.season}
+        seasonLabel={props.seasonLabel}
+        charts={props.videoCharts}
+        disabledReason={props.isAnimating ? "アニメーションの再生が終わると作れます" : undefined}
+      />
+      <TrendSaveFrame name={name} season={props.season} seasonLabel={props.seasonLabel} isAnimating={props.isAnimating} rangeOptions={props.rangeOptions} range={props.range} onRangeChange={props.onRangeChange}>
       {props.divisionGroups.length === 0 ? (
         <StandingsLineChart
           title={name}
@@ -617,18 +704,20 @@ function MetricTrendTab(props: TrendTabProps) {
       ) : (
         <div className="standings-stack">
           {props.divisionGroups.map((g) => (
-            <StandingsLineChart
-              key={g.division}
-              title={`${DIVISION_LABELS[g.division]}${name}`}
-              data={data}
-              teams={g.teams}
-              height={520}
-              playingConditions={props.conditionsAt}
-              conditions={props.conditions}
-              {...common}
-            />
+            <div key={g.division} className={hideUnless(props.range, g.division)}>
+              <StandingsLineChart
+                title={`${DIVISION_LABELS[g.division]}${name}`}
+                data={data}
+                teams={g.teams}
+                height={520}
+                playingConditions={props.conditionsAt}
+                conditions={props.conditions}
+                {...common}
+              />
+            </div>
           ))}
           {props.wildcardTeams.length > 0 && (
+            <div className={hideUnless(props.range, "wildcard")}>
             <StandingsLineChart
               title={`ワイルドカード${name}`}
               data={wildcardData}
@@ -640,9 +729,11 @@ function MetricTrendTab(props: TrendTabProps) {
               conditions={props.wildcardConditions}
               {...common}
             />
+            </div>
           )}
         </div>
       )}
+      </TrendSaveFrame>
     </div>
   );
 }
@@ -673,7 +764,9 @@ export function StandingsPage({ season }: { season: string }) {
   // シーズンが変わったらチームフィルタの選択状態をリセットする（前シーズンのチーム構成は引き継がない）
   useEffect(() => {
     setH2hSelectedTeamIds(null);
-  }, [season]);
+    setSaveWhich("divisions");
+    setSaveDiv("all");
+  }, [season, league]);
 
   // 順位推移・勝ち星推移・貯金推移タブの「アニメーション再生」。進み具合は1つの値で、グラフが毎フレーム
   // その値からラインの先端とロゴの位置を出す（src/lib/trendPlayback.ts。設計書378章）
@@ -683,6 +776,32 @@ export function StandingsPage({ season }: { season: string }) {
     playback: trendPlayback,
   } = useTrendPlayback(history?.length ?? 0, `${league}:${season}`);
   const playback = isAnimating ? trendPlayback : undefined;
+
+  // 星取り表以外のタブ（勝敗表・推移4種）の「保存する範囲」: all＝全地区まとめて、地区の値、wildcard（推移のみ）
+  const [saveDiv, setSaveDiv] = useState<string>("all");
+  // タブを切り替えたら保存する範囲は「全地区まとめて」に戻す（前のタブの選択が残って何も保存されなくならないように）
+  useEffect(() => {
+    setSaveDiv("all");
+  }, [tab]);
+  // 順位表タブの画像保存: 保存する表（地区順位〔全地区まとめて1枚〕・ワイルドカード順位表・全体順位表）を選ぶ。
+  // 選んだ表を包む保存範囲の要素を、選択に応じてボタンへ渡す（DESIGN.md 393章）
+  const [saveWhich, setSaveWhich] = useState<string>("divisions");
+  const saveWhichRef = useRef(saveWhich);
+  saveWhichRef.current = saveWhich;
+  const saveTargets = useRef<Record<string, HTMLDivElement | null>>({});
+  const saveTargetRef = useMemo(
+    () => ({ get current() { const w = saveWhichRef.current; return saveTargets.current[w.startsWith("div:") ? "divisions" : w] ?? null; } }) as unknown as RefObject<HTMLElement | null>,
+    [],
+  );
+  // 表ごとの今の並び（保存画像のサブタイトルに並び順（「地区順位▲」。381章の sortOrderLabel）を出す）
+  const [sorts, setSorts] = useState<Record<string, string>>({});
+  const sortProps = (key: string) => ({
+    onSortChange: (s: { label: string; dir: "asc" | "desc" }) => {
+      const text = sortOrderLabel(s.label, s.dir === "desc");
+      setSorts((prev) => (prev[key] === text ? prev : { ...prev, [key]: text }));
+    },
+  });
+  // 推移タブの保存（4つのタブ共通）: 全部のグラフを1枚にまとめる
 
   const latest = history && history.length > 0 ? history[history.length - 1]! : null;
   const { gameLogsByTeam: statLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, latest?.teams ?? null, league);
@@ -923,10 +1042,77 @@ export function StandingsPage({ season }: { season: string }) {
         );
   const h2hConditions = composeLabels(gameTypeLabels("regular", null), asOfLabel, h2hClubLabels);
 
+  // 保存する範囲の選択肢（全地区まとめて／各地区／ワイルドカード）
+  const divisionRangeOptions = divisionGroups.map((g) => ({ value: g.division as string, label: DIVISION_LABELS[g.division] }));
+  const trendRangeOptions = [
+    { value: "all", label: divisionGroups.length > 0 ? "全地区まとめて" : "全体" },
+    ...divisionRangeOptions,
+    ...(divisionGroups.length > 0 && wildcardTeams.length > 0 ? [{ value: "wildcard", label: "ワイルドカード" }] : []),
+  ];
+  // 星取り表: 今の絞り込みが1つの地区のチームだけと一致するときは、その地区を選んだ状態として出す
+  const h2hDivisionChoice =
+    h2hSelectedTeamIds === null
+      ? "all"
+      : (divisionGroups.find(
+          (g) => g.teams.length === h2hSelectedTeamIds.size && g.teams.every((t) => h2hSelectedTeamIds.has(t.teamId)),
+        )?.division ?? "all");
+  // 動画にできるグラフ（全体または地区別＋ワイルドカード）。値・軸・色・サブタイトルは画面のグラフと同じもの（設計書395章）
+  const videoTeamsOf = (list: { teamId: string; teamName: string }[]): TrendVideoTeam[] =>
+    list.map((t, i) => ({
+      teamId: t.teamId,
+      label: teamShortName(t.teamId, t.teamName),
+      color: teamColors?.[t.teamId]?.primary ?? fallbackColor(i, list.length),
+    }));
+  const videoCharts = (
+    name: string,
+    kind: "rank" | "metric",
+    allData: Record<string, number | string>[],
+    divData: Record<string, number | string>[],
+    wcData: Record<string, number | string>[],
+    fixed?: FixedYAxis,
+  ): TrendVideoChart[] => {
+    const make = (
+      key: string,
+      label: string,
+      title: string,
+      rows: Record<string, number | string>[],
+      list: { teamId: string; teamName: string }[],
+      rankMax: number,
+      offset: number,
+      connectGaps: boolean,
+      conditionsAt: (playbackIndex?: number) => string[],
+    ): TrendVideoChart => ({
+      key,
+      label,
+      title,
+      rows,
+      teams: videoTeamsOf(list),
+      connectGaps,
+      axis:
+        kind === "rank"
+          ? { min: 1, max: Math.max(rankMax, 2), ticks: Array.from({ length: rankMax }, (_, i) => i + 1), format: (v) => String(v), reversed: true }
+          : fixed
+            ? { min: fixed.domain[0], max: fixed.domain[1], ticks: fixed.ticks, format: fixed.format, reversed: false, referenceLine: fixed.referenceLine }
+            : autoAxis(rows, list.map((t) => t.teamId), (v) => String(v)),
+      subtitleAt: (index) => conditionsAt(index === undefined ? undefined : offset + index).join("／"),
+    });
+    if (divisionGroups.length === 0) return [make("all", "全体", name, allData, teams, teams.length, 0, true, trendConditionsAt)];
+    return [
+      ...divisionGroups.map((g) => make(g.division, DIVISION_LABELS[g.division], `${DIVISION_LABELS[g.division]}${name}`, divData, g.teams, g.teams.length, 0, true, trendConditionsAt)),
+      ...(wildcardTeams.length > 0
+        ? [make("wildcard", "ワイルドカード", `ワイルドカード${name}`, wcData, wildcardTeams, wildcardRankDomainMax, wildcardPlaybackOffset, false, wildcardTrendConditionsAt)]
+        : []),
+    ];
+  };
   // 勝ち星推移・勝率推移・貯金推移で共通の部品に渡すもの（再生・地区別・ワイルドカードの構成は3つで同じ）
   const trendTabShared = {
+    season,
+    seasonLabel,
     isAnimating,
     onPlay: playAnimation,
+    rangeOptions: trendRangeOptions,
+    range: saveDiv,
+    onRangeChange: setSaveDiv,
     divisionGroups,
     teams,
     teamColors: teamColors ?? undefined,
@@ -951,14 +1137,74 @@ export function StandingsPage({ season }: { season: string }) {
 
       {activeTab === "standings" && (
         <div>
+          {/* 画像として保存する表を選ぶ（選んだ表だけを保存する。画面の表は変わらない） */}
+          <div className="savable-bar savable-bar-choice">
+            <span className="export-option-group" role="group" aria-label="保存する表">
+              <span className="export-option-label">保存する表</span>
+              <button type="button" className={saveWhich === "divisions" ? "active" : ""} onClick={() => setSaveWhich("divisions")}>
+                {divisionStandingsGroups.length > 0 ? "地区順位（全地区まとめて）" : "順位表"}
+              </button>
+              {divisionStandingsGroups.map((g) => (
+                <button key={g.division} type="button" className={saveWhich === `div:${g.division}` ? "active" : ""} onClick={() => setSaveWhich(`div:${g.division}`)}>
+                  {DIVISION_LABELS[g.division]}
+                </button>
+              ))}
+              {wildcardStandingsEligible && (
+                <button type="button" className={saveWhich === "wildcard" ? "active" : ""} onClick={() => setSaveWhich("wildcard")}>
+                  ワイルドカード順位表
+                </button>
+              )}
+              {divisionStandingsGroups.length > 0 && (
+                <button
+                  type="button"
+                  className={saveWhich === "overall" ? "active" : ""}
+                  onClick={() => {
+                    setSaveWhich("overall");
+                    setOverallStandingsExpanded(true);
+                  }}
+                >
+                  全体順位表
+                </button>
+              )}
+            </span>
+            {saveWhich === "overall" && !overallStandingsExpanded ? (
+              <span className="savable-reason">「全チームの全体順位表」を開くと保存できます</span>
+            ) : (
+              <ExportImageButton
+                targetRef={saveTargetRef}
+                filename={buildExportFilename([
+                  seasonLabel,
+                  saveWhich === "wildcard"
+                    ? "ワイルドカード順位表"
+                    : saveWhich === "overall"
+                      ? "全体順位表"
+                      : saveWhich.startsWith("div:")
+                        ? `${DIVISION_LABELS[saveWhich.slice(4) as Division]} 順位表`
+                        : "順位表",
+                  asOfLabel,
+                ])}
+                baseDate={{ kind: "season", season, gameType: "regular" }}
+              />
+            )}
+          </div>
+          <ExportTarget
+            ref={(el) => {
+              saveTargets.current.divisions = el;
+            }}
+            className="export-target-standings"
+            baseDate={{ kind: "season", season, gameType: "regular" }}
+          >
+          <ExportScopeLine scope={seasonLabel} />
           <div className="standings-stack">
             {divisionStandingsGroups.length > 0
               ? divisionStandingsGroups.map((g) => (
-                  <div key={g.division}>
+                  <div key={g.division} className={saveWhich.startsWith("div:") && saveWhich !== `div:${g.division}` ? "export-hide" : undefined}>
                     <ConditionTitle
+ exportScope={seasonLabel}
                       section
+                      exportScopeHidden
                       title={`${DIVISION_LABELS[g.division]} 順位表`}
-                      conditions={composeLabels(standingsConditions, "地区内順位")}
+                      conditions={composeLabels(standingsConditions, "地区内順位", sorts[`div:${g.division}`])}
                     />
                     <div className="table-scroll standings-sticky-3">
                       <SortableTable
@@ -970,13 +1216,20 @@ export function StandingsPage({ season }: { season: string }) {
                         defaultSortDir="asc"
                         linkTo={(t) => `/teams/${t.teamId}`}
                         rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
+                        {...sortProps(`div:${g.division}`)}
                       />
                     </div>
                   </div>
                 ))
               : (
                   <div>
-                    <ConditionTitle section title={`${seasonLabel} 順位表`} conditions={standingsConditions} />
+                    <ConditionTitle
+ exportScope={seasonLabel}
+                      section
+                      exportScopeHidden
+                      title={`${seasonLabel} 順位表`}
+                      conditions={composeLabels(standingsConditions, sorts.all)}
+                    />
                     <div className="table-scroll standings-sticky-2">
                       <SortableTable
                         statScope="team"
@@ -987,42 +1240,68 @@ export function StandingsPage({ season }: { season: string }) {
                         defaultSortDir="asc"
                         linkTo={(t) => `/teams/${t.teamId}`}
                         rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
+                        {...sortProps("all")}
                       />
                     </div>
                   </div>
                 )}
           </div>
+          </ExportTarget>
 
           {playoffRace && <RaceLegend race={playoffRace} />}
           <GlossaryNote anchor={GLOSSARY_ANCHORS.standingsTable} label="順位表の対戦相手の強さ" />
 
           {wildcardApplicable && (
             <>
-              <ConditionTitle
-                section
-                title="ワイルドカード順位表"
-                conditions={composeLabels(
-                  standingsConditions,
-                  wildcardPoolLabel,
-                  `上位${wcFormat?.wildcardSlots ?? 0}クラブがワイルドカード`,
-                  "ワイルドカード順位順",
-                )}
-              />
               {wildcardStandingsEligible ? (
-                <div className="table-scroll standings-sticky-3">
-                  <SortableTable
-                    statScope="team"
-                    columns={withPlayoffLineColumn(wildcardStandingsColumns, winLine)}
-                    rows={wildcardStandingsRows}
-                    rowKey={(t) => t.teamId}
-                    defaultSortKey="wildcardRank"
-                    defaultSortDir="asc"
-                    linkTo={(t) => `/teams/${t.teamId}`}
-                    rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
+                <ExportTarget
+                  ref={(el) => {
+                    saveTargets.current.wildcard = el;
+                  }}
+                  className="export-target-standings"
+                  baseDate={{ kind: "season", season, gameType: "regular" }}
+                >
+                  <ConditionTitle
+                    section
+                    exportScope={seasonLabel}
+                    title="ワイルドカード順位表"
+                    conditions={composeLabels(
+                      standingsConditions,
+                      wildcardPoolLabel,
+                      `上位${wcFormat?.wildcardSlots ?? 0}クラブがワイルドカード`,
+                      "ワイルドカード順位順",
+                      sorts.wildcard,
+                    )}
                   />
-                </div>
+                  <div className="table-scroll standings-sticky-3">
+                    <SortableTable
+                      statScope="team"
+                      columns={withPlayoffLineColumn(wildcardStandingsColumns, winLine)}
+                      rows={wildcardStandingsRows}
+                      rowKey={(t) => t.teamId}
+                      defaultSortKey="wildcardRank"
+                      defaultSortDir="asc"
+                      linkTo={(t) => `/teams/${t.teamId}`}
+                      rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
+                      {...sortProps("wildcard")}
+                    />
+                  </div>
+                </ExportTarget>
               ) : (
-                <p className="empty-message">シーズン終盤（2月のバイウィーク明け以降）に表示されます。</p>
+                <>
+                  <ConditionTitle
+ exportScope={seasonLabel}
+                    section
+                    title="ワイルドカード順位表"
+                    conditions={composeLabels(
+                      standingsConditions,
+                      wildcardPoolLabel,
+                      `上位${wcFormat?.wildcardSlots ?? 0}クラブがワイルドカード`,
+                      "ワイルドカード順位順",
+                    )}
+                  />
+                  <p className="empty-message">シーズン終盤（2月のバイウィーク明け以降）に表示されます。</p>
+                </>
               )}
             </>
           )}
@@ -1036,25 +1315,36 @@ export function StandingsPage({ season }: { season: string }) {
                 {overallStandingsExpanded ? "▼ " : "▶ "}
                 全チームの全体順位表
               </h2>
-              {overallStandingsExpanded && <ConditionLine conditions={composeLabels(standingsConditions, "全クラブ")} />}
               {overallStandingsExpanded && (
-                <p className="standings-tab-note">
-                  公式の順位ではなく、全クラブを1つの表に並べた参考の並びです（公式の順位は、各地区の順位とワイルドカードの順位です）。
-                </p>
-              )}
-              {overallStandingsExpanded && (
-                <div className="table-scroll standings-sticky-3">
-                  <SortableTable
-                    statScope="team"
-                    columns={withPlayoffLineColumn(allStandingsColumns, winLine)}
-                    rows={allStandingsRows}
-                    rowKey={(t) => t.teamId}
-                    defaultSortKey="rank"
-                    defaultSortDir="asc"
-                    linkTo={(t) => `/teams/${t.teamId}`}
-                    rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
+                <ExportTarget
+                  ref={(el) => {
+                    saveTargets.current.overall = el;
+                  }}
+                  className="export-target-standings"
+                  baseDate={{ kind: "season", season, gameType: "regular" }}
+                >
+                  <ConditionTitle
+                    exportScope={seasonLabel}
+                    title="全体順位表"
+                    conditions={composeLabels(standingsConditions, "全クラブ", "公式の順位ではなく参考の並び", sorts.overall)}
                   />
-                </div>
+                  <p className="standings-tab-note export-hide">
+                    公式の順位ではなく、全クラブを1つの表に並べた参考の並びです（公式の順位は、各地区の順位とワイルドカードの順位です）。
+                  </p>
+                  <div className="table-scroll standings-sticky-3">
+                    <SortableTable
+                      statScope="team"
+                      columns={withPlayoffLineColumn(allStandingsColumns, winLine)}
+                      rows={allStandingsRows}
+                      rowKey={(t) => t.teamId}
+                      defaultSortKey="rank"
+                      defaultSortDir="asc"
+                      linkTo={(t) => `/teams/${t.teamId}`}
+                      rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
+                      {...sortProps("overall")}
+                    />
+                  </div>
+                </ExportTarget>
               )}
             </>
           )}
@@ -1075,6 +1365,7 @@ export function StandingsPage({ season }: { season: string }) {
               {magicGroups.map((g) => (
                 <div key={g.division}>
                   <ConditionTitle
+ exportScope={seasonLabel}
                     section
                     title={`${DIVISION_LABELS[g.division]} マジックナンバー`}
                     conditions={composeLabels(standingsConditions, "残り全勝/全敗で比較する安全側の判定")}
@@ -1125,12 +1416,30 @@ export function StandingsPage({ season }: { season: string }) {
               <p className="empty-message">選択したチームがありません</p>
             ) : (
               <>
-              <ConditionTitle title={`${seasonLabel} 星取り表`} conditions={h2hConditions} />
-              <HeadToHeadMatrix
-                rows={filteredHeadToHead}
-                teamColors={teamColors ?? undefined}
-                remainingGames={h2hRemainingGames}
-              />
+              <SavableBlock
+                filename={buildExportFilename([seasonLabel, ...(h2hDivisionChoice !== "all" ? [DIVISION_LABELS[h2hDivisionChoice as Division]] : []), "星取り表", ...h2hConditions])}
+                baseDate={{ kind: "season", season, gameType: "regular" }}
+                className="export-target-wide-table"
+                extraControls={
+                  divisionGroups.length > 0 ? (
+                    <SaveRangeChoice
+                      value={h2hDivisionChoice}
+                      onChange={(v) =>
+                        setH2hSelectedTeamIds(v === "all" ? null : new Set(divisionGroups.find((g) => g.division === v)?.teams.map((t) => t.teamId) ?? []))
+                      }
+                      options={[{ value: "all", label: "全チーム" }, ...divisionRangeOptions]}
+                    />
+                  ) : undefined
+                }
+              >
+                <ConditionTitle
+ exportScope={seasonLabel} title={h2hDivisionChoice !== "all" ? `${DIVISION_LABELS[h2hDivisionChoice as Division]} 星取り表` : `${seasonLabel} 星取り表`} conditions={h2hConditions} />
+                <HeadToHeadMatrix
+                  rows={filteredHeadToHead}
+                  teamColors={teamColors ?? undefined}
+                  remainingGames={h2hRemainingGames}
+                />
+              </SavableBlock>
               </>
             )}
           </>
@@ -1141,15 +1450,32 @@ export function StandingsPage({ season }: { season: string }) {
           <p className="loading">読み込み中...</p>
         ) : (
           <div className="standings-tab-panel">
+            <SavableBlock
+              filename={buildExportFilename([seasonLabel, ...(saveDiv !== "all" ? [DIVISION_LABELS[saveDiv as Division]] : []), "勝敗表", asOfLabel])}
+              baseDate={{ kind: "season", season, gameType: "regular" }}
+              className="export-target-wide-table"
+              extraControls={
+                divisionGroups.length > 0 ? (
+                  <SaveRangeChoice
+                    value={saveDiv}
+                    onChange={setSaveDiv}
+                    options={[{ value: "all", label: "全地区まとめて" }, ...divisionRangeOptions]}
+                  />
+                ) : undefined
+              }
+            >
+            <ExportScopeLine scope={seasonLabel} />
             <WinLossLegend season={season} clinchTypes={clinchTypesForSeason(season).filter((c) => league === "premier" || c !== "homeCourt")} />
             <div className="standings-stack">
               {(divisionStandingsGroups.length > 0
                 ? divisionStandingsGroups.map((g) => ({ key: g.division, title: `${DIVISION_LABELS[g.division]} 勝敗表`, rows: g.rows }))
                 : [{ key: "all", title: `${seasonLabel} 勝敗表`, rows: allStandingsRows }]
               ).map((g) => (
-                <div key={g.key}>
+                <div key={g.key} className={hideUnless(saveDiv, g.key)}>
                   <ConditionTitle
+ exportScope={seasonLabel}
                     section
+                    exportScopeHidden
                     title={g.title}
                     conditions={composeLabels(standingsConditions, "順位順", "第何試合かは日付順")}
                   />
@@ -1172,6 +1498,7 @@ export function StandingsPage({ season }: { season: string }) {
                 </div>
               ))}
             </div>
+            </SavableBlock>
           </div>
         ))}
 
@@ -1195,6 +1522,14 @@ export function StandingsPage({ season }: { season: string }) {
               {isAnimating ? "再生中..." : "▶ アニメーション再生"}
             </button>
           </div>
+          <TrendVideoSaver
+            tabName="順位推移"
+            season={season}
+            seasonLabel={seasonLabel}
+            charts={videoCharts("順位推移", "rank", rankData, divisionRankData, wildcardRankData)}
+            disabledReason={isAnimating ? "アニメーションの再生が終わると作れます" : undefined}
+          />
+          <TrendSaveFrame name="順位推移" season={season} seasonLabel={seasonLabel} isAnimating={isAnimating} rangeOptions={trendRangeOptions} range={saveDiv} onRangeChange={setSaveDiv}>
           {divisionGroups.length === 0 ? (
             <StandingsLineChart
               title="順位推移"
@@ -1210,20 +1545,22 @@ export function StandingsPage({ season }: { season: string }) {
           ) : (
             <div className="standings-stack">
               {divisionGroups.map((g) => (
-                <StandingsLineChart
-                  key={g.division}
-                  title={`${DIVISION_LABELS[g.division]}順位推移`}
-                  data={divisionRankData}
-                  teams={g.teams}
-                  reversed
-                  height={640}
-                  teamColors={teamColors ?? undefined}
-                  playback={playback}
-                  playingConditions={trendConditionsAt}
-                  conditions={trendConditions}
-                />
+                <div key={g.division} className={hideUnless(saveDiv, g.division)}>
+                  <StandingsLineChart
+                    title={`${DIVISION_LABELS[g.division]}順位推移`}
+                    data={divisionRankData}
+                    teams={g.teams}
+                    reversed
+                    height={640}
+                    teamColors={teamColors ?? undefined}
+                    playback={playback}
+                    playingConditions={trendConditionsAt}
+                    conditions={trendConditions}
+                  />
+                </div>
               ))}
               {wildcardTeams.length > 0 && (
+                <div className={hideUnless(saveDiv, "wildcard")}>
                 <StandingsLineChart
                   title="ワイルドカード順位推移"
                   data={wildcardRankData}
@@ -1238,19 +1575,22 @@ export function StandingsPage({ season }: { season: string }) {
                   rankDomainMax={wildcardRankDomainMax}
                   conditions={wildcardTrendConditions}
                 />
+                </div>
               )}
             </div>
           )}
+          </TrendSaveFrame>
         </div>
       )}
 
       {activeTab === "winsTrend" && (
-        <MetricTrendTab {...trendTabShared} name="勝ち星推移" data={winsData} wildcardData={wildcardWinsData} />
+        <MetricTrendTab {...trendTabShared} videoCharts={videoCharts("勝ち星推移", "metric", winsData, winsData, wildcardWinsData)} name="勝ち星推移" data={winsData} wildcardData={wildcardWinsData} />
       )}
 
       {activeTab === "winPctTrend" && (
         <MetricTrendTab
           {...trendTabShared}
+          videoCharts={videoCharts("勝率推移", "metric", winPctData, winPctData, wildcardWinPctData, WIN_PCT_Y_AXIS)}
           name="勝率推移"
           data={winPctData}
           wildcardData={wildcardWinPctData}
@@ -1259,7 +1599,7 @@ export function StandingsPage({ season }: { season: string }) {
       )}
 
       {activeTab === "gamesAboveTrend" && (
-        <MetricTrendTab {...trendTabShared} name="貯金推移" data={gamesAboveData} wildcardData={wildcardGamesAboveData} />
+        <MetricTrendTab {...trendTabShared} videoCharts={videoCharts("貯金推移", "metric", gamesAboveData, gamesAboveData, wildcardGamesAboveData)} name="貯金推移" data={gamesAboveData} wildcardData={wildcardGamesAboveData} />
       )}
     </div>
   );
