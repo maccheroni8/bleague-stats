@@ -16,7 +16,7 @@ import { NATURALIZED_ASIA_LABEL } from "../lib/statNames";
 import { makeClassifier } from "../../shared/registration";
 import { loadSeasonRegistrations } from "../lib/registrationScope";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, ShotTypeBreakdown } from "../../shared/types";
-import { gameFlowFor } from "../lib/gameFlowForGame";
+import { bigRunMarks, gameFlowFor } from "../lib/gameFlowForGame";
 import { KeyStatsSection } from "../components/KeyStatsSection";
 import { GameImagesButton } from "../components/GameImagesButton";
 import { GameMdButton } from "../components/GameMdButton";
@@ -268,6 +268,7 @@ interface GameLeaderStatDef {
 }
 
 const GAME_LEADER_STAT_DEFS: GameLeaderStatDef[] = [
+  { key: "min", label: "プレータイム（MIN）", value: (r) => playTimeToSeconds(r.PlayTime), format: (r) => r.PlayTime },
   { key: "pts", label: "PTS", value: (r) => r.Point, format: (r) => String(r.Point) },
   { key: "oreb", label: "OR", value: (r) => r.RB_OFF, format: (r) => String(r.RB_OFF) },
   { key: "dreb", label: "DR", value: (r) => r.RB_DEF, format: (r) => String(r.RB_DEF) },
@@ -438,6 +439,7 @@ export function GameDetailPage({ season }: { season: string }) {
     periods,
   );
   const timeoutMarks = buildTimeoutMarks(game.raw.PlayByPlays);
+  const runMarks = bigRunMarks(game);
   const periodBoundaries = buildPeriodBoundaries(periods);
 
   let homeStarters: SubstitutionRow[] = [];
@@ -714,6 +716,7 @@ export function GameDetailPage({ season }: { season: string }) {
                 awayShortName={teamShortName(game.awayTeam.id, game.awayTeam.name)}
                 homeColor={homeColor}
                 awayColor={awayColor}
+                runs={runMarks}
               />
             }
           />
@@ -1303,7 +1306,7 @@ function GameLeadersMatchup({
               <LeaderMatchupPlayer leader={homeLeader} displayName={displayName} season={season} />
               <span className="leader-matchup-value">{homeLeader ? def.format(homeLeader.player) : "—"}</span>
             </div>
-            <span className="leader-matchup-label">{def.label}</span>
+            <span className="leader-matchup-label">{narrow && def.key === "min" ? "MIN" : def.label}</span>
             <div className="leader-matchup-side leader-matchup-side-away">
               <span className="leader-matchup-value">{awayLeader ? def.format(awayLeader.player) : "—"}</span>
               <LeaderMatchupPlayer leader={awayLeader} displayName={displayName} season={season} />

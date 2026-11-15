@@ -19,3 +19,20 @@ export function gameFlowFor(game: StoredGame): GameFlowPair | null {
   const [homeRun, awayRun] = maxRuns(scoringSequence(game.raw.PlayByPlays).events);
   return { homeLead: margins.homeMaxLead, awayLead: margins.awayMaxLead, homeRun: homeRun?.points ?? 0, awayRun: awayRun?.points ?? 0 };
 }
+
+export interface BigRunMark {
+  /** 1=ホーム、2=アウェイ */
+  side: 1 | 2;
+  points: number;
+  fromSec: number;
+  toSec: number;
+}
+
+/** 試合詳細の画像の2枚目と同じ「大きなラン」（各チームの最大のラン。点数が0なら無し） */
+export function bigRunMarks(game: StoredGame): BigRunMark[] {
+  const [homeRun, awayRun] = maxRuns(scoringSequence(game.raw.PlayByPlays).events);
+  const out: BigRunMark[] = [];
+  if (homeRun && homeRun.points > 0) out.push({ side: 1, points: homeRun.points, fromSec: homeRun.fromSec, toSec: homeRun.toSec });
+  if (awayRun && awayRun.points > 0) out.push({ side: 2, points: awayRun.points, fromSec: awayRun.fromSec, toSec: awayRun.toSec });
+  return out;
+}

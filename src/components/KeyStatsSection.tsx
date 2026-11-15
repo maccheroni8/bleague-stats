@@ -97,12 +97,14 @@ export function KeyStatsSection({
       <section className="key-stats-card">
         <h3>シュート%</h3>
         <div className="shooting-donut-row">
-          <ShootingDonut label="FG%" value={fgPct(homeTotal)} color={home} />
+          <ShootingDonut label="FG%" value={fgPct(homeTotal)} color={home} detail={`${homeTotal.PT2M + homeTotal.PT3M}/${homeFga}`} />
           <div className="shooting-donut-divider" />
-          <ShootingDonut label="FG%" value={fgPct(awayTotal)} color={away} />
+          <ShootingDonut label="FG%" value={fgPct(awayTotal)} color={away} detail={`${awayTotal.PT2M + awayTotal.PT3M}/${awayFga}`} />
         </div>
         <OpposedBarRow
           label="2P%"
+          homeDetail={`${homeTotal.PT2M}/${homeTotal.PT2A}`}
+          awayDetail={`${awayTotal.PT2M}/${awayTotal.PT2A}`}
           homeValue={safeDiv(homeTotal.PT2M, homeTotal.PT2A) * 100}
           awayValue={safeDiv(awayTotal.PT2M, awayTotal.PT2A) * 100}
           homeColor={home}
@@ -112,6 +114,8 @@ export function KeyStatsSection({
         />
         <OpposedBarRow
           label="3P%"
+          homeDetail={`${homeTotal.PT3M}/${homeTotal.PT3A}`}
+          awayDetail={`${awayTotal.PT3M}/${awayTotal.PT3A}`}
           homeValue={safeDiv(homeTotal.PT3M, homeTotal.PT3A) * 100}
           awayValue={safeDiv(awayTotal.PT3M, awayTotal.PT3A) * 100}
           homeColor={home}
@@ -121,6 +125,8 @@ export function KeyStatsSection({
         />
         <OpposedBarRow
           label="FT%"
+          homeDetail={`${homeTotal.FTM}/${homeTotal.FTA}`}
+          awayDetail={`${awayTotal.FTM}/${awayTotal.FTA}`}
           homeValue={safeDiv(homeTotal.FTM, homeTotal.FTA) * 100}
           awayValue={safeDiv(awayTotal.FTM, awayTotal.FTA) * 100}
           homeColor={home}

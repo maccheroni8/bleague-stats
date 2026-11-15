@@ -6,13 +6,15 @@ interface ShootingDonutProps {
   value: number;
   color: string;
   size?: number;
+  /** 割合の上に半分ほどの大きさで出す「21/40」（成功数/試投数） */
+  detail?: string;
 }
 
 /** バー・数値ボックスと太さを揃える円環の幅(px)。OpposedBarのトラック高さ(22px)と一致させる */
 const RING_THICKNESS = 22;
 
 /** FG%等を円環グラフ＋中央数値で表示する。塗りつぶし部分がvalue、残りはトラック色 */
-export function ShootingDonut({ label, value, color, size = 120 }: ShootingDonutProps) {
+export function ShootingDonut({ label, value, color, size = 120, detail }: ShootingDonutProps) {
   const clamped = Math.max(0, Math.min(100, value));
   const data = [
     { key: "filled", value: clamped },
@@ -41,6 +43,7 @@ export function ShootingDonut({ label, value, color, size = 120 }: ShootingDonut
         </PieChart>
       </ResponsiveContainer>
       <div className="shooting-donut-center">
+        {detail && <span className="shooting-donut-made">{detail}</span>}
         <span className="shooting-donut-value">{clamped.toFixed(2)}</span>
         <span className="shooting-donut-label">{label}</span>
       </div>

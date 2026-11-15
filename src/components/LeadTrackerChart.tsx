@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { useMediaQuery } from "../lib/useMediaQuery";
-import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import type { BigRunMark } from "../lib/gameFlowForGame";
 import type { PeriodBoundary, ScorePoint, TimeoutMark } from "../lib/leadTracker";
 
 interface LeadTrackerChartProps {
@@ -17,6 +18,8 @@ interface LeadTrackerChartProps {
   homeColor?: string;
   awayColor?: string;
   height?: number;
+  /** 大きなラン（画像の2枚目と同じ判定）。そのチームの色の薄い帯と「+12」を描く */
+  runs?: BigRunMark[];
   /**
    * 出場交代バーの下に組み込むとき（SubstitutionBarChartのleadTracker）に指定する。枠・余白を持たず、
    * Y軸の幅を出場交代バーの選手名欄の幅（embeddedYAxisWidth）に合わせ、左右の余白を0にして
@@ -43,6 +46,7 @@ export function LeadTrackerChart({
   homeColor,
   awayColor,
   height = 280,
+  runs = [],
   embedded = false,
   embeddedYAxisWidth = 150,
 }: LeadTrackerChartProps) {
@@ -138,6 +142,21 @@ export function LeadTrackerChart({
               />
             ),
           )}
+          {runs.map((r) => {
+            const color = r.side === 1 ? homeStroke : awayStroke;
+            return (
+              <ReferenceArea
+                key={`run-${r.side}`}
+                x1={r.fromSec}
+                x2={r.toSec}
+                fill={color}
+                fillOpacity={0.14}
+                stroke="none"
+                ifOverflow="visible"
+                label={{ value: `+${r.points}`, position: r.side === 1 ? "insideTop" : "insideBottom", fontSize: 11, fontWeight: 700, fill: "var(--fg)", fillOpacity: 0.7 }}
+              />
+            );
+          })}
           <Area
             type="stepAfter"
             dataKey="diff"
