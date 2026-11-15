@@ -27,6 +27,52 @@ function normalizeRankLabel(label: string): string {
   return label.toLowerCase().replace(/\s+/g, "");
 }
 
+/** 順位の色を付ける範囲（上位・下位それぞれ何位まで。チーム詳細のチームスタッツ。DESIGN.md 406章） */
+export const TEAM_RANK_TIER_SIZE = 3;
+
+/** チーム1つの順位。tier＝上位3位以内（top）・下位3位以内（bottom）・それ以外（null）。total＝順位を付けたチーム数 */
+export interface TeamRankResult {
+  rank: number;
+  total: number;
+  tier: "top" | "bottom" | null;
+}
+
+/**
+ * 全チームの順位（teamId → 順位・上位／下位の別）。ランキングのチーム・シーズン成績（RankedList + noGamesRanking）と同じ並べ方
+ * （良い方が上位・表示の文字が同じなら同じ順位・次は飛ばす）。良し悪しなしの項目は null（順位も色も付けない）。
+ * 試合が0・値の無い（「-」）チームは順位に入れない。下位は、いちばん悪い方から数えた順位（同じ値は同じ順位）が3位以内。
+ * 上位と下位が重なるほどチームが少ないとき（6チーム以下）は色を付けない
+ */
+export function teamRanksOf(
+  rows: readonly AllTeamsRow[],
+  column: Column<AllTeamsRow>,
+  perspective: TeamPerspective,
+): Map<string, TeamRankResult> | null {
+  const direction = rankDirectionOf(column.key, perspective);
+  if (direction === "neutral") return null;
+  const higherIsBetter = direction !== "lower";
+  const value = (r: AllTeamsRow) => Number(column.sortValue(r));
+  const format = (r: AllTeamsRow) => (column.format ? column.format(r) : String(column.sortValue(r)));
+  const unranked = (r: AllTeamsRow) =>
+    r.gamesPlayed === 0 ||
+    Number.isNaN(value(r)) ||
+    format(r) === "-" ||
+    (isPaint2Key(column.key) && !paintRankable(paintOf(r.totals), column.key, perspective));
+  const ranked = rows.filter((r) => !unranked(r));
+  const best = [...ranked].sort((a, b) => (higherIsBetter ? value(b) - value(a) : value(a) - value(b)));
+  const fromTop = rankPositions(best.map(format));
+  const fromBottom = rankPositions([...best].reverse().map(format));
+  const total = best.length;
+  const out = new Map<string, TeamRankResult>();
+  best.forEach((r, i) => {
+    const rank = fromTop[i]!;
+    const bottomRank = fromBottom[total - 1 - i]!;
+    const tier = total <= TEAM_RANK_TIER_SIZE * 2 ? null : rank <= TEAM_RANK_TIER_SIZE ? "top" : bottomRank <= TEAM_RANK_TIER_SIZE ? "bottom" : null;
+    out.set(r.team.teamId, { rank, total, tier });
+  });
+  return out;
+}
+
 /** チームの順位。ランキングのチーム・シーズン成績（RankedList + noGamesRanking）と同じ。良し悪しなしの項目・値の無いチームは null */
 export function teamRankOf(
   rows: readonly AllTeamsRow[],
@@ -34,15 +80,5 @@ export function teamRankOf(
   perspective: TeamPerspective,
   teamId: string,
 ): number | null {
-  if (rankDirectionOf(column.key, perspective) === "neutral") return null;
-  const higherIsBetter = rankDirectionOf(column.key, perspective) !== "lower";
-  const value = (r: AllTeamsRow) => Number(column.sortValue(r));
-  const format = (r: AllTeamsRow) => (column.format ? column.format(r) : String(column.sortValue(r)));
-  const unranked = (r: AllTeamsRow) =>
-    r.gamesPlayed === 0 || Number.isNaN(value(r)) || (isPaint2Key(column.key) && !paintRankable(paintOf(r.totals), column.key, perspective));
-  const ranked = rows.filter((r) => !unranked(r));
-  const sorted = [...ranked].sort((a, b) => (higherIsBetter ? value(b) - value(a) : value(a) - value(b)));
-  const ranks = rankPositions(sorted.map(format));
-  const at = sorted.findIndex((r) => r.team.teamId === teamId);
-  return at < 0 || format(sorted[at]!) === "-" ? null : ranks[at]!;
+  return teamRanksOf(rows, column, perspective)?.get(teamId)?.rank ?? null;
 }

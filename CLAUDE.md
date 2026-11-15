@@ -192,6 +192,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 404章: **比較ページの順位**（値の下に「3位」。チームはランキング（チーム・シーズン成績）と同じ `useTeamSeasonRanking` を全チームに掛けて出す。選手は選手 md と同じ `buildRankLines` で20位以内だけ・出場率が足りない選手は「◯位相当」・追加の基準に届かないときは出さない。`src/lib/compareRank.ts`・`playerCompareRank.ts`。「順位を表示」URL `rk=0`。**画面だけの変更でキー不変**）
 - 405章: 比較ページの「順位を表示」はチーム／個人タブの行の右端。保存の窓で Traditional〜Scoring と「4枚まとめて」を選べる（選んだタブへ窓の後ろで切り替えて保存し、元に戻す。`ExportChoice.activate`・`ExportAllChoice`。iPhone は複数枚を続けて出す）。見出しの下の条件の行・ファイル名に「Advancedタブ」。**画面だけの変更でキー不変**
 - 406章: **ランキング（チーム・シーズン成績）に、比較ページにあってランキングに無かった項目を足した**（Traditional＝BSR・EFF、Misc＝OFF FOUL・CHARGE・LIVETOV・LIVE TOV%・登録区分別の得点4つ〔Scoring から移した〕、Scoring＝%外国籍 PTS・%帰化・アジア特別枠 PTS・%3P・%PoutP・%FT・%OPA。列の式は `teamStatsColumns.ts`、並びは `teamSeasonRanking.ts` の `buildTeamCategoryColumns`、向きは `rankDirection.ts`）。DEADTOV 系は足していない（試合ログの分類が違い、足すとキーが変わる）。EFF は比較の表示値と少し違う（式と公式の合計）。検証は `npm run validate:team-rank-columns`。**画面だけの変更でキー不変**
+- 407章: **チーム詳細のチームスタッツに、リーグ内の順位と上位3位・下位3位の色**（シーズン別成績の Traditional〜Scoring〔登録区分の行・Q別も〕と Q別タブ。`TeamRankScope`〔`src/components/TeamRankScope.tsx`〕が `useTeamSeasonRanking` を行の条件で掛け、`teamRanksOf`〔`compareRank.ts`〕で順位と色を出す。「順位を表示」・良し悪しなしは順位も色も無し・色は `--rank-top-bg`・`--rank-bottom-bg`）。Shooting・Forced TOV などは未対応。検証は `npm run validate:team-detail-rank`。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

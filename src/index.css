@@ -11,6 +11,9 @@
      テーマに関わらず常に白系で固定する（ダークモードで--bgに揃えると、ロゴの
      背景が黒くなり見えづらくなるため） */
   --media-bg: #ffffff;
+  /* チーム詳細の順位の色（上位3位は緑系・下位3位は赤系。控えめな薄い色） */
+  --rank-top-bg: rgba(46, 158, 91, 0.2);
+  --rank-bottom-bg: rgba(214, 69, 80, 0.17);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,6 +26,8 @@
     --accent: #ff5c72;
     --row-hover: #1f2226;
     --header-bg: #1c1e22;
+    --rank-top-bg: rgba(66, 190, 120, 0.26);
+    --rank-bottom-bg: rgba(240, 98, 110, 0.24);
   }
 }
 
@@ -35,6 +40,8 @@
   --accent: #ff5c72;
   --row-hover: #1f2226;
   --header-bg: #1c1e22;
+  --rank-top-bg: rgba(66, 190, 120, 0.26);
+  --rank-bottom-bg: rgba(240, 98, 110, 0.24);
 }
 
 :root[data-theme="light"] {
@@ -8247,6 +8254,19 @@ table.sortable-table.lineup-search-table tbody th {
 .compare-mode-row .compare-rank-toggle input {
   width: 18px;
   height: 18px;
+}
+
+/* チーム詳細のチームスタッツ: 順位が上位3位・下位3位のマスの色 */
+.stats-table td.rank-tier-top {
+  background: var(--rank-top-bg);
+}
+
+.stats-table td.rank-tier-bottom {
+  background: var(--rank-bottom-bg);
+}
+
+.tab-bar-with-toggle > .compare-rank-toggle {
+  margin-left: auto;
 }
 
 .compare-rank-toggle {

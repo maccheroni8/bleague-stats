@@ -264,9 +264,10 @@ import { FORCED_TURNOVER_COLUMNS } from "../lib/forcedTurnoverColumns";
 import { categoryNeedsYahoo, type OpponentSplitCategory } from "../lib/opponentSplit";
 import { useClassSplitSources } from "../lib/teamClassSplitLoad";
 import { JAPANESE_DEEMED_NOTE, splitClassificationSeason } from "../lib/classificationFilter";
-import { hasUnclassifiedRows } from "../lib/teamClassSplit";
+import { hasUnclassifiedRows, SPLIT_CLASS_LABELS } from "../lib/teamClassSplit";
 import { buildSeasonClassRow, classRowLabel, seasonClassFormatters, seasonSplitClasses } from "../lib/teamSeasonClassSplit";
 import { buildSeasonPeriodRow, seasonPeriodCell, seasonPeriodFormatters, unavailableSeasonPeriodLabels, useTeamPeriodSources } from "../lib/teamSeasonPeriod";
+import { TeamRankScope, TeamRankText, rankTierClass, type TeamRankLookup } from "../components/TeamRankScope";
 import { buildTeamPeriodRowValues, indexUnavailableKeys, withIndexUnavailableColumns } from "../lib/teamSituationalPeriod";
 import {
   attemptsFirst,
@@ -3031,6 +3032,8 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 「シーズン別成績」の自チーム/opp/+/-トグル（Phase H8-2）。「チームスタッツ」「日程結果」
   // タブと同じTeamPerspective型・同じ3値切り替えの仕組みを再利用する
   const [seasonBoxPerspective, setSeasonBoxPerspective] = usePageState<TeamPerspective>(pk("seasonBoxPerspective"), "own");
+  // 数字の下に順位を出すか（チームスタッツタブの表。最初は出す）
+  const [showTeamRank, setShowTeamRank] = usePageState<boolean>(pk("showTeamRank"), true);
   // 「シチュエーション別成績」（チーム版）の平均/合計トグル
   const [situationalTeamDisplayMode, setSituationalTeamDisplayMode] = usePageState<SeasonDisplayMode>(pk("situationalTeamDisplayMode"), "perGame");
   // 「シューティング」セクション用: Q別/前後半選択時・非デフォルトフィルタ選択時のみ、
@@ -3988,6 +3991,10 @@ export function TeamDetailPage({ season }: { season: string }) {
     seasonBoxTab === "traditional" || seasonBoxTab === "advanced" || seasonBoxTab === "misc" || seasonBoxTab === "scoring"
       ? teamSeasonBoxColumns(seasonBoxTab, seasonBoxFoulSplit)
       : [];
+  // 数字の下の順位と、上位3位・下位3位の色（DESIGN.md 406章）。表の条件（シーズン・平均／合計・視点・Q別・登録区分）での、そのリーグの全チームの中の順位
+  const rankCategories: readonly [BoxscoreTabKey] | readonly [BoxscoreTabKey, BoxscoreTabKey] =
+    seasonBoxTab === "scoring" ? ["scoring", "misc"] : seasonBoxTab === "traditional" || seasonBoxTab === "advanced" || seasonBoxTab === "misc" ? [seasonBoxTab] : ["traditional"];
+  const seasonRankOn = showTeamRank && tab === "teamStats" && seasonTableColumns.length > 0;
   // On-Court Foreign のグラフ（区間）: 各シーズンの人数別の在コート時間を索引から足す。値が出せないシーズンは理由つきで注記する
   const seasonForeignPeriodShares: Map<string, ForeignShare> | undefined = (() => {
     if (!seasonPeriodTableRows || seasonBoxTab !== "foreignPlayers") return undefined;
@@ -4948,6 +4955,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           {seasonBoxPeriodOn && seasonBoxTab !== "timeToShot" && seasonPeriodSources.loadedCount < seasonPeriodSources.total && (
             <p className="loading">区間の記録を読み込み中...（{seasonPeriodSources.loadedCount}/{seasonPeriodSources.total}シーズン）</p>
           )}
+          <div className="tab-bar-with-toggle compare-category-bar">
           <div className="tab-bar">
             {SEASON_BOX_TABS.map((t) => (
               <button
@@ -5009,6 +5017,12 @@ export function TeamDetailPage({ season }: { season: string }) {
             >
               {STREAKS_CATEGORY_LABEL}
             </button>
+          </div>
+          {(seasonBoxTab === "traditional" || seasonBoxTab === "advanced" || seasonBoxTab === "misc" || seasonBoxTab === "scoring") && (
+            <label className="compare-rank-toggle">
+              <input type="checkbox" checked={showTeamRank} onChange={(e) => setShowTeamRank(e.target.checked)} /> 順位を表示
+            </label>
+          )}
           </div>
           {seasonHistoryLoading || careerLoading ? (
             <p className="loading">読み込み中...</p>
@@ -5243,7 +5257,20 @@ export function TeamDetailPage({ season }: { season: string }) {
                           );
                           const ready = cr.status === "ready";
                           return (
-                            <tr key={`${r.season}:${cls}`} className="season-class-row">
+                            <TeamRankScope
+                              key={`${r.season}:${cls}`}
+                              season={r.season}
+                              league={league}
+                              teamId={team.teamId}
+                              categories={rankCategories}
+                              mode={seasonBoxDisplayMode}
+                              perspective={seasonBoxPerspective}
+                              period={seasonBoxPeriodValue}
+                              classFilter={SPLIT_CLASS_LABELS[cls]}
+                              enabled={seasonRankOn && ready}
+                            >
+                              {(rankOf) => (
+                            <tr className="season-class-row">
                               <td className="align-left" />
                               <td className="align-left">{classRowLabel(cls, seasonBoxPerspective)}</td>
                               <td className="align-right">{ready ? cr.games.length : "-"}</td>
@@ -5255,71 +5282,88 @@ export function TeamDetailPage({ season }: { season: string }) {
                                 </td>
                               ) : (
                                 seasonTableColumns.map((c) => (
-                                  <td className="align-right" key={c.key}>
-                                    {seasonPeriodCell(seasonClassFmt, c.label, cr, team.teamId, r.teamName)}
-                                  </td>
+                                  <RankedValueCell key={c.key} column={c} rankOf={rankOf} value={seasonPeriodCell(seasonClassFmt, c.label, cr, team.teamId, r.teamName)} />
                                 ))
                               )}
                             </tr>
+                              )}
+                            </TeamRankScope>
                           );
                         })
                       : null;
+                    const rankScope = (children: (rankOf: TeamRankLookup) => ReactNode, enabled: boolean) => (
+                      <TeamRankScope
+                        key={r.season}
+                        season={r.season}
+                        league={league}
+                        teamId={team.teamId}
+                        categories={rankCategories}
+                        mode={seasonBoxDisplayMode}
+                        perspective={seasonBoxPerspective}
+                        period={seasonBoxPeriodValue}
+                        enabled={seasonRankOn && enabled}
+                      >
+                        {children}
+                      </TeamRankScope>
+                    );
                     if (pr && seasonPeriodFmt) {
                       const ready = pr.status === "ready";
-                      return (
-                        <Fragment key={r.season}>
-                        <tr>
-                          <td className="align-left season-class-cell">
-                            {classToggle}
-                            <RouterLink to={`/teams/${team.teamId}?season=${r.season}`} className="cell-link">
-                              {r.season}
-                            </RouterLink>
-                          </td>
-                          <td className="align-left">
-                            <ResponsiveTeamName teamId={team.teamId} name={r.teamName} nowrap />
-                          </td>
-                          <td className="align-right">{ready ? pr.games.length : "-"}</td>
-                          <td className="align-right">{ready ? <TeamRecordShort wins={pr.wins} losses={pr.losses} /> : "-"}</td>
-                          <td className="align-right">{ready ? formatWinPct(safeDiv(pr.wins, pr.wins + pr.losses)) : "-"}</td>
-                          {pr.status === "unreadable" || pr.status === "loading" ? (
-                            <td className="align-left" colSpan={seasonTableColumns.length}>
-                              {pr.status === "loading" ? "読み込み中..." : "この区間の記録を読み込めませんでした"}
-                            </td>
-                          ) : (
-                            seasonTableColumns.map((c) => (
-                              <td className="align-right" key={c.key}>
-                                {seasonPeriodCell(seasonPeriodFmt, c.label, pr, team.teamId, r.teamName)}
+                      return rankScope(
+                        (rankOf) => (
+                          <>
+                            <tr>
+                              <td className="align-left season-class-cell">
+                                {classToggle}
+                                <RouterLink to={`/teams/${team.teamId}?season=${r.season}`} className="cell-link">
+                                  {r.season}
+                                </RouterLink>
                               </td>
-                            ))
-                          )}
-                        </tr>
-                        {classRows}
-                        </Fragment>
+                              <td className="align-left">
+                                <ResponsiveTeamName teamId={team.teamId} name={r.teamName} nowrap />
+                              </td>
+                              <td className="align-right">{ready ? pr.games.length : "-"}</td>
+                              <td className="align-right">{ready ? <TeamRecordShort wins={pr.wins} losses={pr.losses} /> : "-"}</td>
+                              <td className="align-right">{ready ? formatWinPct(safeDiv(pr.wins, pr.wins + pr.losses)) : "-"}</td>
+                              {pr.status === "unreadable" || pr.status === "loading" ? (
+                                <td className="align-left" colSpan={seasonTableColumns.length}>
+                                  {pr.status === "loading" ? "読み込み中..." : "この区間の記録を読み込めませんでした"}
+                                </td>
+                              ) : (
+                                seasonTableColumns.map((c) => (
+                                  <RankedValueCell key={c.key} column={c} rankOf={rankOf} value={seasonPeriodCell(seasonPeriodFmt, c.label, pr, team.teamId, r.teamName)} />
+                                ))
+                              )}
+                            </tr>
+                            {classRows}
+                          </>
+                        ),
+                        ready,
                       );
                     }
-                    return (
-                      <Fragment key={r.season}>
-                      <tr>
-                        <td className="align-left season-class-cell">
-                          {classToggle}
-                          <RouterLink to={`/teams/${team.teamId}?season=${r.season}`} className="cell-link">
-                            {r.season}
-                          </RouterLink>
-                        </td>
-                        <td className="align-left">
-                          <ResponsiveTeamName teamId={team.teamId} name={r.teamName} nowrap />
-                        </td>
-                        <td className="align-right">{r.team.gamesPlayed}</td>
-                        <td className="align-right"><TeamRecordShort wins={r.team.wins} losses={r.team.losses} resultOnlyGames={r.team.resultOnlyGames} /></td>
-                        <td className="align-right">{formatWinPct(safeDiv(r.team.wins, r.team.wins + r.team.losses))}</td>
-                        {seasonTableColumns.map((c) => (
-                          <td className="align-right" key={c.key}>
-                            {c.format(r, misc, seasonBoxDisplayMode, seasonBoxPerspective)}
-                          </td>
-                        ))}
-                      </tr>
-                      {classRows}
-                      </Fragment>
+                    return rankScope(
+                      (rankOf) => (
+                        <>
+                          <tr>
+                            <td className="align-left season-class-cell">
+                              {classToggle}
+                              <RouterLink to={`/teams/${team.teamId}?season=${r.season}`} className="cell-link">
+                                {r.season}
+                              </RouterLink>
+                            </td>
+                            <td className="align-left">
+                              <ResponsiveTeamName teamId={team.teamId} name={r.teamName} nowrap />
+                            </td>
+                            <td className="align-right">{r.team.gamesPlayed}</td>
+                            <td className="align-right"><TeamRecordShort wins={r.team.wins} losses={r.team.losses} resultOnlyGames={r.team.resultOnlyGames} /></td>
+                            <td className="align-right">{formatWinPct(safeDiv(r.team.wins, r.team.wins + r.team.losses))}</td>
+                            {seasonTableColumns.map((c) => (
+                              <RankedValueCell key={c.key} column={c} rankOf={rankOf} value={c.format(r, misc, seasonBoxDisplayMode, seasonBoxPerspective)} />
+                            ))}
+                          </tr>
+                          {classRows}
+                        </>
+                      ),
+                      true,
                     );
                   })}
                 </tbody>
@@ -6093,6 +6137,17 @@ export function TeamDetailPage({ season }: { season: string }) {
     </div>
     </PlayerNamePool>
     </TeamDetailPublicMediaScope>
+  );
+}
+
+/** 値の下に順位を添え、上位3位・下位3位は色を付けるマス（チーム詳細のチームスタッツ。値が「-」のマスには付けない） */
+function RankedValueCell({ column, rankOf, value }: { column: { key: string; label: string }; rankOf: TeamRankLookup; value: ReactNode }) {
+  const rank = value === "-" ? undefined : rankOf(column);
+  return (
+    <td className={`align-right${rankTierClass(rank)}`}>
+      {value}
+      <TeamRankText rank={rank} />
+    </td>
   );
 }
 

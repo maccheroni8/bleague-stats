@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { TeamRankScope, TeamRankText, rankTierClass, type TeamCellRank } from "./TeamRankScope";
 import { ConditionTitle } from "./ConditionTitle";
 import { FilterBar } from "./FilterBar";
 import { RuleChangeFootnote } from "./RuleChangeFootnote";
@@ -21,13 +22,13 @@ import type { TeamGameLog } from "../../shared/types";
 /** 下の表で選べるカテゴリ（チームスタッツタブの表と同じ4つ） */
 export const QUARTER_TAB_KEYS: readonly BoxscoreTabKey[] = ["traditional", "advanced", "misc", "scoring"];
 
-const SCORE_COLUMNS: { key: keyof ReturnType<typeof quarterScoreCells>; label: string }[] = [
-  { key: "pts", label: "得点" },
-  { key: "oppPts", label: "失点" },
-  { key: "diff", label: "得失点" },
-  { key: "ortg", label: "ORtg" },
-  { key: "drtg", label: "DRtg" },
-  { key: "netRtg", label: "NetRtg" },
+const SCORE_COLUMNS: { key: keyof ReturnType<typeof quarterScoreCells>; label: string; rank: { key: string; label: string } }[] = [
+  { key: "pts", label: "得点", rank: { key: "pts", label: "PTS" } },
+  { key: "oppPts", label: "失点", rank: { key: "opppts", label: "opp PTS" } },
+  { key: "diff", label: "得失点", rank: { key: "plusminus", label: "+/-" } },
+  { key: "ortg", label: "ORtg", rank: { key: "ortg", label: "ORtg" } },
+  { key: "drtg", label: "DRtg", rank: { key: "drtg", label: "DRtg" } },
+  { key: "netRtg", label: "NetRtg", rank: { key: "netrtg", label: "NetRtg" } },
 ];
 
 /**
@@ -75,6 +76,8 @@ export function TeamQuarterTab({
 
   const conditions = composeLabels(gameTypeLabels(gameType, season), displayModeLabels(displayMode));
   const axes = [gameTypeAxis(gameType, onGameTypeChange, season), displayModeAxis(displayMode, onDisplayModeChange)];
+  // 数字の下の順位と、上位3位・下位3位の色（その区間・試合区分・平均／合計での、リーグの全チームの中の順位。DESIGN.md 406章）
+  const [showRank, setShowRank] = useState(true);
   const categoryLabel = BOXSCORE_TABS.find((t) => t.key === category)?.label ?? "";
 
   let body;
@@ -112,27 +115,40 @@ export function TeamQuarterTab({
               {rows.map((r) => {
                 const cells = quarterScoreCells(r, displayMode);
                 return (
-                  <tr key={r.value}>
-                    <td className="align-left">{r.label}</td>
-                    <td className="align-right">{r.status === "ready" ? r.games.length : "-"}</td>
-                    {SCORE_COLUMNS.map((c) => (
-                      <td className="align-right" key={c.key}>
-                        {cells[c.key]}
-                      </td>
-                    ))}
-                  </tr>
+                  <TeamRankScope key={r.value} season={season} league={league} teamId={teamId} categories={["traditional", "advanced"]} mode={displayMode} perspective="own" period={r.value} gameType={gameType} enabled={showRank && r.status === "ready"}>
+                    {(rankOf) => (
+                      <tr>
+                        <td className="align-left">{r.label}</td>
+                        <td className="align-right">{r.status === "ready" ? r.games.length : "-"}</td>
+                        {SCORE_COLUMNS.map((c) => {
+                          const rank: TeamCellRank | undefined = cells[c.key] === "-" ? undefined : rankOf(c.rank);
+                          return (
+                            <td className={`align-right${rankTierClass(rank)}`} key={c.key}>
+                              {cells[c.key]}
+                              <TeamRankText rank={rank} />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    )}
+                  </TeamRankScope>
                 );
               })}
             </tbody>
           </table>
         </div>
         <ConditionTitle section title={`${season}シーズン Q別：${categoryLabel}`} conditions={conditions} />
-        <div className="tab-bar">
-          {BOXSCORE_TABS.filter((t) => QUARTER_TAB_KEYS.includes(t.key)).map((t) => (
-            <button key={t.key} className={`tab-button${category === t.key ? " active" : ""}`} onClick={() => onCategoryChange(t.key)} type="button">
-              {t.label}
-            </button>
-          ))}
+        <div className="tab-bar-with-toggle compare-category-bar">
+          <div className="tab-bar">
+            {BOXSCORE_TABS.filter((t) => QUARTER_TAB_KEYS.includes(t.key)).map((t) => (
+              <button key={t.key} className={`tab-button${category === t.key ? " active" : ""}`} onClick={() => onCategoryChange(t.key)} type="button">
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <label className="compare-rank-toggle">
+            <input type="checkbox" checked={showRank} onChange={(e) => setShowRank(e.target.checked)} /> 順位を表示
+          </label>
         </div>
         <div className="table-scroll">
           <table className="stats-table">
@@ -152,16 +168,25 @@ export function TeamQuarterTab({
               {rows.map((r) => {
                 const ready = r.status === "ready";
                 return (
-                  <tr key={r.value}>
-                    <td className="align-left">{r.label}</td>
-                    <td className="align-right">{ready ? formatPeriodRecord(r) : "-"}</td>
-                    <td className="align-right">{ready ? formatWinPct(periodWinPct(r) ?? 0) : "-"}</td>
-                    {columns.map((c) => (
-                      <td className="align-right" key={c.key}>
-                        {seasonPeriodCell(formatters, c.label, r, teamId, teamName)}
-                      </td>
-                    ))}
-                  </tr>
+                  <TeamRankScope key={r.value} season={season} league={league} teamId={teamId} categories={category === "scoring" ? ["scoring", "misc"] : [category]} mode={displayMode} perspective="own" period={r.value} gameType={gameType} enabled={showRank && ready}>
+                    {(rankOf) => (
+                      <tr>
+                        <td className="align-left">{r.label}</td>
+                        <td className="align-right">{ready ? formatPeriodRecord(r) : "-"}</td>
+                        <td className="align-right">{ready ? formatWinPct(periodWinPct(r) ?? 0) : "-"}</td>
+                        {columns.map((c) => {
+                          const text = seasonPeriodCell(formatters, c.label, r, teamId, teamName);
+                          const rank = text === "-" ? undefined : rankOf(c);
+                          return (
+                            <td className={`align-right${rankTierClass(rank)}`} key={c.key}>
+                              {text}
+                              <TeamRankText rank={rank} />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    )}
+                  </TeamRankScope>
                 );
               })}
             </tbody>
