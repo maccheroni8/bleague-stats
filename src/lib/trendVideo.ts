@@ -313,6 +313,8 @@ export async function recordTrendVideo(
       if (elapsed >= total) resolve();
       else requestAnimationFrame(tick);
     };
+    // 画面が隠れていて描画の時計が止まっていても、中止はすぐ効くようにする
+    options.signal.addEventListener("abort", () => reject(new DOMException("中止しました", "AbortError")), { once: true });
     requestAnimationFrame(tick);
   }).catch((e) => {
     if (recorder.state !== "inactive") recorder.stop();
