@@ -185,6 +185,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 394章: **地区ごとの保存**（順位表・勝敗表・推移4種は「保存する範囲」で地区を選ぶ。星取り表は地区ボタンで対象クラブを絞る。画面だけの変更・キー不変）。
 - 395章: **推移グラフの動画（MP4）保存**（4つの推移タブ。canvas に画面と同じ式で描いて MediaRecorder で録画。1本＝1グラフ・速さ3択・最初と最後を止める。`src/lib/trendVideo.ts`・`TrendVideoSaver.tsx`。画面だけ・キー不変）。
 - 396章: **保存の窓（モーダル）**（`SaveModal.tsx`。保存ボタンは「画像として保存」「動画として保存」だけ。保存する内容の選択・見出しの見本・進み具合は窓の中。サイトの保存ボタンは `ExportImageButton` の `options`・`disabledReason` で窓の中身を渡す）と、動画の 1920×1080・10Mbps。画面だけ・キー不変。
+- 397章: **試合詳細の「画像を保存（6枚）」**（縦長4:5・2160×2700の6枚。純SVGで描いて PNG にする〔`src/lib/gameImages/`・`src/components/gameImages/`・`GameImagesButton.tsx`〕。差が大きい上位5項目は `gapScore`。書き出しの道具は `scripts/export-game-images.mjs`〔手で実行〕。**画面だけの変更でキー不変**）
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
