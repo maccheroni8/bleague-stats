@@ -16786,3 +16786,20 @@ X に地区ごとに投稿するための画像。「全地区まとめて1枚�
 - 4枚まとめて: パソコンはファイルを続けて4つダウンロード、iPhone・iPad は4枚を縦に続けて出して「写真に保存」で4枚を一度に渡す（`ExportImagePreview` は複数枚に対応、`shareExportImage` は複数ファイル）。中身は今の画像と同じ（見出し・順位・自チーム／opp／+/-・@dthiro1208）。
 - 見出しの下の条件の行とファイル名に「Advancedタブ」の形でタブ名を入れた（カテゴリ名そのものは他の画面で省く決まりなので「タブ」を添えた。`tabConditionLabel`）。ファイル名は長いと途中で切れるので、タブ名はチーム名より前に置く。
 - 画面が隠れているとアニメーションの描き直しが止まるため、切り替えの待ちは時間でも抜ける。
+
+## 406. ランキング（チーム・シーズン成績）に、比較ページにあってランキングに無かった項目を足した（2026-11-15。**画面だけの変更でキー不変**。allKey `7a28ed79e3ca493c797ad0d9a3040004` のまま）
+
+チームの順位をサイト全体でそろえる作業の A（B は 407 章：チーム詳細に順位と色）。比較（404章）でチームの順位が付かなかった項目のうち、ランキングに列が無かったものを足した。**導出データは足していない**（保存キー不変）。値はすべて既存のデータ（試合ログ・ピリオド別の索引）から、ブラウザの中の計算（`useTeamSeasonRanking`）で出す。
+
+- **足した項目と場所**（比較ページで同じ項目が並ぶタブ・並びにそろえた。`buildTeamCategoryColumns`〔`src/lib/teamSeasonRanking.ts`〕・列の式は `src/lib/teamStatsColumns.ts` の `build…Column(s)`）:
+  - Traditional: **BSR**（STOCKS の右。相手の BLK）・**EFF**（FD の右。シーズン成績・シチュエーション別成績と同じ式の合計÷試合数）
+  - Misc: **OFF FOUL**・**CHARGE**（AND1 の右。試合ログに無く、ピリオド別の索引の5区間〔1Q〜4Q＋延長〕を足す。`sumTeamGameFoulTotals`。選ぶのはこの2項目のときだけ索引を読む〔`useTeamSeasonRanking` の `foulIndex`〕）・**LIVETOV**・**LIVE TOV%**（AST% の右。試合ログの `turnoversCommitted.live`／`forcedTurnovers.live`。記録のあるシーズンだけ）・**日本人 PTS・外国籍・帰化・アジア PTS・外国籍 PTS・帰化・アジア特別枠 PTS**（STARTER PTS の右）
+  - Scoring: **%外国籍 PTS・%帰化・アジア特別枠 PTS**（%外国籍・帰化・アジア PTS の右）・**%3P・%PoutP・%FT・%OPA**（末尾）
+  - 登録区分別の得点4つは、比較ページの Misc にそろえて **Scoring から Misc に移した**（日本人 PTS・外国籍・帰化・アジア PTS の2つ。古い URL〔`cat=scoring&stat=japanesePts3`〕は Misc で開く。`MOVED_TO_MISC_KEYS`）。
+  - TeamTotals に `foreignPoints`・`naturalizedAsiaPoints`（opp 付き）・`liveTov`・`oppLiveTov`・`tovRecordGames` を足した（`sumTeamGameLogs`・`sumTeamPeriodTotals`）。
+- **順位の向き**（`rankDirection.ts`・391章の決まりに足した）: 少ないほど良い＝LIVETOV・LIVE TOV%（BSR・OFF FOUL は元から）、多いほど良い＝EFF・CHARGE。**良し悪しなし**＝外国籍 PTS・帰化・アジア特別枠 PTS（日本人 PTS・外国籍・帰化・アジア PTS・BENCH／STARTER PTS は元から）と、割合（%外国籍 PTS・%帰化・アジア特別枠 PTS・%3P・%PoutP・%FT・%OPA。「%」で始まるので自動）。opp 視点は反転（相手の BSR は多いほど良い等）。用語集の「ランキングの順位の向き・最低試投数」の一覧に反映。
+- **足していない項目**: **DEADTOV・DEAD TOV%**。比較ページの値は「ライブ／デッドを判別できなかったターンオーバー」を数えないが、試合ログの分類（`classifyForcedTurnover`）はそれをデッド側に入れるため、同じ値にならない（2026-27 で17チーム分が不一致）。出すには判別できなかった数を試合ログに足す必要があり、**保存キーが変わる**（全シーズンの作り直し）。判断待ち。USG%（チームの値として意味が無い）・G・MIN は良し悪しなしで順位なし。比較の Advanced・Misc・Scoring に並ぶ PTS は Traditional の PTS と同じ値なので、その順位は Traditional の列から付ける（`ComparePage` の2つ目の読み込み）。
+- **区間・登録区分との併用**: Q別・前後半・延長・クラッチでは、BSR・EFF・OFF FOUL・CHARGE・登録区分別の得点・割合は索引の値で出る。LIVETOV・LIVE TOV%（試合全体の記録だけ）は「-」（`INDEX_UNAVAILABLE_COLUMN_KEYS` と同じ決まり）。登録区分別のランキングでは BSR・EFF・OFF FOUL・CHARGE・LIVETOV 系・外国籍 PTS 系・%3P 系は選べない（`CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS` に足した）。
+- **比較ページの項目名の照合を直した**: 照合が日本語を消していたため（「外国籍 PTS」も「日本人 PTS」も「pts」になる）、日本語を残す形にした（`matchRankColumn`）。値の無いチーム（NaN）は順位から除く。
+- **EFF だけ、比較ページの表示値と少し違う**: 比較ページのチームの EFF は選手の公式 EFF の合計、ランキング・チーム詳細・シチュエーション別成績は式（`eff()`）の値で、1試合あたり最大1ほど違う（もともとの違い）。順位は式の値で付く。そろえるかは判断待ち。
+- 検証: `npm run validate:team-rank-columns`（2026-27・2025-26・2023-24・2021-22・2017-18〔手入力の1810を含む〕の全チームで、ランキングの列の値と、比較ページの値〔試合の生データから数える〕を、自チーム・opp で突き合わせ。3,712件一致〔EFF は上の理由で許容1.5以内〕・比較の項目すべてにランキングの列が対応・向きが比較と同じ）。

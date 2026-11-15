@@ -235,6 +235,10 @@ export function sumTeamPeriodTotals(
     t.oppMid2a += p("mid2a");
     t.japanesePoints += o("japanesePoints");
     t.internationalPoints += o("foreignPoints") + o("naturalizedPoints") + o("asianQuotaPoints");
+    t.foreignPoints += o("foreignPoints");
+    t.naturalizedAsiaPoints += o("naturalizedPoints") + o("asianQuotaPoints");
+    t.oppForeignPoints += p("foreignPoints");
+    t.oppNaturalizedAsiaPoints += p("naturalizedPoints") + p("asianQuotaPoints");
     t.oppJapanesePoints += p("japanesePoints");
     t.oppInternationalPoints += p("foreignPoints") + p("naturalizedPoints") + p("asianQuotaPoints");
     t.benchPoints += o("benchPoints");
@@ -248,4 +252,29 @@ export function sumTeamPeriodTotals(
     t.oppFd = Number.NaN;
   }
   return { games, totals: withPaint(t, summarizePaint(paintPairs)) };
+}
+
+/**
+ * 試合全体（1Q〜4Q＋延長）の OFF FOUL・CHARGE の合計（自チーム・相手）。試合ログには無く、ピリオド別の索引にだけある値。
+ * 索引に OFF FOUL・CHARGE の列が無い古い索引のときは null（呼び出し側は「-」にする）。ピリオド別の行が無い試合（手入力の1810など）は0のまま
+ */
+export function sumTeamGameFoulTotals(
+  source: TeamPeriodSource,
+  logs: readonly TeamGameLog[],
+): { offFoul: number; charge: number; oppOffFoul: number; oppCharge: number } | null {
+  const { file } = source;
+  if (!teamPeriodHasFoulColumns(file)) return null;
+  const atoms = PERIOD_ATOMS.map((_, i) => i).filter((i) => PERIOD_ATOMS[i] !== "clutch");
+  const out = { offFoul: 0, charge: 0, oppOffFoul: 0, oppCharge: 0 };
+  for (const g of logs) {
+    const n = source.gameNo.get(g.scheduleKey);
+    if (n === undefined) continue;
+    const own = n * 2 + (g.isHome ? 0 : 1);
+    const opp = n * 2 + (g.isHome ? 1 : 0);
+    out.offFoul += sumAt(file, own, atoms, "offFouls");
+    out.charge += sumAt(file, own, atoms, "charges");
+    out.oppOffFoul += sumAt(file, opp, atoms, "offFouls");
+    out.oppCharge += sumAt(file, opp, atoms, "charges");
+  }
+  return out;
 }

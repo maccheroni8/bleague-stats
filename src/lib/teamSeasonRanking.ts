@@ -19,6 +19,13 @@ import {
   buildScoringColumns,
   buildOppPtsColumn,
   buildTraditionalColumns,
+  buildBsrColumn,
+  buildEffColumn,
+  buildOffFoulChargeColumns,
+  buildLiveTovColumns,
+  buildClassPointColumns,
+  buildSplitClassPointShareColumns,
+  buildPointsShareColumns,
   DEFAULT_SORT_KEY,
   sumTeamGameLogs,
   type AllTeamsRow,
@@ -27,7 +34,8 @@ import {
 import { SHOT_TYPE_DISPLAY_ORDER, shotTypeEntityColumns } from "./shotTypeBreakdown";
 import { useAllTeamGameLogs, useLeagueSituationalContext } from "./teamRankingData";
 import { seasonPeriodOption } from "./seasonPeriod";
-import { OVERTIME_MIN_TEAM_GAMES_FOR_RANKING, sumTeamPeriodTotals, useTeamPeriodSource, type TeamPeriodValue } from "./teamPeriodTotals";
+import { OVERTIME_MIN_TEAM_GAMES_FOR_RANKING, sumTeamGameFoulTotals, sumTeamPeriodTotals, useTeamPeriodSource, type TeamPeriodValue } from "./teamPeriodTotals";
+import { INDEX_UNAVAILABLE_COLUMN_KEYS } from "./teamSituationalPeriod";
 import {
   buildStatConditionItems,
   filterByStatConditions,
@@ -40,7 +48,7 @@ import type { PeriodRangeValue } from "./periodRange";
 import { scopedTurnovers } from "./teamTurnoverScoped";
 import { classPeriodAvailable, CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS, maskClassSplitColumns, splitClassOfFilter, sumClassTotals, withOppMinutes, type TeamClassSelection } from "./teamClassSplit";
 import { useClassSplitSource } from "./teamClassSplitLoad";
-import { splitClassificationBlocked } from "./classificationFilter";
+import { splitClassificationBlocked, splitClassificationSeason } from "./classificationFilter";
 import type { TeamForcedTurnovers, TeamGameLog, TeamSummary } from "../../shared/types";
 
 /** チームランキングのカテゴリ。既存のBOXSCORE_TABS（トラディショナル/アドバンスド/Misc/
@@ -78,6 +86,24 @@ export const TURNOVER_DIRECTION_LABELS: Record<TurnoverDirection, string> = {
   forced: "奪った（自チームが強制）",
   committed: "記録した（相手に強制された）",
 };
+/** 列を足すときの、シーズンごとの前提（EFF の式は年度で違う。登録区分別の得点は区分を分けて記録しているシーズンだけ） */
+export interface TeamColumnContext {
+  seasonStartYear: number;
+  classPointsSupported: boolean;
+}
+const DEFAULT_COLUMN_CONTEXT: TeamColumnContext = { seasonStartYear: 2026, classPointsSupported: true };
+
+/** 列の並びの中で、キーが after の列の右に columns を差し込む（見つからなければ末尾） */
+function insertAfter(list: Column<AllTeamsRow>[], after: string, columns: Column<AllTeamsRow>[]): Column<AllTeamsRow>[] {
+  const at = list.findIndex((c) => c.key === after);
+  return at < 0 ? [...list, ...columns] : [...list.slice(0, at + 1), ...columns, ...list.slice(at + 1)];
+}
+
+/**
+ * ランキング（チーム・シーズン成績）の列。比較ページのチームの項目と同じタブ・同じ並びにそろえるため、全チームスタッツの列に次を足す（DESIGN.md 405章）:
+ * Traditional＝BSR・EFF、Misc＝OFF FOUL・CHARGE・LIVETOV・LIVE TOV%・登録区分別の得点4つ（Scoring から移した）、
+ * Scoring＝%外国籍 PTS・%帰化・アジア特別枠 PTS・%3P・%PoutP・%FT・%OPA
+ */
 export function buildTeamCategoryColumns(
   category: BoxscoreTabKey,
   mode: SeasonDisplayMode,
@@ -85,23 +111,47 @@ export function buildTeamCategoryColumns(
   paintSupported: boolean,
   classificationSupported: boolean,
   foulSplit: boolean,
+  context: TeamColumnContext = DEFAULT_COLUMN_CONTEXT,
 ): Column<AllTeamsRow>[] {
   switch (category) {
     case "traditional": {
-      const columns = buildTraditionalColumns(mode, perspective);
+      let columns = buildTraditionalColumns(mode, perspective);
+      columns = insertAfter(columns, "stocks", [buildBsrColumn(mode, perspective)]);
+      columns = insertAfter(columns, "fd", [buildEffColumn(mode, perspective, context.seasonStartYear)]);
       if (perspective !== "own") return columns;
       // 自チーム視点だけ、PTS の右に失点（opp PTS）を足す
-      const at = columns.findIndex((c) => c.key === "pts");
-      return [...columns.slice(0, at + 1), buildOppPtsColumn(mode), ...columns.slice(at + 1)];
+      return insertAfter(columns, "pts", [buildOppPtsColumn(mode)]);
     }
     case "advanced":
       return buildAdvancedColumns(mode, perspective);
-    case "misc":
-      return buildMiscColumns(mode, perspective, classificationSupported, foulSplit);
-    case "scoring":
-      return buildScoringColumns(mode, perspective, paintSupported, classificationSupported);
+    case "misc": {
+      let columns = buildMiscColumns(mode, perspective, classificationSupported, foulSplit);
+      columns = insertAfter(columns, "and1", buildOffFoulChargeColumns(mode, perspective));
+      columns = insertAfter(columns, "astpct", buildLiveTovColumns(mode, perspective));
+      return insertAfter(columns, "starterPts", buildClassPointColumns(mode, perspective, classificationSupported && context.classPointsSupported));
+    }
+    case "scoring": {
+      // 登録区分別の得点（日本人 PTS など）は Misc に移した（比較ページと同じタブ）。割合は Scoring のまま
+      const columns = buildScoringColumns(mode, perspective, paintSupported, classificationSupported).filter((c) => !MOVED_TO_MISC_KEYS.has(c.key));
+      const withClassShare = insertAfter(columns, "pctinternational3", buildSplitClassPointShareColumns(perspective, classificationSupported && context.classPointsSupported));
+      return [...withClassShare, ...buildPointsShareColumns(perspective)];
+    }
   }
 }
+/** Scoring から Misc に移した列（URL に古いカテゴリ＋項目で書いてあるときの読み替えにも使う） */
+export const MOVED_TO_MISC_KEYS: ReadonlySet<string> = new Set(["japanesePts3", "internationalPts3"]);
+/** 状態の条件（スタッツの条件）の項目に出さない列。試合ログの合計だけでは値が決まらない（索引を読んで初めて入る）ため */
+const CONDITION_EXCLUDED_KEYS: ReadonlySet<string> = new Set(["offfoul", "charge", "livetov", "livetovpct"]);
+
+/** 区間（Q別・前後半・延長・クラッチ）を選んでいるときに値を出せない列（ライブ／デッドボールのターンオーバーは試合全体の記録だけ） */
+const PERIOD_UNAVAILABLE_KEYS: ReadonlySet<string> = INDEX_UNAVAILABLE_COLUMN_KEYS;
+
+/** keys に当てはまる列を「-」固定にする（順位は付かない） */
+function maskColumns(columns: Column<AllTeamsRow>[], keys: ReadonlySet<string> | null): Column<AllTeamsRow>[] {
+  if (!keys) return columns;
+  return columns.map((c) => (keys.has(c.key) ? { key: c.key, label: c.label, sortValue: () => Number.NaN, format: () => "-", render: undefined, align: c.align } : c));
+}
+
 /** 登録区分別のランキングで選べない項目（全チームスタッツの区分で出せない列と、失点〔相手の得点は区分の選手の値ではない〕） */
 export function isClassUnavailableStat(key: string): boolean {
   return key === "opppts" || CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS.has(key);
@@ -135,7 +185,13 @@ export interface TeamRankingParams {
 export function useTeamSeasonRanking(
   season: string,
   params: TeamRankingParams,
-  opts: { enabled?: boolean; skipConditionItems?: boolean; league?: League } = {},
+  opts: {
+    enabled?: boolean;
+    skipConditionItems?: boolean;
+    league?: League;
+    /** OFF FOUL・CHARGE（試合ログに無く、ピリオド別の索引にだけある値）を試合全体の列に入れる。Misc でこの2つを使うときだけ true（索引を読むため） */
+    foulIndex?: boolean;
+  } = {},
 ) {
   const enabled = opts.enabled ?? true;
   const league: League = opts.league ?? "premier";
@@ -161,7 +217,14 @@ export function useTeamSeasonRanking(
   const { state: classState, retry: retryClass } = useClassSplitSource(season, classActive, league);
   const classSource = classActive && classState.status === "ready" ? classState.source : null;
   const classPeriodMissing = classActive && periodActive && !!classSource && !classPeriodAvailable(classSource);
-  const { source: periodSource, loading: periodLoading, retry: retryPeriodSource } = useTeamPeriodSource(season, periodActive && !classActive, league);
+  // 試合全体のまま OFF FOUL・CHARGE を出すときも、ピリオド別の索引を読む（試合ログに無い値）
+  const foulIndexActive = enabled && !!opts.foulIndex && category === "misc" && period === "all" && !classActive;
+  const { source: periodSource, loading: periodLoading, retry: retryPeriodSource } = useTeamPeriodSource(season, (periodActive && !classActive) || foulIndexActive, league);
+  const foulIndexPending = foulIndexActive && periodLoading;
+  const columnContext: TeamColumnContext = useMemo(
+    () => ({ seasonStartYear: Number(season.split("-")[0]), classPointsSupported: splitClassificationSeason(season) }),
+    [season],
+  );
   // ファウルの列は、2026-27以降のシーズンではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF。そのシーズンに無い項目・条件は外す（DESIGN.md 16-8章）
   const foulSplit = foulColumnsSplit([season]);
 
@@ -181,11 +244,12 @@ export function useTeamSeasonRanking(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teams, gameLogsByTeam, filter, gameType, opponentRecords, divisionHistory, season, league]);
 
-  const periodDataReady = !periodActive || classActive || !!periodSource;
+  const periodDataReady = (!periodActive || classActive || !!periodSource) && !foulIndexPending;
 
   const rows: AllTeamsRow[] = useMemo(() => {
     if (!teams || !gameLogsByTeam) return [];
     if (periodActive && !classActive && !periodSource) return [];
+    if (foulIndexPending) return [];
     if (classActive && (!classSource || classPeriodMissing)) return [];
     const all = teams.map((team) => {
       const scoped = scopedLogsByTeam.get(team.teamId) ?? [];
@@ -202,11 +266,17 @@ export function useTeamSeasonRanking(
         return { team, gamesPlayed: games.length, wins, losses: games.length - wins, totals };
       }
       const wins = scoped.filter((g) => g.win).length;
-      return { team, gamesPlayed: scoped.length, wins, losses: scoped.length - wins, totals: sumTeamGameLogs(scoped) };
+      const logTotals = sumTeamGameLogs(scoped);
+      // OFF FOUL・CHARGE は索引の値（読めなかった・古い索引のときは「-」）
+      if (foulIndexActive) {
+        const foul = periodSource ? sumTeamGameFoulTotals(periodSource, scoped) : null;
+        return { team, gamesPlayed: scoped.length, wins, losses: scoped.length - wins, totals: foul ? { ...logTotals, ...foul } : { ...logTotals, offFoul: Number.NaN, charge: Number.NaN, oppOffFoul: Number.NaN, oppCharge: Number.NaN } };
+      }
+      return { team, gamesPlayed: scoped.length, wins, losses: scoped.length - wins, totals: logTotals };
     });
     // 延長のランキングは、延長のあった試合が3試合以上のチームだけ（256章の決定4）。クラッチも同じ（クラッチタイムになった試合が3試合以上。設計書375章）
     return periodActive && (period === "ot" || period === "clutch") ? all.filter((r) => r.gamesPlayed >= OVERTIME_MIN_TEAM_GAMES_FOR_RANKING) : all;
-  }, [teams, gameLogsByTeam, scopedLogsByTeam, periodActive, periodSource, period, classActive, classSource, classPeriodMissing, splitClass, perspective]);
+  }, [teams, gameLogsByTeam, scopedLogsByTeam, periodActive, periodSource, period, classActive, classSource, classPeriodMissing, splitClass, perspective, foulIndexActive, foulIndexPending]);
 
   // スタッツの条件の判定に使う行。Shooting・Forced TOV のカテゴリでは上の絞り込みが効かないため、
   // 絞り込みの無いレギュラーシーズン全体の値で判定する
@@ -241,7 +311,7 @@ export function useTeamSeasonRanking(
             buildTeamConditionDefs({
               mode: displayMode,
               columnsFor: (tab, mode, p) => {
-                const cols = buildTeamCategoryColumns(tab, mode, p, paintSupported, conditionClassificationSupported, foulSplit);
+                const cols = buildTeamCategoryColumns(tab, mode, p, paintSupported, conditionClassificationSupported, foulSplit, columnContext).filter((c) => !CONDITION_EXCLUDED_KEYS.has(c.key));
                 return classActive ? maskClassSplitColumns(cols.filter((c) => c.key !== "opppts"), p === "diff") : cols;
               },
               sampleRows: conditionRows,
@@ -253,7 +323,7 @@ export function useTeamSeasonRanking(
             conditionRows,
             displayMode,
           ),
-    [opts.skipConditionItems, classActive, league, displayMode, paintSupported, conditionClassificationSupported, foulSplit, conditionRows, teamById],
+    [opts.skipConditionItems, classActive, league, displayMode, paintSupported, conditionClassificationSupported, foulSplit, conditionRows, teamById, columnContext],
   );
   const conditionActive = hasActiveStatConditions(statConditions, conditionItems);
   const passingTeamIds = useMemo(
@@ -266,9 +336,9 @@ export function useTeamSeasonRanking(
   const columns = useMemo(
     () =>
       isBoxscoreCategory(category)
-        ? buildTeamCategoryColumns(category, displayMode, perspective, paintSupported, true, foulSplit)
+        ? maskColumns(buildTeamCategoryColumns(category, displayMode, perspective, paintSupported, true, foulSplit, columnContext), periodActive ? PERIOD_UNAVAILABLE_KEYS : null)
         : [],
-    [category, displayMode, perspective, paintSupported, foulSplit],
+    [category, displayMode, perspective, paintSupported, foulSplit, columnContext, periodActive],
   );
   const selectedColumn = columns.find((c) => c.key === statKey) ?? columns[0];
   const teamDef: RankableStat<AllTeamsRow> | null = selectedColumn
@@ -352,7 +422,7 @@ export function useTeamSeasonRanking(
     foulSplit,
     paintSupported,
     // 区間の索引の読み込み（名前は以前の生データの読み込みのまま。読めなかったときは1件の失敗として出す）
-    rawGamesLoading: periodActive && !classActive && periodLoading,
+    rawGamesLoading: (periodActive && !classActive && periodLoading) || foulIndexPending,
     rawGamesFailedCount: periodActive && !classActive && !periodLoading && !periodSource ? 1 : 0,
     retryRawGames: retryPeriodSource,
     periodDataReady,

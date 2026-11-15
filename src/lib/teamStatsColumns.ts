@@ -8,7 +8,7 @@ import type { PeriodRangeOption } from "./periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 import { formatMinutesFromSeconds } from "./boxscoreAggregate";
 import { paintColumns, summarizePaintLogs, withPaint } from "./teamPaint2";
-import { efgPct, ftRate, offensiveRating, orbPct, pace, safeDiv, tovPct, tsPct } from "../../shared/formulas";
+import { eff as effFormula, efgPct, ftRate, offensiveRating, orbPct, pace, safeDiv, tovPartPct, tovPct, tsPct } from "../../shared/formulas";
 
 /**
  * チーム詳細ページ「チームスタッツ」タブ（Phase H4）・「チーム」ページ「全チームスタッツ」タブと
@@ -155,6 +155,18 @@ export interface TeamTotals {
   starterPoints: number;
   oppBenchPoints: number;
   oppStarterPoints: number;
+  /** 外国籍・帰化とアジア特別枠の得点（試合ログの試合ごとの区分で集計済みの値。internationalPoints はこの2つにあたる合計。ランキングの比較用の項目。DESIGN.md 405章） */
+  foreignPoints: number;
+  naturalizedAsiaPoints: number;
+  oppForeignPoints: number;
+  oppNaturalizedAsiaPoints: number;
+  /**
+   * ライブボールのターンオーバー（スポーツナビの記録。試合ログの turnoversCommitted〔自チームが記録〕・forcedTurnovers〔相手が記録〕の live）。
+   * tovRecordGames＝その記録がある試合数（0ならこの項目は「-」。区間・登録区分では出さない）
+   */
+  liveTov: number;
+  oppLiveTov: number;
+  tovRecordGames: number;
 }
 
 export const EMPTY_TOTALS: TeamTotals = {
@@ -251,6 +263,13 @@ export const EMPTY_TOTALS: TeamTotals = {
   starterPoints: 0,
   oppBenchPoints: 0,
   oppStarterPoints: 0,
+  foreignPoints: 0,
+  naturalizedAsiaPoints: 0,
+  oppForeignPoints: 0,
+  oppNaturalizedAsiaPoints: 0,
+  liveTov: 0,
+  oppLiveTov: 0,
+  tovRecordGames: 0,
 };
 
 function addNoFlow(acc: TeamTotals, g: TeamGameLog): Pick<TeamTotals, "noFlowGames" | "noFlow2m" | "noFlow3m" | "noFlowFtm" | "oppNoFlow2m" | "oppNoFlow3m" | "oppNoFlowFtm"> {
@@ -263,6 +282,17 @@ function addNoFlow(acc: TeamTotals, g: TeamGameLog): Pick<TeamTotals, "noFlowGam
     oppNoFlow2m: acc.oppNoFlow2m + (no ? g.opponentFgm - g.opponentTpm : 0),
     oppNoFlow3m: acc.oppNoFlow3m + (no ? g.opponentTpm : 0),
     oppNoFlowFtm: acc.oppNoFlowFtm + (no ? g.opponentFtm : 0),
+  };
+}
+
+function addTovBalls(acc: TeamTotals, g: TeamGameLog): Pick<TeamTotals, "liveTov" | "oppLiveTov" | "tovRecordGames"> {
+  const own = g.turnoversCommitted;
+  const against = g.forcedTurnovers;
+  const has = !!own && !!against;
+  return {
+    liveTov: acc.liveTov + (has ? own.live : 0),
+    oppLiveTov: acc.oppLiveTov + (has ? against.live : 0),
+    tovRecordGames: acc.tovRecordGames + (has ? 1 : 0),
   };
 }
 
@@ -352,6 +382,11 @@ export function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
       starterPoints: acc.starterPoints + g.starterPoints,
       oppBenchPoints: acc.oppBenchPoints + (g.opponentBenchPoints ?? 0),
       oppStarterPoints: acc.oppStarterPoints + (g.opponentStarterPoints ?? 0),
+      foreignPoints: acc.foreignPoints + g.foreignPoints,
+      naturalizedAsiaPoints: acc.naturalizedAsiaPoints + g.naturalizedOrAsianPoints,
+      oppForeignPoints: acc.oppForeignPoints + g.opponentForeignPoints,
+      oppNaturalizedAsiaPoints: acc.oppNaturalizedAsiaPoints + g.opponentNaturalizedOrAsianPoints,
+      ...addTovBalls(acc, g),
       offFoul: acc.offFoul,
       charge: acc.charge,
       oppOffFoul: acc.oppOffFoul,
@@ -1032,6 +1067,100 @@ export function buildScoringColumns(
           perspective,
         )
       : unavailableColumn("pctmid2a", "%MID2A"),
+  ];
+}
+
+// --- ランキング（チーム・シーズン成績）に、比較ページの項目をそろえて足す列（DESIGN.md 405章） ---
+
+/** 値が無いことを示す数（表は「-」、順位は付けない） */
+const NO_VALUE = Number.NaN;
+
+/** Traditional の BSR（相手のBLK＝自チームのシュートが止められた数）。少ないほど良い */
+export function buildBsrColumn(mode: SeasonDisplayMode, perspective: TeamPerspective): Column<AllTeamsRow> {
+  return countColumn("bsr", "BSR", (t) => t.oppBlk, (t) => t.blk, mode, perspective, { higherIsBetter: false });
+}
+
+/** チームの EFF の合計（シーズン成績の式。BSR・TF は相手側の値を使う）。opp が true なら相手側の EFF */
+function teamEffOf(t: TeamTotals, opp: boolean, seasonStartYear: number): number {
+  const pick = (own: number, against: number) => (opp ? against : own);
+  return effFormula(
+    seasonStartYear,
+    {
+      pts: pick(t.pts, t.oppPts),
+      ast: pick(t.ast, t.oppAst),
+      blk: pick(t.blk, t.oppBlk),
+      stl: pick(t.stl, t.oppStl),
+      reb: opp ? t.oppOreb + t.oppDreb : t.reb,
+      tov: pick(t.tov, t.oppTov),
+      pf: pick(t.pf, t.oppPf),
+      fgm: pick(t.fgm, t.oppFgm),
+      fga: pick(t.fga, t.oppFga),
+      ftm: pick(t.ftm, t.oppFtm),
+      fta: pick(t.fta, t.oppFta),
+      foulsDrawn: pick(t.fd, t.oppFd),
+      blockedAgainst: pick(t.oppBlk, t.blk),
+      technicalFouls: pick(t.technicalFouls, t.oppTechnicalFouls),
+    },
+    1,
+  );
+}
+
+/** Traditional の EFF（シチュエーション別成績・比較と同じ式の、合計を試合数で割った値） */
+export function buildEffColumn(mode: SeasonDisplayMode, perspective: TeamPerspective, seasonStartYear: number): Column<AllTeamsRow> {
+  return countColumn("eff", "EFF", (t) => teamEffOf(t, false, seasonStartYear), (t) => teamEffOf(t, true, seasonStartYear), mode, perspective);
+}
+
+/** Misc の OFF FOUL・CHARGE（値はチームのピリオド別の索引から。索引に無いときは NaN＝「-」）。OFF FOUL は少ないほど良い */
+export function buildOffFoulChargeColumns(mode: SeasonDisplayMode, perspective: TeamPerspective): Column<AllTeamsRow>[] {
+  return [
+    countColumn("offfoul", "OFF FOUL", (t) => t.offFoul, (t) => t.oppOffFoul, mode, perspective, { higherIsBetter: false }),
+    countColumn("charge", "CHARGE", (t) => t.charge, (t) => t.oppCharge, mode, perspective),
+  ];
+}
+
+/**
+ * Misc の LIVETOV・LIVE TOV%（スポーツナビの記録がある試合の合計。記録が無いシーズンは「-」）。
+ * DEADTOV・DEAD TOV% は足していない: 比較ページの値は「ライブ／デッドを判別できなかったターンオーバー」を除くが、試合ログの分類はそれをデッド側に含めるため、同じ値にならない
+ */
+export function buildLiveTovColumns(mode: SeasonDisplayMode, perspective: TeamPerspective): Column<AllTeamsRow>[] {
+  const has = (t: TeamTotals) => t.tovRecordGames > 0;
+  const part = (live: number, tov: number, fga: number, fta: number, t: TeamTotals) => (has(t) ? tovPartPct(live, tov, fga, fta) : NO_VALUE);
+  return [
+    countColumn("livetov", "LIVETOV", (t) => (has(t) ? t.liveTov : NO_VALUE), (t) => (has(t) ? t.oppLiveTov : NO_VALUE), mode, perspective, { higherIsBetter: false }),
+    pct100Column(
+      "livetovpct",
+      "LIVE TOV%",
+      (t) => part(t.liveTov, t.tov, t.fga, t.fta, t),
+      (t) => part(t.oppLiveTov, t.oppTov, t.oppFga, t.oppFta, t),
+      perspective,
+      false,
+    ),
+  ];
+}
+
+/** Misc の登録区分別の得点（日本人・外国籍・帰化・アジア・外国籍・帰化・アジアの合計）。区分を分けて記録していないシーズンは「-」 */
+export function buildClassPointColumns(mode: SeasonDisplayMode, perspective: TeamPerspective, supported: boolean): Column<AllTeamsRow>[] {
+  const n = (v: number) => (supported ? v : NO_VALUE);
+  return [
+    countColumn("japanesePts3", "日本人 PTS", (t) => n(t.japanesePoints), (t) => n(t.oppJapanesePoints), mode, perspective),
+    countColumn("internationalPts3", "外国籍・帰化・アジア PTS", (t) => n(t.internationalPoints), (t) => n(t.oppInternationalPoints), mode, perspective),
+    countColumn("foreignPts3", "外国籍 PTS", (t) => n(t.foreignPoints), (t) => n(t.oppForeignPoints), mode, perspective),
+    countColumn("naturalizedAsiaPts3", "帰化・アジア特別枠 PTS", (t) => n(t.naturalizedAsiaPoints), (t) => n(t.oppNaturalizedAsiaPoints), mode, perspective),
+  ];
+}
+
+/** Scoring の外国籍・帰化とアジア特別枠の得点の割合（総得点に占める割合） */
+export function buildSplitClassPointShareColumns(perspective: TeamPerspective, supported: boolean): Column<AllTeamsRow>[] {
+  const n = (v: number) => (supported ? v : NO_VALUE);
+  return [
+    pct100Column("pctforeign3", "%外国籍 PTS", (t) => n(safeDiv(100 * t.foreignPoints, t.pts)), (t) => n(safeDiv(100 * t.oppForeignPoints, t.oppPts)), perspective),
+    pct100Column(
+      "pctnaturalizedAsia3",
+      "%帰化・アジア特別枠 PTS",
+      (t) => n(safeDiv(100 * t.naturalizedAsiaPoints, t.pts)),
+      (t) => n(safeDiv(100 * t.oppNaturalizedAsiaPoints, t.oppPts)),
+      perspective,
+    ),
   ];
 }
 

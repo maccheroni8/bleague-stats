@@ -17,9 +17,14 @@ export function rankText(rank: number, equivalent = false): string {
 /** 比較の項目（key・label）に対応するランキングの列。ラベルが同じ列を優先し、なければキーが同じ列 */
 export function matchRankColumn<C extends { key: string; label: string }>(columns: readonly C[], def: { key: string; label: string }): C | undefined {
   return (
-    columns.find((c) => normalizeRankKey(c.label) === normalizeRankKey(def.label)) ??
+    columns.find((c) => normalizeRankLabel(c.label) === normalizeRankLabel(def.label)) ??
     columns.find((c) => normalizeRankKey(c.key) === normalizeRankKey(def.key))
   );
+}
+
+/** 項目名の照合用。大文字小文字と空白だけをそろえる（日本語を消さない。消すと「外国籍 PTS」と「日本人 PTS」がどちらも「pts」になって取り違える） */
+function normalizeRankLabel(label: string): string {
+  return label.toLowerCase().replace(/\s+/g, "");
 }
 
 /** チームの順位。ランキングのチーム・シーズン成績（RankedList + noGamesRanking）と同じ。良し悪しなしの項目・値の無いチームは null */
@@ -34,7 +39,7 @@ export function teamRankOf(
   const value = (r: AllTeamsRow) => Number(column.sortValue(r));
   const format = (r: AllTeamsRow) => (column.format ? column.format(r) : String(column.sortValue(r)));
   const unranked = (r: AllTeamsRow) =>
-    r.gamesPlayed === 0 || (isPaint2Key(column.key) && !paintRankable(paintOf(r.totals), column.key, perspective));
+    r.gamesPlayed === 0 || Number.isNaN(value(r)) || (isPaint2Key(column.key) && !paintRankable(paintOf(r.totals), column.key, perspective));
   const ranked = rows.filter((r) => !unranked(r));
   const sorted = [...ranked].sort((a, b) => (higherIsBetter ? value(b) - value(a) : value(a) - value(b)));
   const ranks = rankPositions(sorted.map(format));

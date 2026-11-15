@@ -372,7 +372,8 @@ function TeamCompareView({
   // 順位: ランキング（チーム・シーズン成績）と同じ計算（useTeamSeasonRanking）を、スロットの条件（シーズン・試合区分・絞り込み）で全チームに掛ける。リーグ平均には付けない
   // 比較の Scoring には、ランキングでは Misc にある項目（PAINT2M・MID2% など）も並ぶので、そのときは Misc の表からも探す
   // フックの呼び出し数を変えないため、2つ目は Scoring 以外では何も読まない（enabled=false）
-  const rankCategories: [BoxscoreTabKey, BoxscoreTabKey, boolean][] = [[cat, cat, true], [cat === "scoring" ? "misc" : cat, cat, cat === "scoring"]];
+  // Advanced・Misc・Scoring の表に並ぶ PTS は Traditional の PTS と同じ値なので、その順位は Traditional の表から探す
+  const rankCategories: [BoxscoreTabKey, BoxscoreTabKey, boolean][] = [[cat, cat, true], [cat === "scoring" ? "misc" : "traditional", cat, cat !== "traditional"]];
   const rankSources = rankCategories.map(([category, , active]) =>
     SLOT_INDEXES.map((i) => {
       const slot = slots[i]!;
@@ -388,7 +389,7 @@ function TeamCompareView({
         statConditions: DEFAULT_STAT_CONDITIONS,
       };
       // eslint-disable-next-line react-hooks/rules-of-hooks
-      return useTeamSeasonRanking(slot.season, params, { enabled: active && showRank && valid[i]! && slot.id !== LEAGUE_TEAM_ID, skipConditionItems: true, league });
+      return useTeamSeasonRanking(slot.season, params, { enabled: active && showRank && valid[i]! && slot.id !== LEAGUE_TEAM_ID, skipConditionItems: true, league, foulIndex: category === "misc" });
     }),
   );
   const teamRankOfDef = (def: ComparisonStatDef<TeamPageRow>, item: TeamPageRow): string | undefined => {

@@ -12,6 +12,8 @@ export type RankPerspective = "own" | "opp" | "diff";
 const LOWER_KEYS = new Set([
   "tov", "tovpct", "f", "pf", "bsr", "drtg", "opppts",
   "tf", "tf1", "tf2", "uf", "ufoul", "flag", "disr", "dq", "dqfoul", "offfoul",
+  // ライブ／デッドボールのターンオーバー（TOV の内訳。少ないほど良い）
+  "livetov", "deadtov", "livetovpct", "deadtovpct",
 ]);
 
 /** 良し悪しがない（試合数・時間・テンポ） */
@@ -22,7 +24,7 @@ const NEUTRAL_KEYS = new Set(["g", "gs", "min", "poss", "pace", "paint2games"]);
  * 良し悪しなしとする（迷ったもの。報告に一覧で書いた）。USG%・ベンチ／スターターの得点・日本人／外国籍の得点も同じ
  */
 const NEUTRAL_COMPOSITION_KEYS = new Set([
-  "usg", "benchpts", "starterpts", "japanesepts3", "internationalpts3",
+  "usg", "benchpts", "starterpts", "japanesepts3", "internationalpts3", "foreignpts3", "naturalizedasiapts3",
   "ast2m", "ast3m", "astftm", "self2m", "self3m", "selfftm",
   "pitppct", "fbppct", "2ndptspct", "ptsofftovpct",
 ]);
@@ -72,11 +74,11 @@ export const RANK_DIRECTION_GLOSSARY: { direction: RankDirection; title: string;
   {
     direction: "lower",
     title: "少ないほど良い（少ない順が1位）",
-    items: "TOV・TOV%・F（ファウル）・BSR（被ブロック）・DRtg・失点（opp PTS）、ファウル系（TF・TF1・TF2・UFOUL・FLAG・DISR・DQFOUL・OFF FOUL）。チームの opp（相手）の視点は、相手の FG% などは少ないほうが良い（相手の TOV・F は奪った・誘った数なので多いほうが良い）。",
+    items: "TOV・TOV%・LIVETOV・LIVE TOV%・F（ファウル）・BSR（被ブロック）・DRtg・失点（opp PTS）、ファウル系（TF・TF1・TF2・UFOUL・FLAG・DISR・DQFOUL・OFF FOUL）。チームの opp（相手）の視点は、相手の FG% などは少ないほうが良い（相手の TOV・F は奪った・誘った数なので多いほうが良い）。",
   },
   {
     direction: "neutral",
     title: "良し悪しがない（多い順に並べるが、良い・悪いの色は付けない）",
-    items: "G・GS・MIN・POSS・PACE、USG%、構成比・内訳（%PTS・%FGM・%3PA などの「%」で始まる項目、PITP%・FBP%・2ND PTS%・PTSOFFTO%、AST2M・Self2M などアシストの有無の分け方、BENCH／STARTER PTS、日本人／外国籍等の PTS）。",
+    items: "G・GS・MIN・POSS・PACE、USG%、構成比・内訳（%PTS・%FGM・%3PA などの「%」で始まる項目、PITP%・FBP%・2ND PTS%・PTSOFFTO%、AST2M・Self2M などアシストの有無の分け方、BENCH／STARTER PTS、日本人・外国籍・帰化・アジア特別枠の PTS とその割合、%3P・%PoutP・%FT・%OPA）。",
   },
 ];

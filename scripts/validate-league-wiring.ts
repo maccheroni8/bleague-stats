@@ -492,7 +492,7 @@ console.log("9. ランキング（B.ONE のシーズン成績・1試合記録）
   }
   // 集計の呼び出しにリーグが渡っている（今季も前季の比較も）
   const hookCalls = text.match(/use(Player|Team)SeasonRanking\(/g)?.length ?? 0;
-  const hookWithLeague = text.match(/\}, \{ league \}\);|league \},\n  \);/g)?.length ?? 0;
+  const hookWithLeague = text.match(/\}, \{ league(?:, foulIndex)? \}\);|league(?:, foulIndex)? \},\n  \);/g)?.length ?? 0;
   check(hookCalls === 4 && hookWithLeague >= 4, `集計フックの呼び出し ${hookCalls}か所のうち、リーグを渡しているのは ${hookWithLeague}か所`);
   // 段階2-A: 勝負所・アシストペア・達成記録・On/Off も、範囲は B.ONE ではシーズンだけ（通算・歴代・1試合〔歴代〕は選べない）。区画はリーグで作り直す
   for (const comp of ["PlayerClutchRanking", "AssistPairRanking", "PlayerThresholdRanking", "PlayerLineupRanking"]) {

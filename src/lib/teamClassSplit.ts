@@ -186,6 +186,21 @@ export const CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS: ReadonlySet<string> = new Set(
   "maxlead",
   "avgrun",
   "maxrun",
+  // ランキングに足した項目（BSR・EFF は相手の値、OFF FOUL 以降は試合ごとの記録や得点の割合で、区分の選手の合計では出せない。405章）
+  "bsr",
+  "eff",
+  "offfoul",
+  "charge",
+  "livetov",
+  "livetovpct",
+  "foreignPts3",
+  "naturalizedAsiaPts3",
+  "pctforeign3",
+  "pctnaturalizedAsia3",
+  "pct3p",
+  "pctpoutp",
+  "pctft",
+  "pctopa",
 ]);
 
 /**

@@ -120,6 +120,7 @@ import {
   isBoxscoreCategory,
   teamDefaultStatKey,
   useTeamSeasonRanking,
+  MOVED_TO_MISC_KEYS,
   isClassUnavailableStat,
   type TeamRankingCategory,
   type TurnoverDirection,
@@ -339,9 +340,15 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
   const [urlTeamCategory, setCategory] = useUrlState(TEAM_CATEGORY_PARAM, "traditional");
   // B.ONE には、シュートの種類・強制ターンオーバーの分類の記録が無いので選べない（URL に書いてあっても Traditional で出す）
   const teamCategoryBlocked = league === "one" && (urlTeamCategory === "shooting" || urlTeamCategory === "forcedTurnovers");
-  const category: TeamRankingCategory = teamCategoryBlocked ? "traditional" : urlTeamCategory;
+  // 登録区分別の得点（日本人 PTS など）は Misc に移した。古い URL（Scoring ＋ その項目）は Misc で開く
+  const baseCategory: TeamRankingCategory = teamCategoryBlocked ? "traditional" : urlTeamCategory;
+  const [urlStatKey, setStatKey] = useUrlState(stringParam("stat", teamDefaultStatKey(baseCategory), isStatKeyLike), teamDefaultStatKey(baseCategory));
+  const movedToMisc = baseCategory === "scoring" && MOVED_TO_MISC_KEYS.has(urlStatKey);
+  const category: TeamRankingCategory = movedToMisc ? "misc" : baseCategory;
   const defaultTeamStat = teamDefaultStatKey(category);
-  const [statKey, setStatKey] = useUrlState(stringParam("stat", defaultTeamStat, isStatKeyLike), defaultTeamStat);
+  const statKey = urlStatKey;
+  // OFF FOUL・CHARGE は試合ログに無く、ピリオド別の索引から出す（その項目を選んだときだけ索引を読む）
+  const foulIndex = statKey === "offfoul" || statKey === "charge";
   const [displayMode, setDisplayMode] = useUrlState(DISPLAY_MODE_PARAM, "perGame");
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const [perspective, setPerspective] = useUrlState(PERSPECTIVE_PARAM, "own");
@@ -388,7 +395,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
     teamsWithForcedTurnovers,
     forcedTurnoverScoped,
     scopedLogsByTeam: teamScopedLogs,
-  } = useTeamSeasonRanking(season, { category, statKey, displayMode, gameType, perspective, filter, turnoverDirection, period, statConditions, classFilter }, { league });
+  } = useTeamSeasonRanking(season, { category, statKey, displayMode, gameType, perspective, filter, turnoverDirection, period, statConditions, classFilter }, { league, foulIndex });
   // Shooting・Forced TOV は、スポーツナビの記録がある試合（レギュラーシーズン）の試合数と勝敗
   const yahooRecords = useMemo(
     () => yahooRecordByTeam(category === "forcedTurnovers" && forcedTurnoverScoped ? teamScopedLogs : gameLogsByTeam, category === "forcedTurnovers" && forcedTurnoverScoped),
@@ -415,7 +422,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
   const prevRanking = useTeamSeasonRanking(
     prevSeason ?? season,
     { category, statKey, displayMode, gameType, perspective, filter, turnoverDirection, period, statConditions: DEFAULT_STAT_CONDITIONS, classFilter },
-    { enabled: compareActive, skipConditionItems: true, league },
+    { enabled: compareActive, skipConditionItems: true, league, foulIndex },
   );
   // ファウルの列は、2026-27以降のシーズンではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF。そのシーズンに無い項目・条件は外す（DESIGN.md 16-8章）
   useFoulConditionCleanup(season, statConditions, setStatConditions);
