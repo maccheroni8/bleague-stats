@@ -3,9 +3,15 @@
 // 作るのはパソコンの Chrome が前提。形式は MP4（H.264）が録れるブラウザは MP4、録れなければ WebM（呼び出し側が画面に出す）。
 import { buildTeamTrack, tieStagesByIndex, trackTipAt, xAtProgress } from "./trendPlaybackGeometry";
 
-export const VIDEO_WIDTH = 1280;
-export const VIDEO_HEIGHT = 720;
+/** 動画の大きさ（ピクセル）。描く座標は 1280×720 の「論理」の大きさで、1.5倍にして 1920×1080 に描く（字・線・ロゴをぼやけさせない） */
+export const VIDEO_WIDTH = 1920;
+export const VIDEO_HEIGHT = 1080;
+const LOGICAL_WIDTH = 1280;
+const LOGICAL_HEIGHT = 720;
+const VIDEO_SCALE = VIDEO_WIDTH / LOGICAL_WIDTH;
 export const VIDEO_FPS = 30;
+/** 画質（ビットレート）。字や線の細かい動画なので高めにする */
+export const VIDEO_BITRATE = 10_000_000;
 /** 動き出す前の形（最初の日）を止めておく時間（ミリ秒） */
 export const VIDEO_HOLD_START_MS = 1500;
 /** 最後の形を止めておく時間（ミリ秒） */
@@ -91,7 +97,7 @@ interface Layout {
 
 function layoutOf(ctx: CanvasRenderingContext2D, spec: TrendVideoSpec): Layout {
   ctx.font = "14px sans-serif";
-  const maxWidth = VIDEO_WIDTH - 80;
+  const maxWidth = LOGICAL_WIDTH - 80;
   const legendLines: Layout["legendLines"] = [];
   let x = 40;
   let line = 0;
@@ -105,9 +111,9 @@ function layoutOf(ctx: CanvasRenderingContext2D, spec: TrendVideoSpec): Layout {
     x += w;
   }
   const lines = legendLines.length === 0 ? 0 : line + 1;
-  const footerTop = VIDEO_HEIGHT - 34;
+  const footerTop = LOGICAL_HEIGHT - 34;
   const legendTop = footerTop - 8 - lines * 22;
-  return { left: 64, right: VIDEO_WIDTH - 60, top: 176, bottom: legendTop - 36, legendLines: legendLines.map((l) => ({ ...l, y: legendTop + l.y * 22 + 11 })) };
+  return { left: 64, right: LOGICAL_WIDTH - 60, top: 176, bottom: legendTop - 36, legendLines: legendLines.map((l) => ({ ...l, y: legendTop + l.y * 22 + 11 })) };
 }
 
 export interface PreparedTrendVideo {
@@ -142,21 +148,24 @@ export function prepareTrendVideo(spec: TrendVideoSpec, measure: CanvasRendering
 
   const draw: PreparedTrendVideo["draw"] = (ctx, progress, final) => {
     ctx.save();
+    ctx.setTransform(VIDEO_SCALE, 0, 0, VIDEO_SCALE, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT);
+    ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
     ctx.fillStyle = "#003050";
-    ctx.fillRect(0, 0, VIDEO_WIDTH, 10);
+    ctx.fillRect(0, 0, LOGICAL_WIDTH, 10);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = "#003050";
     ctx.font = "bold 22px sans-serif";
-    ctx.fillText(spec.scope, VIDEO_WIDTH / 2, 44);
+    ctx.fillText(spec.scope, LOGICAL_WIDTH / 2, 44);
     ctx.fillStyle = "#1a1a1a";
     ctx.font = "bold 34px sans-serif";
-    ctx.fillText(spec.title, VIDEO_WIDTH / 2, 88);
+    ctx.fillText(spec.title, LOGICAL_WIDTH / 2, 88);
     ctx.fillStyle = "#555555";
     ctx.font = "16px sans-serif";
-    ctx.fillText(spec.subtitleAt(final ? undefined : Math.min(Math.floor(progress), n - 1)), VIDEO_WIDTH / 2, 126);
+    ctx.fillText(spec.subtitleAt(final ? undefined : Math.min(Math.floor(progress), n - 1)), LOGICAL_WIDTH / 2, 126);
 
     // 縦軸の目盛り・横線
     ctx.font = "12px sans-serif";
@@ -205,7 +214,7 @@ export function prepareTrendVideo(spec: TrendVideoSpec, measure: CanvasRendering
     if (tipX !== null) {
       ctx.save();
       ctx.beginPath();
-      ctx.rect(L.left, 0, Math.max(tipX, 0) + 1, VIDEO_HEIGHT);
+      ctx.rect(L.left, 0, Math.max(tipX, 0) + 1, LOGICAL_HEIGHT);
       ctx.clip();
       ctx.translate(L.left, 0);
       ctx.lineWidth = 2.5;
@@ -240,10 +249,10 @@ export function prepareTrendVideo(spec: TrendVideoSpec, measure: CanvasRendering
     ctx.textBaseline = "middle";
     if (spec.footerLeft) {
       ctx.textAlign = "left";
-      ctx.fillText(spec.footerLeft, 40, VIDEO_HEIGHT - 22);
+      ctx.fillText(spec.footerLeft, 40, LOGICAL_HEIGHT - 22);
     }
     ctx.textAlign = "right";
-    ctx.fillText(spec.footerRight, VIDEO_WIDTH - 40, VIDEO_HEIGHT - 22);
+    ctx.fillText(spec.footerRight, LOGICAL_WIDTH - 40, LOGICAL_HEIGHT - 22);
     ctx.restore();
   };
   return { draw, length: n };
@@ -288,7 +297,7 @@ export async function recordTrendVideo(
   const last = Math.max(video.length - 1, 0);
   video.draw(ctx, 0, false);
   const stream = canvas.captureStream(VIDEO_FPS);
-  const recorder = new MediaRecorder(stream, { mimeType: options.format.mime, videoBitsPerSecond: 5_000_000 });
+  const recorder = new MediaRecorder(stream, { mimeType: options.format.mime, videoBitsPerSecond: VIDEO_BITRATE });
   const chunks: Blob[] = [];
   recorder.ondataavailable = (e) => {
     if (e.data.size > 0) chunks.push(e.data);

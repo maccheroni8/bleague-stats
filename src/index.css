@@ -8827,6 +8827,8 @@ table.sortable-table.tts-table th {
   font-weight: 400;
   color: var(--muted);
   white-space: nowrap;
+}
+
 /* 順位表ページの画像保存（DESIGN.md 393章）。保存ボタンは保存範囲の右上。保存画像の幅は表の幅に合わせる（横に長い表は長いまま。PC幅で見る前提） */
 .savable-block {
   margin-top: 12px;
@@ -8929,4 +8931,147 @@ table.sortable-table.tts-table th {
 .trend-video-button {
   font: inherit;
   cursor: pointer;
+}
+
+/* 画像・動画の保存の窓（SaveModal.tsx。設計書396章）。画面の幅に収め、ボタンは高さ44px以上 */
+.save-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.save-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-height: min(86vh, 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+.save-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 8px 8px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.save-modal-title {
+  margin: 0;
+  font-size: 16px;
+}
+.save-modal-close {
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+.save-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 16px 16px;
+  overflow-y: auto;
+}
+.save-modal-preview {
+  padding: 8px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  text-align: center;
+}
+.save-modal-preview p {
+  margin: 0;
+}
+.save-modal-preview-scope {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.save-modal-preview-name {
+  margin-top: 2px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.save-modal-preview-sub {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.save-modal-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.save-modal-options .export-option-group {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.save-modal-options .export-option-group button,
+.save-modal-field select {
+  min-height: 36px;
+}
+.save-modal-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.save-modal-field select {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+}
+.save-modal-reason,
+.save-modal-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.save-modal-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.save-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.save-modal-primary,
+.save-modal-secondary {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.save-modal-primary {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.save-modal-secondary {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+}
+.save-modal-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.save-modal-progress {
+  width: 100%;
+  height: 8px;
 }

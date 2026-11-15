@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { resolveBaseDate, type BaseDateSpec } from "../lib/dataBaseDate";
 import { exportFilenameWithLeague } from "../lib/exportFormat";
 import { LEAGUE_LABELS, useLeague } from "../lib/league";
@@ -16,6 +16,32 @@ import {
   type PreparedExportImage,
 } from "../lib/exportImage";
 import { ExportImagePreview } from "./ExportImagePreview";
+import { SaveModal, SaveModalPreview } from "./SaveModal";
+
+/** 保存する範囲の中から、保存画像の見出し・サブタイトルの文字を読む（窓の見本用。保存画像から外れる部分〔export-hide〕は除く） */
+export function readExportHeadingPreview(target: HTMLElement | null): { scope?: string; name?: string; subtitle?: string } {
+  if (!target) return {};
+  const first = (selector: string): string | undefined => {
+    for (const el of Array.from(target.querySelectorAll<HTMLElement>(selector))) {
+      if (el.closest(".export-hide")) continue;
+      const text = el.textContent?.replace(/\s+/g, " ").trim();
+      if (text) return text;
+    }
+    return undefined;
+  };
+  // 見出しが複数ある保存範囲（全地区まとめて）は、見出しを「／」でつなぐ
+  const names: string[] = [];
+  for (const el of Array.from(target.querySelectorAll<HTMLElement>(".export-heading h2"))) {
+    if (el.closest(".export-hide")) continue;
+    const text = el.textContent?.replace(/\s+/g, " ").trim();
+    if (text && !names.includes(text)) names.push(text);
+  }
+  return {
+    scope: first(".export-heading-scope"),
+    name: names.length > 0 ? names.join("／") : (first("h3") ?? first("h2")),
+    subtitle: first(".condition-title-conditions"),
+  };
+}
 
 const SHARE_BLOCKED_NOTICE = "共有の画面を開けませんでした。もう一度「写真に保存」を押してください。";
 
@@ -45,6 +71,8 @@ export function ExportImageButton({
   filename: baseFilename,
   baseDate,
   ranking,
+  options,
+  disabledReason,
 }: {
   targetRef: RefObject<HTMLElement | null>;
   filename: string;
@@ -52,10 +80,16 @@ export function ExportImageButton({
   baseDate?: BaseDateSpec;
   /** ランキングの保存の選択肢（指定したときだけ出す） */
   ranking?: RankingExportChoices;
+  /** 窓の中に出す、保存する内容の選択（保存する表・範囲など。保存に関係する選択だけ。画面の表示を切り替える選択は渡さない） */
+  options?: ReactNode;
+  /** 保存できない理由（あれば窓の中に出して「保存する」を押せなくする） */
+  disabledReason?: string;
 }) {
   // ファイル名の先頭と基準日は、見ているリーグで決める（DESIGN.md 297章）
   const league = useLeague();
   const filename = exportFilenameWithLeague(baseFilename, LEAGUE_LABELS[league]);
+  const [open, setOpen] = useState(false);
+  const [heading, setHeading] = useState<{ scope?: string; name?: string; subtitle?: string }>({});
   const [busy, setBusy] = useState(false);
   /** 画像を作っている段階（ボタンの文字に出す） */
   const [phase, setPhase] = useState<ExportPhase | null>(null);
@@ -81,6 +115,12 @@ export function ExportImageButton({
     );
     p.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [notice, noticeIsError]);
+  // 窓を開いている間、保存される見出し・サブタイトルを読み直す（選択が変わると画面の側が描き直すので、描き直しのたびに読む）
+  useEffect(() => {
+    if (!open) return;
+    const next = readExportHeadingPreview(targetRef.current);
+    setHeading((prev) => (prev.scope === next.scope && prev.name === next.name && prev.subtitle === next.subtitle ? prev : next));
+  });
   /** 保存の回の番号。共有シートの結果が返ったとき、そのあとに新しく保存を始めていたら、古い結果で画面を変えない */
   const round = useRef(0);
   /** 保存の途中で部品が外されたかを、調べるための記録に残す（debug=export のときだけ） */
@@ -130,10 +170,12 @@ export function ExportImageButton({
       if (canShareExportImage(prepared.file)) {
         setPending(prepared);
         setPreviewNotice(reduced);
+        setOpen(false);
         exportDebugEnd("共有の経路: できた画像を画面いっぱいに出した（「写真に保存」・長押しの案内）");
       } else {
         downloadExportImage(prepared.file);
         setNotice(reduced);
+        setOpen(false);
         exportDebugEnd(`ダウンロードの経路: ダウンロードを始めた（案内 ${reduced ? "あり（解像度を下げた）" : "なし"}）`);
       }
     } catch (e) {
@@ -187,39 +229,60 @@ export function ExportImageButton({
       : { all: `上位${ranking.top}${ranking.unit}`, ten: `上位10${ranking.unit}` }
     : null;
 
+  const saveDisabled = busy || !!disabledReason;
+  const notices = notice && (
+    <p ref={noticeRef} className={`export-notice${noticeIsError ? " export-notice-error" : ""}`} role={noticeIsError ? "alert" : "status"}>
+      {notice}
+    </p>
+  );
   return (
     <div className="export-controls">
-      <button className="export-image-button" onClick={handleClick} disabled={busy}>
+      <button
+        className="export-image-button"
+        onClick={() => {
+          setNotice(null);
+          setNoticeIsError(false);
+          setOpen(true);
+        }}
+        aria-haspopup="dialog"
+      >
         {busy ? (phase ? BUSY_LABELS[phase] : "出力中…") : "画像として保存"}
       </button>
       {pending && <ExportImagePreview file={pending.file} notice={previewNotice} onShare={handleSharePending} onClose={handleClosePreview} />}
-      {ranking && topLabel && (
-        <>
-          <span className="export-option-group" role="group" aria-label={`保存する画像の${ranking.media}`}>
-            <span className="export-option-label">{ranking.media}</span>
-            <button type="button" className={!plain ? "active" : ""} onClick={() => setPlain(false)}>
-              あり
-            </button>
-            <button type="button" className={plain ? "active" : ""} onClick={() => setPlain(true)}>
-              なし
-            </button>
-          </span>
-          <span className="export-option-group" role="group" aria-label="保存する画像の件数">
-            <span className="export-option-label">件数</span>
-            <button type="button" className={!top10 ? "active" : ""} onClick={() => setTop10(false)}>
-              {topLabel.all}
-            </button>
-            <button type="button" className={top10 ? "active" : ""} onClick={() => setTop10(true)}>
-              {topLabel.ten}
-            </button>
-          </span>
-        </>
-      )}
-      {notice && (
-        <p ref={noticeRef} className={`export-notice${noticeIsError ? " export-notice-error" : ""}`} role={noticeIsError ? "alert" : "status"}>
-          {notice}
-        </p>
-      )}
+      <SaveModal open={open} title="画像として保存" onClose={() => setOpen(false)}>
+        <SaveModalPreview {...heading} />
+        {options && <div className="save-modal-options">{options}</div>}
+        {ranking && topLabel && (
+          <div className="save-modal-options">
+            <span className="export-option-group" role="group" aria-label={`保存する画像の${ranking.media}`}>
+              <span className="export-option-label">{ranking.media}</span>
+              <button type="button" className={!plain ? "active" : ""} onClick={() => setPlain(false)}>
+                あり
+              </button>
+              <button type="button" className={plain ? "active" : ""} onClick={() => setPlain(true)}>
+                なし
+              </button>
+            </span>
+            <span className="export-option-group" role="group" aria-label="保存する画像の件数">
+              <span className="export-option-label">件数</span>
+              <button type="button" className={!top10 ? "active" : ""} onClick={() => setTop10(false)}>
+                {topLabel.all}
+              </button>
+              <button type="button" className={top10 ? "active" : ""} onClick={() => setTop10(true)}>
+                {topLabel.ten}
+              </button>
+            </span>
+          </div>
+        )}
+        {disabledReason && <p className="save-modal-reason">{disabledReason}</p>}
+        {notices}
+        <div className="save-modal-actions">
+          <button type="button" className="save-modal-primary" onClick={handleClick} disabled={saveDisabled}>
+            {busy ? (phase ? BUSY_LABELS[phase] : "出力中…") : "保存する"}
+          </button>
+        </div>
+      </SaveModal>
+      {!open && notices}
     </div>
   );
 }
