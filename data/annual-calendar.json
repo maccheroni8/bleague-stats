@@ -447,7 +447,7 @@
           "cupStage": "final",
           "id": "cup:M3",
           "home": {
-            "name": "関東ブロック代表"
+            "name": "白鷗大"
           },
           "away": {
             "id": "714",
@@ -514,7 +514,7 @@
             "name": "立川ダイス"
           },
           "away": {
-            "name": "中国ブロック代表"
+            "name": "周南公立大"
           },
           "status": "upcoming"
         },
@@ -602,7 +602,7 @@
             "name": "宇都宮ブレックス"
           },
           "away": {
-            "name": "M3（関東ブロック代表 vs 横浜エクセレンス）の勝者",
+            "name": "M3（白鷗大 vs 横浜エクセレンス）の勝者",
             "placeholder": true
           },
           "status": "upcoming"
@@ -777,7 +777,7 @@
           "cupStage": "final",
           "id": "cup:M16:729",
           "home": {
-            "name": "M8（立川ダイス vs 中国ブロック代表）の勝者",
+            "name": "M8（立川ダイス vs 周南公立大）の勝者",
             "placeholder": true
           },
           "away": {
@@ -1714,7 +1714,7 @@
       ],
       "finalsEnd": "2027-06-01",
       "finalsSource": "https://www.bleague.jp/schedule/?club=700&tab=1",
-      "cupUpdatedAt": "2026-11-12T20:36:22.338Z"
+      "cupUpdatedAt": "2026-11-15T18:39:37.650Z"
     }
   }
 }
