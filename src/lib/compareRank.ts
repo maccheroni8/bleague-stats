@@ -3,7 +3,7 @@
 // （良い方が上位・表示の文字が同じなら同じ順位・次は飛ばす）。画面・通信に依存しない純粋な関数だけ（保存キーの対象外）。
 import type { AllTeamsRow, TeamPerspective } from "./teamStatsColumns";
 import type { Column } from "../components/SortableTable";
-import { rankDirectionOf, normalizeRankKey } from "./rankDirection";
+import { rankDirectionOf, normalizeRankKey, isRankOnlyKey } from "./rankDirection";
 import { rankPositions } from "./seasonCompare";
 import { isPaint2Key, paintRankable, paintOf } from "./teamPaint2";
 
@@ -39,7 +39,7 @@ export interface TeamRankResult {
 
 /**
  * 全チームの順位（teamId → 順位・上位／下位の別）。ランキングのチーム・シーズン成績（RankedList + noGamesRanking）と同じ並べ方
- * （良い方が上位・表示の文字が同じなら同じ順位・次は飛ばす）。良し悪しなしの項目は null（順位も色も付けない）。
+ * （良い方が上位・表示の文字が同じなら同じ順位・次は飛ばす）。良し悪しなしの項目は null（順位も色も付けない）。ただし色なしで順位だけ出す項目（isRankOnlyKey）は、多い順の順位を返して tier は常に null。
  * 試合が0・値の無い（「-」）チームは順位に入れない。下位は、いちばん悪い方から数えた順位（同じ値は同じ順位）が3位以内。
  * 上位と下位が重なるほどチームが少ないとき（6チーム以下）は色を付けない
  */
@@ -49,7 +49,9 @@ export function teamRanksOf(
   perspective: TeamPerspective,
 ): Map<string, TeamRankResult> | null {
   const direction = rankDirectionOf(column.key, perspective);
-  if (direction === "neutral") return null;
+  // 良し悪しなしは順位も出さない。ただし isRankOnlyKey の項目は、多い順の順位だけ出す（色なし）
+  const rankOnly = direction === "neutral" && isRankOnlyKey(column.key);
+  if (direction === "neutral" && !rankOnly) return null;
   const higherIsBetter = direction !== "lower";
   const value = (r: AllTeamsRow) => Number(column.sortValue(r));
   const format = (r: AllTeamsRow) => (column.format ? column.format(r) : String(column.sortValue(r)));
@@ -67,7 +69,7 @@ export function teamRanksOf(
   best.forEach((r, i) => {
     const rank = fromTop[i]!;
     const bottomRank = fromBottom[total - 1 - i]!;
-    const tier = total <= TEAM_RANK_TIER_SIZE * 2 ? null : rank <= TEAM_RANK_TIER_SIZE ? "top" : bottomRank <= TEAM_RANK_TIER_SIZE ? "bottom" : null;
+    const tier = rankOnly || total <= TEAM_RANK_TIER_SIZE * 2 ? null : rank <= TEAM_RANK_TIER_SIZE ? "top" : bottomRank <= TEAM_RANK_TIER_SIZE ? "bottom" : null;
     out.set(r.team.teamId, { rank, total, tier });
   });
   return out;

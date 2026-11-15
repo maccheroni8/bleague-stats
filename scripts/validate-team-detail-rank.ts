@@ -9,12 +9,14 @@ import { gunzipSync } from "node:zlib";
 import type { TeamGameLog } from "../shared/types";
 import { filterByGameType } from "../shared/gameType";
 import { teamRankOf, teamRanksOf } from "../src/lib/compareRank";
+import { isRankOnlyKey } from "../src/lib/rankDirection";
 import { buildTeamCategoryColumns } from "../src/lib/teamSeasonRanking";
 import { sumTeamGameLogs, type AllTeamsRow, type TeamPerspective } from "../src/lib/teamStatsColumns";
 
 const DATA = path.resolve("data");
 const read = (p: string) => JSON.parse(gunzipSync(fs.readFileSync(p)).toString("utf8"));
 
+const rankOnlySeen = new Set<string>();
 for (const season of ["2025-26", "2021-22"]) {
   const raw = read(path.join(DATA, season, "teams.json.gz"));
   const teams: Array<{ teamId: string }> = Array.isArray(raw) ? raw : raw.teams;
@@ -41,8 +43,14 @@ for (const season of ["2025-26", "2021-22"]) {
         // 順位の向き: 1位の値が、良い方の端
         const list = [...ranks].map(([id, r]) => ({ r, v: Number(col.sortValue(rows.find((x) => x.team.teamId === id)!)) }));
         const top = list.filter((x) => x.r.rank === 1).map((x) => x.v)[0]!;
-        const higher = col.higherIsBetter !== false;
+        const higher = isRankOnlyKey(col.key) || col.higherIsBetter !== false; // 色なし順位の項目は視点によらず多い順
         for (const x of list) assert(higher ? x.v <= top + 1e-9 : x.v >= top - 1e-9, `${season} ${perspective} ${col.key}: 1位が最良`);
+        // 色なしで順位だけ出す項目（408章）は、色（tier）が常に無い
+        if (isRankOnlyKey(col.key)) {
+          assert(list.every((x) => x.r.tier === null), `${season} ${perspective} ${col.key}: 色なし`);
+          rankOnlySeen.add(col.key);
+          continue;
+        }
         // 色: 上位3位以内が top・下位3位以内が bottom・重ならない
         for (const x of list) {
           if (x.r.tier === "top") assert(x.r.rank <= 3);
@@ -67,10 +75,26 @@ for (const season of ["2025-26", "2021-22"]) {
     const col = buildTeamCategoryColumns("advanced", "perGame", "own", true, true, false).find((c) => c.key === key)!;
     assert.equal(teamRanksOf(rows, col, "own"), null, `${key} は順位を付けない`);
   }
-  assert.equal(teamRanksOf(rows, buildTeamCategoryColumns("misc", "perGame", "own", true, true, false).find((c) => c.key === "benchPts")!, "own"), null);
+  for (const key of ["g", "gs", "min", "usg"]) {
+    for (const category of ["traditional", "advanced", "misc", "scoring"] as const) {
+      const col = buildTeamCategoryColumns(category, "perGame", "own", true, true, false).find((c) => c.key === key);
+      if (col) assert.equal(teamRanksOf(rows, col, "own"), null, `${key} は順位を付けない`);
+    }
+  }
+  // 色なしで順位だけ出す項目: 多い順（1位が最大）。opp でも多い順
+  for (const perspective of ["own", "opp"] as TeamPerspective[]) {
+    const col = buildTeamCategoryColumns("misc", "perGame", perspective, true, true, false).find((c) => c.key === "benchPts")!;
+    const ranks = teamRanksOf(rows, col, perspective);
+    if (ranks) {
+      const best = Math.max(...[...ranks.keys()].map((id) => Number(col.sortValue(rows.find((x) => x.team.teamId === id)!))));
+      const first = [...ranks].filter(([, r]) => r.rank === 1).map(([id]) => Number(col.sortValue(rows.find((x) => x.team.teamId === id)!)));
+      assert(first.every((v) => Math.abs(v - best) < 1e-9), `${season} ${perspective} benchPts: 多い順の1位`);
+    }
+  }
   // 6チーム以下は色なし
   const few = teamRanksOf(rows.slice(0, 6), buildTeamCategoryColumns("traditional", "perGame", "own", true, true, false).find((c) => c.key === "pts")!, "own")!;
   assert([...few.values()].every((r) => r.tier === null), "6チーム以下は色を付けない");
   console.log(`${season}: OK（${rows.length}チーム）`);
 }
+assert(["benchPts", "pct3p", "pctft"].every((k) => rankOnlySeen.has(k)), "色なし順位の項目を確かめた");
 console.log("validate-team-detail-rank: OK");
