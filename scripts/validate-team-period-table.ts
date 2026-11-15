@@ -26,7 +26,7 @@ function check(label: string, ok: boolean, detail = ""): void {
 }
 
 // OFF FOUL・CHARGE（275章 段階3）は試合ログの合計に無い（索引からだけ出す）ので、ここでは比べない（validate-period-index が選手の合計と突き合わせる）
-const INDEX_ONLY_KEYS = new Set(["offFoul", "charge", "oppOffFoul", "oppCharge"]);
+const INDEX_ONLY_KEYS = new Set(["offFoul", "charge", "oppOffFoul", "oppCharge", "liveTov", "oppLiveTov", "tovRecordGames"]);
 const KEYS = Object.keys(EMPTY_TOTALS).filter((k) => k !== "poss" && !INDEX_ONLY_KEYS.has(k)) as (keyof TeamTotals)[];
 function add(a: TeamTotals, b: TeamTotals): TeamTotals {
   const out = { ...a };
