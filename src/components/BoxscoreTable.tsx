@@ -569,6 +569,13 @@ export function orShareColumn(noTeamRebounds: boolean): BoxscoreColumn {
  * 内訳集計（スタメン・ベンチ・登録区分）の %USG＝グループの（FGA＋0.44×FTA＋TOV）÷ チーム全体の同じ値、%AST＝グループの AST ÷ チームの AST。
  * 個人の USG%・AST% とは別の項目（チーム全体に占める割合。%OR と同じ考え方。DESIGN.md 304章）。チーム合計の行は100%
  */
+/** 内訳集計の列（個人の OR%・USG%・AST% を、グループの %OR・%USG・%AST に差し替える） */
+export function boxSummaryColumns(columns: BoxscoreColumn[], manualBoxscore: boolean): BoxscoreColumn[] {
+  return columns.map((col) =>
+    col.key === "orpct" ? orShareColumn(manualBoxscore) : col.key === "usg" ? usageShareColumn() : col.key === "astpct" ? astShareColumn() : col,
+  );
+}
+
 function usageShareColumn(): BoxscoreColumn {
   const use = (c: BoxscoreCounts) => c.pt2a + c.pt3a + 0.44 * c.fta + c.tov;
   return {
@@ -780,59 +787,37 @@ function withoutPlusMinus(counts: BoxscoreCounts): BoxscoreCounts {
   return { ...counts, hasPlusMinus: false };
 }
 
-function BoxscoreTeamPanel({
-  teamName,
+/**
+ * 1チーム分のボックススコアの材料（選手の行・チーム合計・TEAM/COACHES・各種の集計）。画面の表と、試合詳細の md で同じ値を使うため、
+ * 表の部品から切り出した（式は変えていない）
+ */
+export function buildBoxscoreTeamData({
   ownRows,
   oppRows,
   side,
   summaries,
   playByPlays,
   yahooTurnovers,
-  yahooPbpSupported,
   periodOption,
   columns,
-  classificationById,
-  classificationSplit,
-  shotChartSupported,
   onCourtRatings,
-  accentColor,
-  showStatBadges,
-  wideScrollable,
   lineupStints,
   totalPeriods,
   reconstructedPlusMinus,
-  manualBoxscore,
 }: {
-  teamName: string;
   ownRows: BoxscoreRow[];
   oppRows: BoxscoreRow[];
   side: "home" | "away";
   summaries: SummaryRow[];
   playByPlays: PlayByPlayEvent[];
   yahooTurnovers: YahooTurnoverEvent[];
-  yahooPbpSupported: boolean;
   periodOption: PeriodRangeOption | undefined;
   columns: BoxscoreColumn[];
-  classificationById: Map<string, PlayerSummary["classification"]>;
-  /** 外国籍・帰化・アジア特別枠を分けて出すか（記録のあるシーズンの試合。classificationById はその試合の日の区分） */
-  classificationSplit: boolean;
-  shotChartSupported: boolean;
   onCourtRatings: Record<string, PlayerOnCourtRatings>;
-  accentColor?: string;
-  /** ダブルダブル/トリプルダブルバッジをトラディショナルタブでのみ表示する */
-  showStatBadges: boolean;
-  /**
-   * trueの場合、列幅を圧縮せず自然な幅のままPC表示でも横スクロールさせる
-   * （トラディショナル以外のカテゴリタブ向け。DESIGN.md参照）
-   */
-  wideScrollable: boolean;
   lineupStints: LineupStint[];
-  /** 在コートの復元のピリオド数（延長を含む） */
   totalPeriods: number;
   reconstructedPlusMinus?: Map<string, Map<string, Map<number, number>>>;
-  manualBoxscore: boolean;
 }) {
-  const tableClassName = wideScrollable ? "boxscore-table boxscore-table-wide" : "boxscore-table";
   let teamTotal = buildTeamTotalCounts(ownRows, periodOption);
   const oppTeamTotal = buildTeamTotalCounts(oppRows, periodOption);
   const coaches = buildTeamCoachesCounts(ownRows, periodOption, playByPlays);
@@ -934,6 +919,76 @@ function BoxscoreTeamPanel({
 
   const starters = players.filter((p) => p.startingFlg === 1);
   const bench = players.filter((p) => p.startingFlg !== 1);
+  return { teamTotal, oppTeamTotal, coaches, playType, ratings, teamOrPct, teamOnCourtShare, players, starters, bench };
+}
+
+function BoxscoreTeamPanel({
+  teamName,
+  ownRows,
+  oppRows,
+  side,
+  summaries,
+  playByPlays,
+  yahooTurnovers,
+  yahooPbpSupported,
+  periodOption,
+  columns,
+  classificationById,
+  classificationSplit,
+  shotChartSupported,
+  onCourtRatings,
+  accentColor,
+  showStatBadges,
+  wideScrollable,
+  lineupStints,
+  totalPeriods,
+  reconstructedPlusMinus,
+  manualBoxscore,
+}: {
+  teamName: string;
+  ownRows: BoxscoreRow[];
+  oppRows: BoxscoreRow[];
+  side: "home" | "away";
+  summaries: SummaryRow[];
+  playByPlays: PlayByPlayEvent[];
+  yahooTurnovers: YahooTurnoverEvent[];
+  yahooPbpSupported: boolean;
+  periodOption: PeriodRangeOption | undefined;
+  columns: BoxscoreColumn[];
+  classificationById: Map<string, PlayerSummary["classification"]>;
+  /** 外国籍・帰化・アジア特別枠を分けて出すか（記録のあるシーズンの試合。classificationById はその試合の日の区分） */
+  classificationSplit: boolean;
+  shotChartSupported: boolean;
+  onCourtRatings: Record<string, PlayerOnCourtRatings>;
+  accentColor?: string;
+  /** ダブルダブル/トリプルダブルバッジをトラディショナルタブでのみ表示する */
+  showStatBadges: boolean;
+  /**
+   * trueの場合、列幅を圧縮せず自然な幅のままPC表示でも横スクロールさせる
+   * （トラディショナル以外のカテゴリタブ向け。DESIGN.md参照）
+   */
+  wideScrollable: boolean;
+  lineupStints: LineupStint[];
+  /** 在コートの復元のピリオド数（延長を含む） */
+  totalPeriods: number;
+  reconstructedPlusMinus?: Map<string, Map<string, Map<number, number>>>;
+  manualBoxscore: boolean;
+}) {
+  const tableClassName = wideScrollable ? "boxscore-table boxscore-table-wide" : "boxscore-table";
+  const { teamTotal, oppTeamTotal, coaches, playType, ratings, teamOrPct, teamOnCourtShare, players, starters, bench } = buildBoxscoreTeamData({
+    ownRows,
+    oppRows,
+    side,
+    summaries,
+    playByPlays,
+    yahooTurnovers,
+    periodOption,
+    columns,
+    onCourtRatings,
+    lineupStints,
+    totalPeriods,
+    reconstructedPlusMinus,
+  });
   // 登録区分の内訳は全シーズン「日本人」「外国籍・帰化・アジア」の2行（その試合の日の区分で分け、DESIGN.md 298章・305章・388章）
   const classGroups: { label: string; players: typeof players }[] = [
     { label: "日本人選手合計", players: players.filter((p) => classificationGroup(classificationById.get(p.playerId)) === "日本人") },
@@ -981,9 +1036,7 @@ function BoxscoreTeamPanel({
   const bestByColumn = computeBestByColumn(players, columns, playerCtx);
   // 内訳集計の表では、個人の OR% の列を、グループの %OR（チームORに占める割合）に差し替える
   // 同じく、USG% は %USG、AST% は %AST（チーム全体に占める割合）に差し替える
-  const summaryColumns = columns.map((col) =>
-    col.key === "orpct" ? orShareColumn(manualBoxscore) : col.key === "usg" ? usageShareColumn() : col.key === "astpct" ? astShareColumn() : col,
-  );
+  const summaryColumns = boxSummaryColumns(columns, manualBoxscore);
   // スマホ幅では名字だけ（同じチームで名字が重なる選手はフルネーム）
   const playerLabel = usePlayerLabel(players.map((p) => p.nameJ));
 

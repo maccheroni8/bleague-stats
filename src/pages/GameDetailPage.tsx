@@ -19,6 +19,7 @@ import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, ShotTypeBreakdown } f
 import { gameFlowFor } from "../lib/gameFlowForGame";
 import { KeyStatsSection } from "../components/KeyStatsSection";
 import { GameImagesButton } from "../components/GameImagesButton";
+import { GameMdButton } from "../components/GameMdButton";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
 import { SubstitutionBarChart, type SubstitutionRow } from "../components/SubstitutionBarChart";
 import { orderPlayersByPlayTime } from "../lib/boxscoreOrder";
@@ -331,7 +332,7 @@ export function GameDetailPage({ season }: { season: string }) {
   // スポーツナビの記録は B.PREMIER だけ取っている（B.ONE には無い。DESIGN.md 297章）
   const { supported: yahooPremierSupported } = useYahooPbpCoverage(season);
   const yahooSeasonSupported = league === "premier" && yahooPremierSupported;
-  const { data: yahooPbp } = useJsonData(
+  const { data: yahooPbp, loading: yahooLoading } = useJsonData(
     () => (yahooSeasonSupported && scheduleKey ? fetchYahooGamePbp(season, scheduleKey, league) : Promise.resolve(null)),
     [season, scheduleKey, yahooSeasonSupported, league],
   );
@@ -516,9 +517,41 @@ export function GameDetailPage({ season }: { season: string }) {
 
   return (
     <div className="game-detail-page" data-design="v2">
-      <Link to="/teams" className="back-link">
-        ← チーム一覧に戻る
-      </Link>
+      <div className="game-detail-top-actions">
+        <Link to="/teams" className="back-link">
+          ← チーム一覧に戻る
+        </Link>
+        <div className="game-detail-top-buttons">
+          <GameMdButton
+            ready={!yahooLoading}
+            input={{
+              game,
+              league,
+              leagueLabel: LEAGUE_LABELS[league],
+              classificationById,
+              homeColor,
+              awayColor,
+              pbpSupported,
+              shotChartSupported,
+              maxForeignOnCourt,
+              yahooPbp,
+              exportedAt: new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10),
+            }}
+          />
+          <GameImagesButton
+            input={{
+              game,
+              leagueLabel: LEAGUE_LABELS[league],
+              classificationById,
+              homeColor,
+              awayColor,
+              pbpSupported,
+              shotChartSupported,
+              maxForeignOnCourt,
+            }}
+          />
+        </div>
+      </div>
 
       <div className="scoreboard">
         <div className="scoreboard-team" style={homeColor ? { borderTopColor: homeColor } : undefined}>
@@ -554,20 +587,6 @@ export function GameDetailPage({ season }: { season: string }) {
           <div className="scoreboard-score">{game.awayScore}</div>
         </div>
       </div>
-
-      {/* 保存画像（6枚）。押したときに画像の部品を読み込む（DESIGN.md 画像保存の章） */}
-      <GameImagesButton
-        input={{
-          game,
-          leagueLabel: LEAGUE_LABELS[league],
-          classificationById,
-          homeColor,
-          awayColor,
-          pbpSupported,
-          shotChartSupported,
-          maxForeignOnCourt,
-        }}
-      />
 
       {typeof (game.meta as { source?: unknown } | undefined)?.source === "string" &&
         String((game.meta as { source?: string }).source).startsWith("manual:") && (

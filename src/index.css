@@ -209,6 +209,57 @@ h2 {
   padding: 7px 12px;
 }
 
+/* 試合詳細の上の行: 左に「チーム一覧に戻る」、右端に「md」と「画像を保存（6枚）」（狭い幅では折り返して、ボタンは右寄せのまま重ならない） */
+.game-detail-top-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 16px;
+}
+
+.game-detail-top-actions > .back-link {
+  margin-bottom: 0;
+}
+
+.game-detail-top-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.game-detail-top-buttons > button {
+  margin-bottom: 0;
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 7px 12px;
+}
+
+.app-shell .game-detail-top-buttons > button.ai-export-button {
+  border-color: var(--fg);
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.app-shell .game-detail-top-buttons > button.ai-export-button:hover:not(:disabled) {
+  background: var(--row-hover);
+  border-color: var(--fg);
+}
+
+.app-shell .game-detail-top-buttons > button.ai-export-button:active:not(:disabled) {
+  background: var(--border);
+}
+
+.app-shell .game-detail-top-buttons > button.ai-export-button:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
 /* mdボタンの書き出し画面の部品を読み込めなかったときの案内（部品の中のCSSは読み込めていないので、ここに置く） */
 .ai-export-load-error {
   position: fixed;

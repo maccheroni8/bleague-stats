@@ -7,8 +7,8 @@ const Dialog = lazy(() => import("./gameImages/GameImagesDialog"));
 export function GameImagesButton({ input }: { input: GameImageInput }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="game-images-button-row">
-      <button type="button" className="export-image-button" onClick={() => setOpen(true)}>
+    <>
+      <button type="button" className="export-image-button game-images-save-button" onClick={() => setOpen(true)}>
         画像を保存（6枚）
       </button>
       {open && (
@@ -16,6 +16,6 @@ export function GameImagesButton({ input }: { input: GameImageInput }) {
           <Dialog input={input} onClose={() => setOpen(false)} />
         </Suspense>
       )}
-    </div>
+    </>
   );
 }

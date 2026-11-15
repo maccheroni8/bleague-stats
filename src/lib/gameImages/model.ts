@@ -149,6 +149,8 @@ export interface LineupCard {
 export interface UsageTeam {
   oc: OcRow[];
   lineups: LineupCard[];
+  /** 出場時間の長い順の全ラインナップ（md の書き出し用。画像は上の lineups の3つだけ使う） */
+  allLineups: LineupCard[];
 }
 
 export interface BoxLine {
@@ -199,6 +201,8 @@ export interface GameImageModel {
   shots: { home: ShotTeam; away: ShotTeam; hasPositions: boolean };
   /** 4枚目。プレーバイプレーの無いシーズン・試合は null */
   usage: { home: UsageTeam; away: UsageTeam; maxOc: number } | null;
+  /** 在コートの復元（md の書き出し用。プレーバイプレーの無い試合・シーズンは null） */
+  onCourt: ReturnType<typeof reconstructOnCourt> | null;
   box: { home: BoxTeam; away: BoxTeam };
 }
 
@@ -448,6 +452,7 @@ export function buildGameImageModel(input: GameImageInput): GameImageModel {
   // 2枚目・4枚目: 在コートの復元（試合詳細と同じ呼び方）
   let flow: GameImageModel["flow"] = null;
   let usage: GameImageModel["usage"] = null;
+  let onCourtResult: GameImageModel["onCourt"] = null;
   if (input.pbpSupported && game.raw.PlayByPlays.length > 0) {
     const onCourt = reconstructOnCourt(
       game.raw.PlayByPlays,
@@ -458,6 +463,7 @@ export function buildGameImageModel(input: GameImageInput): GameImageModel {
       onCourtPeriodCount(game.season, periods, game.raw.PlayByPlays),
       substitutionModelForSeason(game.season),
     );
+    onCourtResult = onCourt;
     const intervalsByPlayer = new Map<string, { startSec: number; endSec: number }[]>();
     for (const iv of onCourt.intervals) {
       const list = intervalsByPlayer.get(iv.playerId) ?? [];
@@ -505,7 +511,7 @@ export function buildGameImageModel(input: GameImageInput): GameImageModel {
         oc: [...oc]
           .sort((a, b) => (a.count ?? 99) - (b.count ?? 99))
           .map((s) => ({ count: s.count, seconds: s.seconds, own: s.ownPoints, opp: s.oppPoints })),
-        lineups: lineups.slice(0, 3).map((l) => {
+        allLineups: lineups.map((l) => {
           const ids = [...l.playerIds].sort((a, b) => (orderOf.get(a) ?? 0) - (orderOf.get(b) ?? 0));
           return {
             names: ids.map((id) => nameOf.get(id) ?? id),
@@ -517,9 +523,11 @@ export function buildGameImageModel(input: GameImageInput): GameImageModel {
             spans: spansOf(l.lineupKey),
           };
         }),
+        lineups: [],
       };
     };
-    usage = { home: usageTeam(true), away: usageTeam(false), maxOc };
+    const withTop = (u: UsageTeam): UsageTeam => ({ ...u, lineups: u.allLineups.slice(0, 3) });
+    usage = { home: withTop(usageTeam(true)), away: withTop(usageTeam(false)), maxOc };
   }
 
   // 3枚目
@@ -558,6 +566,7 @@ export function buildGameImageModel(input: GameImageInput): GameImageModel {
     flow,
     shots: { home: shotTeam(game.homeTeam.id, homeTotal), away: shotTeam(game.awayTeam.id, awayTotal), hasPositions: allShots.length > 0 },
     usage,
+    onCourt: onCourtResult,
     box: { home: buildBoxTeam(game, true, classificationById), away: buildBoxTeam(game, false, classificationById) },
   };
 }
