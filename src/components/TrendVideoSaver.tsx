@@ -145,7 +145,7 @@ export function TrendVideoSaver({
   return (
     <>
       <button type="button" className="export-image-button" onClick={() => setOpen(true)} aria-haspopup="dialog">
-        {making ? `動画を作成中… ${Math.round((progress ?? 0) * 100)}%` : "動画として保存"}
+        {making ? `動画を作成中… ${Math.round((progress ?? 0) * 100)}%` : "動画"}
       </button>
       <SaveModal open={open} title="動画として保存" onClose={() => setOpen(false)}>
         <SaveModalPreview scope={heading.scope} name={heading.name} subtitle={chart.subtitleAt(undefined)} />

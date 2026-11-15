@@ -1,5 +1,6 @@
 import { useRef, type ReactNode } from "react";
 import type { BaseDateSpec } from "../lib/dataBaseDate";
+import { HeaderActions } from "./HeaderActions";
 import { ExportImageButton } from "./ExportImageButton";
 import { ExportTarget } from "./ExportTarget";
 
@@ -32,10 +33,12 @@ export function SavableBlock({
   const ref = useRef<HTMLDivElement>(null);
   return (
     <div className="savable-block">
-      <div className="savable-bar">
-        <ExportImageButton targetRef={ref} filename={filename} baseDate={baseDate} options={extraControls} disabledReason={unavailableReason} />
-        {extraButtons}
-      </div>
+      <HeaderActions>
+        <div className="savable-bar">
+          <ExportImageButton targetRef={ref} filename={filename} baseDate={baseDate} options={extraControls} disabledReason={unavailableReason} />
+          {extraButtons}
+        </div>
+      </HeaderActions>
       <ExportTarget ref={ref} className={className} baseDate={baseDate}>
         {children}
       </ExportTarget>

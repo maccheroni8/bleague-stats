@@ -34,6 +34,8 @@ interface FilterBarProps {
    * chip があるときは詳細フィルタのバッジの数にも数える
    */
   advancedExtra?: { content: ReactNode; chip?: { label: string; value: string; onClear: () => void } };
+  /** 常時表示の軸の行の右端に置く部品（保存ボタンなど。幅が足りないときは次の行の右端） */
+  trailing?: ReactNode;
 }
 
 /** ボタン（summary表示）を押すとポップオーバー（children）を開く共通部品。外側クリック・Escで閉じる */
@@ -215,7 +217,7 @@ function FilterField({ axis }: { axis: FilterAxis }) {
  * 「詳細フィルタ」に折りたたみ、既定値から変更した軸だけをチップ（×で解除）として出す。
  * 表・画像出力（.export-target）の外に置く。画像に写る「選択中の条件」は ConditionTitle が担う
  */
-export function FilterBar({ axes, stateKey, onClearAll, simple = false, compact = false, wide = false, advancedExtra }: FilterBarProps) {
+export function FilterBar({ axes, stateKey, onClearAll, simple = false, compact = false, wide = false, advancedExtra, trailing }: FilterBarProps) {
   const [advancedOpen, setAdvancedOpen] = usePageState<boolean>(`${stateKey}:advancedOpen`, false);
   const panelId = useId();
   const primary = axes.filter((a) => a.tier === "primary");
@@ -238,6 +240,7 @@ export function FilterBar({ axes, stateKey, onClearAll, simple = false, compact 
 
   return (
     <div className={`filter-bar${allDisabled ? " all-disabled" : ""}${compact ? " compact" : ""}${wide ? " wide" : ""}`}>
+      <div className={trailing ? "filter-bar-trailing-row" : undefined}>
       <div
         className="filter-bar-grid filter-bar-primary"
         style={{ "--filter-cols": primary.length } as React.CSSProperties}
@@ -245,6 +248,8 @@ export function FilterBar({ axes, stateKey, onClearAll, simple = false, compact 
         {primary.map((a) => (
           <FilterField key={a.id} axis={a} />
         ))}
+      </div>
+      {trailing && <div className="filter-bar-trailing">{trailing}</div>}
       </div>
       {disabledReasons.length > 0 && <p className="filter-bar-note">{disabledReasons.join(" ")}</p>}
       {hasAdvanced && (

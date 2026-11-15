@@ -1,4 +1,4 @@
-// 試合詳細の「画像を保存（6枚）」ボタン。画像の部品は、押したときに初めて読み込む
+// 試合詳細の「画像」ボタン。画像の部品は、押したときに初めて読み込む
 import { Suspense, lazy, useState } from "react";
 import type { GameImageInput } from "../lib/gameImages/model";
 
@@ -9,7 +9,7 @@ export function GameImagesButton({ input }: { input: GameImageInput }) {
   return (
     <>
       <button type="button" className="export-image-button game-images-save-button" onClick={() => setOpen(true)}>
-        画像を保存（6枚）
+        画像
       </button>
       {open && (
         <Suspense fallback={<span className="game-images-loading">読み込み中...</span>}>

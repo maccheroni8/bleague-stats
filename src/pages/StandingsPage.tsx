@@ -56,6 +56,7 @@ import {
 } from "../../shared/postseasonFormat";
 import { DIVISION_LABELS, divisionPresets, groupByDivision } from "../lib/divisionGroups";
 import { formatGamesBehind, standingsStatCells, withUnplayedTeams, type StandingsTeam } from "../lib/standingsTeams";
+import { PageTitleRow } from "../components/HeaderActions";
 import { findFebruaryBiweekGap } from "../lib/situational";
 import type {
   Division,
@@ -854,7 +855,7 @@ export function StandingsPage({ season }: { season: string }) {
     </div>
   );
   if (tab === "annual" && (loading || error || !latest)) return v2(<>
-    <h1>順位表</h1>
+    <PageTitleRow>順位表</PageTitleRow>
     {tabBar(false)}
     <AnnualSchedule key={season} season={season} league={league} />
   </>);
@@ -1131,8 +1132,7 @@ export function StandingsPage({ season }: { season: string }) {
 
   return (
     <div data-design="v2" className="standings-page">
-      <h1>順位表</h1>
-      <p className="page-subtitle">{season}シーズン・{latest.date}時点</p>
+      <PageTitleRow subtitle={`${season}シーズン・${latest.date}時点`}>順位表</PageTitleRow>
       <ResultOnlyNote games={resultOnlyEntries} />
 
       {tabBar(magicAvailable)}
@@ -1142,7 +1142,7 @@ export function StandingsPage({ season }: { season: string }) {
       {activeTab === "standings" && (
         <div>
           {/* 画像として保存する表は、保存の窓の中で選ぶ（選んだ表だけを保存する。画面の表は変わらない） */}
-          <div className="savable-bar">
+          <>
             <ExportImageButton
               targetRef={saveTargetRef}
               filename={buildExportFilename([
@@ -1189,7 +1189,7 @@ export function StandingsPage({ season }: { season: string }) {
             </span>
               }
             />
-          </div>
+          </>
           <ExportTarget
             ref={(el) => {
               saveTargets.current.divisions = el;

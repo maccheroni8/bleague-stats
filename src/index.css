@@ -9224,3 +9224,110 @@ table.sortable-table.tts-table th {
   font-size: 13px;
   color: var(--muted);
 }
+
+/* --- ページ見出しの行（見出し＋サブタイトル、右端に保存ボタン。DESIGN.md 401章）。
+   幅が足りないときは、ボタンが見出しのすぐ下の行の右端に回る --- */
+.page-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-bottom: 20px;
+}
+
+.page-title-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 12px;
+  min-width: 0;
+}
+
+.page-title-main h1 {
+  margin: 0;
+}
+
+.page-title-main .page-subtitle {
+  margin: 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-design="v2"] .page-title-main h1 {
+  display: inline-block;
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.page-title-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.page-title-actions:empty {
+  display: none;
+}
+
+.page-title-actions .export-controls {
+  margin-bottom: 0;
+  flex-wrap: nowrap;
+}
+
+.page-title-actions .export-image-button {
+  margin-bottom: 0;
+  min-height: 44px;
+  min-width: 64px;
+  white-space: nowrap;
+}
+
+.page-title-row + .page-subtitle {
+  margin: -12px 0 20px;
+}
+
+[data-design="v2"].compare-page > .page-title-row {
+  margin-bottom: 4px;
+}
+
+[data-design="v2"].compare-page > .page-title-row + .page-subtitle {
+  display: block;
+  margin: 0 0 20px;
+}
+
+.page-title-actions .savable-bar {
+  margin: 0;
+  flex-wrap: nowrap;
+}
+
+/* 常時表示の軸の行の右端に置く部品（On-Court Foreign の「画像」）。幅が足りないときは次の行の右端 */
+.filter-bar-trailing-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+}
+
+.filter-bar-trailing-row > .filter-bar-grid {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.filter-bar-trailing {
+  margin-left: auto;
+}
+
+.filter-bar-trailing .export-controls {
+  margin-bottom: 0;
+}
+
+.filter-bar-trailing .export-image-button {
+  margin-bottom: 0;
+  min-height: 44px;
+  min-width: 64px;
+}

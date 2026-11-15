@@ -1,3 +1,4 @@
+import { PageTitleRow } from "../components/HeaderActions";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { postseasonLabel } from "../../shared/gameType";
 import { SeasonLink as Link } from "../components/SeasonLink";
@@ -648,8 +649,7 @@ export function SchedulePage({ season }: { season: string }) {
 
   return (
     <div className="schedule-page" data-design="v2">
-      <h1>日程</h1>
-      <p className="page-subtitle">{season}シーズン</p>
+      <PageTitleRow subtitle={`${season}シーズン`}>日程</PageTitleRow>
 
       <div className="schedule-toolbar">
         <button type="button" className="schedule-today-button" onClick={handleToday}>

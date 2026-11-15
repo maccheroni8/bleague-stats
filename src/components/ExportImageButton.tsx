@@ -17,6 +17,7 @@ import {
 } from "../lib/exportImage";
 import { ExportImagePreview } from "./ExportImagePreview";
 import { SaveModal, SaveModalPreview } from "./SaveModal";
+import { HeaderActions } from "./HeaderActions";
 
 /** 保存する範囲の中から、保存画像の見出し・サブタイトルの文字を読む（窓の見本用。保存画像から外れる部分〔export-hide〕は除く） */
 export function readExportHeadingPreview(target: HTMLElement | null): { scope?: string; name?: string; subtitle?: string } {
@@ -43,6 +44,8 @@ export function readExportHeadingPreview(target: HTMLElement | null): { scope?: 
   };
 }
 
+const EMPTY_REF: RefObject<HTMLElement | null> = { current: null };
+
 const SHARE_BLOCKED_NOTICE = "共有の画面を開けませんでした。もう一度「写真に保存」を押してください。";
 
 /** 画像を作っている間のボタンの文字（段階ごと。DESIGN.md 243章） */
@@ -66,18 +69,30 @@ export interface RankingExportChoices {
   top: number | null;
 }
 
+/** 保存する対象が複数あるとき（1つの図に表が3つなど）の1つ分。窓の中で選ぶ */
+export interface ExportChoice {
+  key: string;
+  label: string;
+  targetRef: RefObject<HTMLElement | null>;
+  filename: string;
+  baseDate?: BaseDateSpec;
+}
+
 export function ExportImageButton({
-  targetRef,
-  filename: baseFilename,
-  baseDate,
+  targetRef: givenTargetRef,
+  filename: givenFilename,
+  baseDate: givenBaseDate,
+  choices,
   ranking,
   options,
   disabledReason,
 }: {
-  targetRef: RefObject<HTMLElement | null>;
-  filename: string;
+  targetRef?: RefObject<HTMLElement | null>;
+  filename?: string;
   /** データの基準日（表に入っている試合のうち、終わった試合の最も新しい試合日）の求め方。保存のときに求める（画面の表の下の日付と同じ指定） */
   baseDate?: BaseDateSpec;
+  /** 保存する対象が複数あるとき。窓の中で選ぶ（2つ以上のときだけ選択欄を出す。指定したら targetRef・filename・baseDate は使わない） */
+  choices?: ExportChoice[];
   /** ランキングの保存の選択肢（指定したときだけ出す） */
   ranking?: RankingExportChoices;
   /** 窓の中に出す、保存する内容の選択（保存する表・範囲など。保存に関係する選択だけ。画面の表示を切り替える選択は渡さない） */
@@ -87,7 +102,11 @@ export function ExportImageButton({
 }) {
   // ファイル名の先頭と基準日は、見ているリーグで決める（DESIGN.md 297章）
   const league = useLeague();
-  const filename = exportFilenameWithLeague(baseFilename, LEAGUE_LABELS[league]);
+  const [choiceKey, setChoiceKey] = useState<string | null>(null);
+  const chosen = choices ? (choices.find((c) => c.key === choiceKey) ?? choices[0]) : undefined;
+  const targetRef = chosen?.targetRef ?? givenTargetRef ?? EMPTY_REF;
+  const baseDate = chosen ? chosen.baseDate : givenBaseDate;
+  const filename = exportFilenameWithLeague(chosen?.filename ?? givenFilename ?? "", LEAGUE_LABELS[league]);
   const [open, setOpen] = useState(false);
   const [heading, setHeading] = useState<{ scope?: string; name?: string; subtitle?: string }>({});
   const [busy, setBusy] = useState(false);
@@ -236,6 +255,7 @@ export function ExportImageButton({
     </p>
   );
   return (
+    <HeaderActions>
     <div className="export-controls">
       <button
         className="export-image-button"
@@ -246,11 +266,23 @@ export function ExportImageButton({
         }}
         aria-haspopup="dialog"
       >
-        {busy ? (phase ? BUSY_LABELS[phase] : "出力中…") : "画像として保存"}
+        {busy ? (phase ? BUSY_LABELS[phase] : "出力中…") : "画像"}
       </button>
       {pending && <ExportImagePreview file={pending.file} notice={previewNotice} onShare={handleSharePending} onClose={handleClosePreview} />}
       <SaveModal open={open} title="画像として保存" onClose={() => setOpen(false)}>
         <SaveModalPreview {...heading} />
+        {choices && choices.length > 1 && (
+          <div className="save-modal-options">
+            <span className="export-option-group" role="group" aria-label="保存する図">
+              <span className="export-option-label">保存する図</span>
+              {choices.map((c) => (
+                <button key={c.key} type="button" className={chosen?.key === c.key ? "active" : ""} onClick={() => setChoiceKey(c.key)} disabled={busy}>
+                  {c.label}
+                </button>
+              ))}
+            </span>
+          </div>
+        )}
         {options && <div className="save-modal-options">{options}</div>}
         {ranking && topLabel && (
           <div className="save-modal-options">
@@ -284,5 +316,6 @@ export function ExportImageButton({
       </SaveModal>
       {!open && notices}
     </div>
+    </HeaderActions>
   );
 }

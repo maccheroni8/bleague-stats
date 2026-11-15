@@ -1327,14 +1327,18 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
                 disabledReason: !foreignRules ? undefined : !on4Ok ? ON4_UNAVAILABLE_REASON : !on4Logs && gameLogsByTeam ? ON4_NO_DATA_REASON : undefined,
               }),
             ]}
+            trailing={
+              foreignRows ? (
+                <ExportImageButton
+                  targetRef={exportRef}
+                  filename={buildExportFilename([statsTitle.title, ...statsTitle.conditions])}
+                  baseDate={{ kind: "season", season, gameType }}
+                />
+              ) : undefined
+            }
           />
           {foreignRows ? (
             <>
-              <ExportImageButton
-                targetRef={exportRef}
-                filename={buildExportFilename([statsTitle.title, ...statsTitle.conditions])}
-                baseDate={{ kind: "season", season, gameType }}
-              />
               <ExportTarget ref={exportRef} className="export-target-oc" baseDate={{ kind: "season", season, gameType }}>
                 <ConditionTitle title={statsTitle.title} conditions={statsTitle.conditions} />
                 <ForeignPlayerCourtTimeChart

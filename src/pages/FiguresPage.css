@@ -55,10 +55,6 @@
 .figures-top .tab-bar { border-bottom:0; margin-bottom:0; }
 .figures-top .tab-button { padding:10px 20px; font-size:15px; font-weight:600; }
 .figures-top .tab-button.active { border-bottom-width:3px; }
-.figure-export-slot { display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:4px 12px; margin-left:auto; }
-.figure-export-slot .export-image-button { margin-bottom:0; }
-.figure-export-item { display:inline-flex; align-items:center; gap:6px; }
-.figure-export-label { font-size:12px; color:var(--muted); }
 .figure-tabs { overflow-x:auto; scrollbar-width:none; margin-bottom:16px; }
 .figure-tabs::-webkit-scrollbar { display:none; }
 .figure-tabs .tab-button { flex-shrink:0; white-space:nowrap; padding:7px 14px; font-size:13px; font-weight:500; }
@@ -79,16 +75,8 @@
 .figure-age-legend-total { margin-left:auto; display:inline-flex; flex-wrap:wrap; gap:8px 16px; align-items:center; }
 .figure-age-legend-total > span { display:inline-flex; align-items:center; gap:8px; }
 
-/* 保存ボタンはタブと同じ行の右端（保存の対象が複数あるときは、スマホ幅では次の行に横並び）。スマホ幅では小さく */
-.figure-export-slot { flex-wrap:nowrap; }
-.figure-export-slot .export-image-button { white-space:nowrap; }
 @media(max-width:560px) {
   .figures-top { margin-bottom:8px; }
-  .figure-export-slot .export-image-button { padding:5px 10px; font-size:12px; }
-  .figure-export-slot:has(.figure-export-item) { width:100%; justify-content:flex-end; padding-bottom:6px; }
-  /* 保存の対象が3つ以上（ファウルの3つの表など）は1行に入らないので折り返す（左にはみ出さない） */
-  .figure-export-slot:has(.figure-export-item:nth-child(3)) { flex-wrap:wrap; }
-  .figure-export-label { font-size:11px; }
 }
 
 /* 図の下の一覧の選手名・チーム名は、ほかの表と同じふつうの文字。押すと図の点を選ぶ（マウスを乗せると色が変わる） */

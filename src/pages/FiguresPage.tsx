@@ -1,9 +1,10 @@
-import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { lazy, Suspense, useEffect, useRef, type KeyboardEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useLeague } from "../lib/league";
 import { normalizeFigureParams } from "../lib/figureRoute";
 import { FIGURES, figuresForEntity, type FigureDefinition, type FigureEntity } from "../figures/catalog";
-import { FigureExportSlot } from "../figures/FigureExport";
+import { PageTitleRow } from "../components/HeaderActions";
+import { FigureExportProvider } from "../figures/FigureExport";
 import { FigurePresets } from "../figures/FigurePresets";
 import "./FiguresPage.css";
 
@@ -19,7 +20,6 @@ export function FiguresPage({ season }: { season: string }) {
   const selectedId = normalized.get("figure")!;
   const figures = figuresForEntity(entity);
   const Figure = COMPONENTS.get(selectedId);
-  const [exportSlot, setExportSlot] = useState<HTMLElement | null>(null);
   useEffect(() => {
     if (canonicalSearch !== search) setParams(new URLSearchParams(canonicalSearch), { replace: true });
   }, [canonicalSearch, search, setParams]);
@@ -33,7 +33,7 @@ export function FiguresPage({ season }: { season: string }) {
     }, { replace: true });
   };
   return <div className="figures-page">
-    <h1>図解</h1>
+    <PageTitleRow>図解</PageTitleRow>
     <div className="figures-top">
       <div className="tab-bar" role="group" aria-label="図の対象">
         {(["team", "player"] as const).map(value => <button key={value} type="button" className={`tab-button${entity === value ? " active" : ""}`} aria-pressed={entity === value}
@@ -41,16 +41,15 @@ export function FiguresPage({ season }: { season: string }) {
           {value === "team" ? "チーム" : "選手"}
         </button>)}
       </div>
-      <div className="figure-export-slot" ref={setExportSlot} />
     </div>
     {figures.length > 0 && <FigureTabs figures={figures} selectedId={selectedId} onSelect={id => selectFigure(entity, id)} />}
     {Figure && <FigurePresets entity={entity} figureId={selectedId} params={normalized} onApply={next => setParams(next, { replace: true })} />}
     {Figure ?
       <section id="figure-active-panel" role="tabpanel" aria-labelledby={`figure-tab-${selectedId}`}>
         <Suspense fallback={<p role="status">読み込み中…</p>}>
-          <FigureExportSlot.Provider value={exportSlot}>
+          <FigureExportProvider>
             <Figure key={`${selectedId}:${season}:${category}`} season={season} category={category} />
-          </FigureExportSlot.Provider>
+          </FigureExportProvider>
         </Suspense>
       </section> : <p className="empty-message">{entity === "team" ? "チーム" : "選手"}の図は準備中です。</p>}
   </div>;

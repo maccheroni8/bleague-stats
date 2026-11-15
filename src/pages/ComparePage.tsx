@@ -1,3 +1,4 @@
+import { PageTitleRow } from "../components/HeaderActions";
 import { NameText } from "../components/NameText";
 import { useMemo, useRef, useState } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
@@ -699,7 +700,7 @@ export function ComparePage({ season }: { season: string }) {
 
   return (
     <div className="compare-page" data-design="v2">
-      <h1>比較</h1>
+      <PageTitleRow>比較</PageTitleRow>
       <p className="page-subtitle">
         最大3件まで選んで比較（項目ごとに異なるシーズン・条件も選択可能。選んだスロットの分だけデータを取得します）
         {!seasonsMatch && <span className="compare-mixed-note"> ※シーズンが異なる項目を比較しています</span>}

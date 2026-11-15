@@ -1,3 +1,4 @@
+import { PageTitleRow } from "../components/HeaderActions";
 import { RankedList, type RankCompare, type RankableStat } from "../components/RankedList";
 import { teamChipColor } from "../lib/teamChipColors";
 import { PlayerGameRecordRanking } from "../components/PlayerGameRecordRanking";
@@ -1308,8 +1309,7 @@ export function RankingsPage({ season }: { season: string }) {
 
   return (
     <div data-design="v2">
-      <h1>ランキング</h1>
-      <p className="page-subtitle">{allTimeRecords ? "歴代" : `${season}シーズン`}</p>
+      <PageTitleRow subtitle={allTimeRecords ? "歴代" : `${season}シーズン`}>ランキング</PageTitleRow>
 
       <div className="mode-toggle">
         <button className={mode === "team" ? "active" : ""} onClick={() => setMode("team")}>
