@@ -76,7 +76,17 @@ export interface ExportChoice {
   targetRef: RefObject<HTMLElement | null>;
   filename: string;
   baseDate?: BaseDateSpec;
+  /** 保存の直前に呼ぶ（画面の状態をこの対象に切り替え、描き直しが終わったら終わる。比較ページのタブ切り替え。指定した対象は、保存の終わりに restoreAfterSave を呼ぶ） */
+  activate?: () => Promise<void>;
 }
+
+/** 「まとめて保存」の選択肢（窓の中の最後のボタン。keys の対象を続けて保存する） */
+export interface ExportAllChoice {
+  label: string;
+  keys: string[];
+}
+
+const ALL_KEY = "__all";
 
 export function ExportImageButton({
   targetRef: givenTargetRef,
@@ -86,6 +96,10 @@ export function ExportImageButton({
   ranking,
   options,
   disabledReason,
+  defaultChoiceKey,
+  allChoice,
+  restoreAfterSave,
+  choicesLabel = "保存する図",
 }: {
   targetRef?: RefObject<HTMLElement | null>;
   filename?: string;
@@ -99,11 +113,20 @@ export function ExportImageButton({
   options?: ReactNode;
   /** 保存できない理由（あれば窓の中に出して「保存する」を押せなくする） */
   disabledReason?: string;
+  /** 窓を開いたときに選んでおく対象（比較ページ: いま開いているタブ） */
+  defaultChoiceKey?: string;
+  /** 指定すると、窓の中に「まとめて保存」を足す（choices の keys を続けて保存。パソコンはファイルを続けてダウンロード、iPhone・iPad は全部を1つの表示に出して「写真に保存」） */
+  allChoice?: ExportAllChoice;
+  /** activate で画面を切り替えて保存したあと、元の状態に戻す */
+  restoreAfterSave?: () => void;
+  /** 選択欄の見出し（既定は「保存する図」） */
+  choicesLabel?: string;
 }) {
   // ファイル名の先頭と基準日は、見ているリーグで決める（DESIGN.md 297章）
   const league = useLeague();
   const [choiceKey, setChoiceKey] = useState<string | null>(null);
-  const chosen = choices ? (choices.find((c) => c.key === choiceKey) ?? choices[0]) : undefined;
+  const chosenAll = !!allChoice && choiceKey === ALL_KEY;
+  const chosen = choices ? (choices.find((c) => c.key === (choiceKey ?? defaultChoiceKey)) ?? choices[0]) : undefined;
   const targetRef = chosen?.targetRef ?? givenTargetRef ?? EMPTY_REF;
   const baseDate = chosen ? chosen.baseDate : givenBaseDate;
   const filename = exportFilenameWithLeague(chosen?.filename ?? givenFilename ?? "", LEAGUE_LABELS[league]);
@@ -117,7 +140,7 @@ export function ExportImageButton({
   /** 保存したあとの案内（ダウンロードで解像度を下げたとき・画像を作れなかったとき） */
   const [notice, setNotice] = useState<string | null>(null);
   /** iPhone・iPad で作った画像。画面いっぱいの表示に出し、「写真に保存」で共有シートに渡す（DESIGN.md 246章） */
-  const [pending, setPending] = useState<PreparedExportImage | null>(null);
+  const [pending, setPending] = useState<PreparedExportImage[] | null>(null);
   /** 画像の表示の中に出す案内（解像度を下げた・共有の画面を開けなかった） */
   const [previewNotice, setPreviewNotice] = useState<string | null>(null);
   /** 案内がエラーか（目立つ色にし、画面の中央へ寄せて見えるようにする。DESIGN.md 244章） */
@@ -160,8 +183,13 @@ export function ExportImageButton({
   // 画像を作る（時間の上限つき）。パソコン・Android はそのままダウンロード、iPhone・iPad はできた画像を画面いっぱいに出して終える
   // （共有シートは「押した直後」にしか開けないので、表示の中の「写真に保存」で開く。共有シートの結果は待たない。DESIGN.md 242・246章）
   const handleClick = async () => {
-    const target = targetRef.current;
-    if (!target || busy) return;
+    // 保存する対象（まとめて保存のときは、続けて保存する対象すべて）
+    const items: { targetRef: RefObject<HTMLElement | null>; filename: string; baseDate?: BaseDateSpec; activate?: () => Promise<void> }[] =
+      chosenAll && choices
+        ? choices.filter((c) => allChoice!.keys.includes(c.key)).map((c) => ({ ...c, filename: exportFilenameWithLeague(c.filename, LEAGUE_LABELS[league]) }))
+        : [{ targetRef, filename, baseDate, activate: chosen?.activate }];
+    if (busy || items.length === 0) return;
+    if (!items.some((i) => i.activate) && !targetRef.current) return;
     round.current += 1;
     setBusy(true);
     setPhase(null);
@@ -169,7 +197,7 @@ export function ExportImageButton({
     setNoticeIsError(false);
     setPending(null);
     setPreviewNotice(null);
-    exportDebugStart(`「${filename}」`);
+    exportDebugStart(items.map((i) => `「${i.filename}」`).join("・"));
     const env = detectExportEnvironment();
     exportDebug(
       `端末: ${navigator.userAgent}／platform ${navigator.platform}・タッチ点 ${navigator.maxTouchPoints}／画面幅 ${window.innerWidth}px・倍率 ${window.devicePixelRatio}`,
@@ -177,25 +205,40 @@ export function ExportImageButton({
     exportDebug(
       `判定: iPhone・iPad ${isIOSDevice() ? "はい" : "いいえ"}／広い画面で描く ${env.forceWide ? "はい" : "いいえ"}／canvas の上限 ${env.maxArea ?? "なし"}`,
     );
+    let switched = false;
     try {
-      const prepared = await prepareExportImage(target, filename, {
-        options: { plain: ranking ? plain : false, top10: ranking ? top10 : false, teamNames: ranking?.media === "ロゴ" },
-        resolveBaseDate: baseDate ? () => resolveBaseDate(baseDate, league) : undefined,
-        env,
-        onPhase: setPhase,
-      });
-      exportDebug(`画像ができた: ${prepared.info.width}×${prepared.info.height}・倍率 ${prepared.info.scale}（求めた倍率 ${prepared.info.requestedScale}）`);
-      const reduced = reducedNotice(prepared);
-      if (canShareExportImage(prepared.file)) {
-        setPending(prepared);
+      const made: PreparedExportImage[] = [];
+      for (const item of items) {
+        if (item.activate) {
+          switched = true;
+          await item.activate();
+        }
+        const target = item.targetRef.current;
+        if (!target) throw new Error("保存する表が見つかりません");
+        const prepared = await prepareExportImage(target, item.filename, {
+          options: { plain: ranking ? plain : false, top10: ranking ? top10 : false, teamNames: ranking?.media === "ロゴ" },
+          resolveBaseDate: item.baseDate ? () => resolveBaseDate(item.baseDate!, league) : undefined,
+          env,
+          onPhase: setPhase,
+        });
+        exportDebug(`画像ができた: ${prepared.info.width}×${prepared.info.height}・倍率 ${prepared.info.scale}（求めた倍率 ${prepared.info.requestedScale}）`);
+        made.push(prepared);
+      }
+      const reduced = made.map(reducedNotice).find((n) => !!n) ?? null;
+      const files = made.map((m) => m.file);
+      if (canShareExportImage(files)) {
+        setPending(made);
         setPreviewNotice(reduced);
         setOpen(false);
         exportDebugEnd("共有の経路: できた画像を画面いっぱいに出した（「写真に保存」・長押しの案内）");
       } else {
-        downloadExportImage(prepared.file);
+        for (let i = 0; i < files.length; i += 1) {
+          if (i > 0) await new Promise((r) => setTimeout(r, 400));
+          downloadExportImage(files[i]!);
+        }
         setNotice(reduced);
         setOpen(false);
-        exportDebugEnd(`ダウンロードの経路: ダウンロードを始めた（案内 ${reduced ? "あり（解像度を下げた）" : "なし"}）`);
+        exportDebugEnd(`ダウンロードの経路: ダウンロードを始めた（${files.length}枚・案内 ${reduced ? "あり（解像度を下げた）" : "なし"}）`);
       }
     } catch (e) {
       console.error(e);
@@ -204,6 +247,7 @@ export function ExportImageButton({
       const phaseText = e instanceof Error && "phase" in e ? `・段階 ${String((e as { phase: unknown }).phase)}` : "";
       exportDebugEnd(`エラーを出した（${describeError(e)}${phaseText}）`);
     } finally {
+      if (switched) restoreAfterSave?.();
       setBusy(false);
       setPhase(null);
     }
@@ -215,7 +259,7 @@ export function ExportImageButton({
     const prepared = pending;
     const myRound = round.current;
     exportDebugStart("「写真に保存」を押した", "share");
-    void shareExportImage(prepared.file).then((result) => {
+    void shareExportImage(prepared.map((p) => p.file)).then((result) => {
       if (round.current !== myRound) {
         exportDebugEnd(`共有の結果（${result}）は、新しい保存を始めていたので画面に出さない`, "share");
         return;
@@ -227,7 +271,7 @@ export function ExportImageButton({
       } else if (result === "blocked") {
         setPreviewNotice(SHARE_BLOCKED_NOTICE);
       } else if (result === "failed") {
-        downloadExportImage(prepared.file);
+        prepared.forEach((p) => downloadExportImage(p.file));
         setPending(null);
         setPreviewNotice(null);
       }
@@ -262,24 +306,30 @@ export function ExportImageButton({
         onClick={() => {
           setNotice(null);
           setNoticeIsError(false);
+          setChoiceKey(null);
           setOpen(true);
         }}
         aria-haspopup="dialog"
       >
         {busy ? (phase ? BUSY_LABELS[phase] : "出力中…") : "画像"}
       </button>
-      {pending && <ExportImagePreview file={pending.file} notice={previewNotice} onShare={handleSharePending} onClose={handleClosePreview} />}
+      {pending && <ExportImagePreview files={pending.map((p) => p.file)} notice={previewNotice} onShare={handleSharePending} onClose={handleClosePreview} />}
       <SaveModal open={open} title="画像として保存" onClose={() => setOpen(false)}>
         <SaveModalPreview {...heading} />
-        {choices && choices.length > 1 && (
+        {choices && (choices.length > 1 || !!allChoice) && (
           <div className="save-modal-options">
-            <span className="export-option-group" role="group" aria-label="保存する図">
-              <span className="export-option-label">保存する図</span>
+            <span className="export-option-group" role="group" aria-label={choicesLabel}>
+              <span className="export-option-label">{choicesLabel}</span>
               {choices.map((c) => (
-                <button key={c.key} type="button" className={chosen?.key === c.key ? "active" : ""} onClick={() => setChoiceKey(c.key)} disabled={busy}>
+                <button key={c.key} type="button" className={!chosenAll && chosen?.key === c.key ? "active" : ""} onClick={() => setChoiceKey(c.key)} disabled={busy}>
                   {c.label}
                 </button>
               ))}
+              {allChoice && (
+                <button type="button" className={chosenAll ? "active" : ""} onClick={() => setChoiceKey(ALL_KEY)} disabled={busy}>
+                  {allChoice.label}
+                </button>
+              )}
             </span>
           </div>
         )}

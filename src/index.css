@@ -8226,6 +8226,29 @@ table.sortable-table.lineup-search-table tbody th {
   color: var(--muted);
 }
 
+.compare-mode-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px 12px;
+  margin-bottom: 16px;
+}
+
+.compare-mode-row .mode-toggle {
+  margin-bottom: 0;
+}
+
+.compare-mode-row .compare-rank-toggle {
+  margin-left: auto;
+  padding: 10px 0;
+}
+
+.compare-mode-row .compare-rank-toggle input {
+  width: 18px;
+  height: 18px;
+}
+
 .compare-rank-toggle {
   display: inline-flex;
   align-items: center;

@@ -8,16 +8,13 @@ interface Props {
   /** 指定したときだけ、タブの並びの右端に視点（自チーム／opp／+/-）の切り替えを出す（チームの比較） */
   perspective?: TeamPerspective;
   onPerspective?: (v: TeamPerspective) => void;
-  /** 指定したときだけ「順位を表示」のチェックを出す（比較ページ。値の下の順位の表示・非表示） */
-  showRank?: boolean;
-  onShowRank?: (v: boolean) => void;
 }
 
 /**
  * 比較の表の上に置くタブ行（比較ページ・チーム詳細・個人詳細の比較タブで共通）。
  * 左にスタッツ項目のタブ、右端に視点の切り替え。狭い画面では視点がタブの下の行へ折り返す（はみ出さない）
  */
-export function CompareCategoryBar({ tabs = BOXSCORE_TABS, category, onCategory, perspective, onPerspective, showRank, onShowRank }: Props) {
+export function CompareCategoryBar({ tabs = BOXSCORE_TABS, category, onCategory, perspective, onPerspective }: Props) {
   return (
     <div className="tab-bar-with-toggle compare-category-bar">
       <div className="tab-bar">
@@ -27,11 +24,6 @@ export function CompareCategoryBar({ tabs = BOXSCORE_TABS, category, onCategory,
           </button>
         ))}
       </div>
-      {onShowRank && (
-        <label className="compare-rank-toggle">
-          <input type="checkbox" checked={!!showRank} onChange={(e) => onShowRank(e.target.checked)} /> 順位を表示
-        </label>
-      )}
       {perspective && onPerspective && (
         <div className="mode-toggle" role="group" aria-label="視点">
           {(Object.keys(TEAM_PERSPECTIVE_LABELS) as TeamPerspective[]).map((p) => (

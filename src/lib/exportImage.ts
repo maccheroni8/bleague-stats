@@ -450,7 +450,8 @@ export function downloadExportImage(file: File): void {
  * 共有シート（navigator.share）でファイルを渡せるか。iPhone・iPad だけ（共有シートの「画像を保存」で写真に入れられる）。
  * パソコンや Android は、今までどおりダウンロード
  */
-export function canShareExportImage(file: File): boolean {
+export function canShareExportImage(file: File | File[]): boolean {
+  const files = Array.isArray(file) ? file : [file];
   const ios = isIOSDevice();
   const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
   if (!ios) {
@@ -461,7 +462,7 @@ export function canShareExportImage(file: File): boolean {
   const hasCanShare = typeof nav.canShare === "function";
   let can = false;
   try {
-    can = hasShare && hasCanShare && nav.canShare!({ files: [file] });
+    can = hasShare && hasCanShare && nav.canShare!({ files });
   } catch (e) {
     exportDebug(`canShare が失敗: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`);
   }
@@ -476,10 +477,11 @@ export type ShareResult = "shared" | "cancelled" | "blocked" | "failed";
  * 共有シートを開く。iPhone・iPad では「写真に保存」を押した処理の中で、await を挟まずに呼ぶ（押した直後でないと開けない。
  * この関数は呼んだその場で navigator.share を呼ぶ）。iOS では結果が返らないことがあるので、呼ぶ側は結果を待つ間に画面を止めない（DESIGN.md 242章）
  */
-export async function shareExportImage(file: File): Promise<ShareResult> {
+export async function shareExportImage(file: File | File[]): Promise<ShareResult> {
+  const files = Array.isArray(file) ? file : [file];
   try {
-    exportDebug(`navigator.share を呼ぶ（${file.size} バイト）`);
-    await navigator.share({ files: [file] });
+    exportDebug(`navigator.share を呼ぶ（${files.length}枚・${files.reduce((n, f) => n + f.size, 0)} バイト）`);
+    await navigator.share({ files });
     exportDebug("navigator.share の結果: 成功");
     return "shared";
   } catch (e) {

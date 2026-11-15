@@ -8,20 +8,21 @@ import { createPortal } from "react-dom";
  * body の直下に出し（保存の範囲の外・html2canvas の対象外）、ページのスクロール位置や表の状態には触れない。閉じれば画面は保存前のまま
  */
 export function ExportImagePreview({
-  file,
+  files,
   notice,
   onShare,
   onClose,
 }: {
-  file: File;
+  /** できた画像（1枚。タブをまとめて保存するときは複数。縦に続けて出し、「写真に保存」で全部を渡す） */
+  files: File[];
   /** 表示の中に出す案内（解像度を下げた・共有の画面を開けなかった など） */
   notice: string | null;
   /** 「写真に保存」。押した処理の中で、await を挟まずに共有シートを開く */
   onShare: () => void;
   onClose: () => void;
 }) {
-  const url = useMemo(() => URL.createObjectURL(file), [file]);
-  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+  const urls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
+  useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls]);
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     closeRef.current?.focus({ preventScroll: true });
@@ -39,10 +40,12 @@ export function ExportImagePreview({
         </p>
       )}
       <div className="export-preview-scroll">
-        <img className="export-preview-image" src={url} alt="保存する画像" />
+        {urls.map((url, i) => (
+          <img key={url} className="export-preview-image" src={url} alt={`保存する画像${urls.length > 1 ? `（${i + 1}／${urls.length}）` : ""}`} />
+        ))}
       </div>
       <div className="export-preview-footer">
-        <p className="export-preview-hint">画像を長押しして「"写真"に追加」でも保存できます。</p>
+        <p className="export-preview-hint">{files.length > 1 ? `${files.length}枚をまとめて保存します。` : ""}画像を長押しして「"写真"に追加」でも保存できます。</p>
         <div className="export-preview-bar">
           <button type="button" className="export-preview-save" onClick={onShare}>
             写真に保存
