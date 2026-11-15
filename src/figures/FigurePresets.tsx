@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { FIGURES } from './catalog';
 import {
   applyPresetParams, deletePreset, loadPresets, PRESET_NAME_MAX, PRESET_STORAGE_KEY, presetMatches, presetQuery, presetStorageAvailable, presetUrl,
@@ -6,18 +6,24 @@ import {
 } from '../lib/figurePresets';
 import './FigurePresets.css';
 
-type Editing = null | { kind: 'save' | 'rename'; name: string } | { kind: 'delete' };
+/** 一覧の1行の操作中の状態（名前の変更・削除の確認）。削除は「削除する／やめる」を選ぶまで消さない */
+type RowEdit = { id: string; kind: 'rename'; name: string } | { id: string; kind: 'delete' };
 
-/** 図の設定の保存・選択・名前の変更・削除・URL のコピー。保存先はこのブラウザ（localStorage）。1つの一覧に、図をまたいでまとめる */
+/**
+ * 図の設定の保存（ボタン1つ。押すと開く）。中に「いまの設定を名前を付けて保存」・保存した設定の一覧（押すとその設定で開く。
+ * 名前の変更・削除・URL のコピーは各行から）をまとめる。保存先はこのブラウザ（localStorage）。1つの一覧に、図をまたいでまとめる
+ */
 export function FigurePresets({ entity, figureId, params, onApply }: {
   entity: 'team' | 'player'; figureId: string; params: URLSearchParams; onApply: (next: URLSearchParams) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const [available, setAvailable] = useState(false);
   const [presets, setPresets] = useState<FigurePreset[]>([]);
-  const [selectedId, setSelectedId] = useState('');
-  const [editing, setEditing] = useState<Editing>(null);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [rowEdit, setRowEdit] = useState<RowEdit | null>(null);
   const [message, setMessage] = useState('');
   const [manualUrl, setManualUrl] = useState('');
+  const panelId = useId();
   useEffect(() => {
     setAvailable(presetStorageAvailable());
     setPresets(loadPresets());
@@ -32,60 +38,81 @@ export function FigurePresets({ entity, figureId, params, onApply }: {
     for (const p of listed) { const key = `${p.entity === 'team' ? 'チーム' : '選手'}｜${figureLabel(p.entity, p.figure)}`; map.set(key, [...(map.get(key) ?? []), p]); }
     return [...map.entries()];
   }, [listed]);
-  const selected = listed.find(p => p.id === selectedId);
   const current = presetQuery(params);
   const persist = (next: FigurePreset[]) => {
     if (!savePresets(next)) { setAvailable(false); setMessage('保存できませんでした。このブラウザでは保存を使えません。'); return false; }
     setPresets(next);
     return true;
   };
-  const submitName = () => {
-    if (!editing || editing.kind === 'delete') return;
-    const name = editing.name.trim();
+  const submitSave = () => {
+    if (saving === null) return;
+    const name = saving.trim();
     if (!name) { setMessage('名前を入力してください。'); return; }
-    if (editing.kind === 'save') {
-      const { list, saved } = upsertPreset(presets, { name, entity, figure: figureId, query: current });
-      if (persist(list)) { setSelectedId(saved.id); setMessage(`「${saved.name}」を保存しました。`); setEditing(null); }
-    } else if (selected && persist(renamePreset(presets, selected.id, name))) { setMessage('名前を変更しました。'); setEditing(null); }
+    const { list, saved } = upsertPreset(presets, { name, entity, figure: figureId, query: current });
+    if (persist(list)) { setMessage(`「${saved.name}」を保存しました。`); setSaving(null); }
   };
-  const remove = () => {
-    if (!selected) return;
-    if (persist(deletePreset(presets, selected.id))) { setMessage(`「${selected.name}」を削除しました。`); setSelectedId(''); setEditing(null); }
+  const submitRename = () => {
+    if (rowEdit?.kind !== 'rename') return;
+    const name = rowEdit.name.trim();
+    if (!name) { setMessage('名前を入力してください。'); return; }
+    if (persist(renamePreset(presets, rowEdit.id, name))) { setMessage('名前を変更しました。'); setRowEdit(null); }
   };
-  const copy = async () => {
-    if (!selected) return;
-    const url = presetUrl(window.location.href, selected, params);
+  const remove = (p: FigurePreset) => {
+    if (persist(deletePreset(presets, p.id))) { setMessage(`「${p.name}」を削除しました。`); setRowEdit(null); }
+  };
+  const copy = async (p: FigurePreset) => {
+    const url = presetUrl(window.location.href, p, params);
     try { await navigator.clipboard.writeText(url); setManualUrl(''); setMessage('URLをコピーしました。'); }
     catch { setManualUrl(url); setMessage('コピーできませんでした。下のURLを選んでコピーしてください。'); }
   };
-  const matched = selected && presetMatches(selected, entity, figureId, params);
+  const apply = (p: FigurePreset) => { setRowEdit(null); setMessage(''); onApply(applyPresetParams(params, p)); };
   return <div className="figure-presets" role="group" aria-label="図の設定の保存">
-    <div className="figure-presets-row">
-      <label className="figure-presets-field">保存した設定
-        <select value={selected?.id ?? ''} disabled={!listed.length} title={available ? undefined : 'このブラウザでは保存を使えません'}
-          onChange={e => { const p = listed.find(x => x.id === e.target.value); setSelectedId(e.target.value); setEditing(null); setMessage(''); if (p) onApply(applyPresetParams(params, p)); }}>
-          <option value="">{listed.length ? '選んでください' : available ? 'まだありません' : '使えません'}</option>
-          {groups.map(([group, items]) => <optgroup key={group} label={group}>{items.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</optgroup>)}
-        </select>
-      </label>
-      <div className="figure-presets-buttons">
-        <button type="button" disabled={!available} title={available ? undefined : 'このブラウザでは保存できません'} onClick={() => { setMessage(''); setEditing({ kind: 'save', name: '' }); }}>いまの設定を保存</button>
-        <button type="button" disabled={!selected} onClick={() => { setMessage(''); setEditing({ kind: 'rename', name: selected?.name ?? '' }); }}>名前を変更</button>
-        <button type="button" disabled={!selected} onClick={() => { setMessage(''); setEditing({ kind: 'delete' }); }}>削除</button>
-        <button type="button" disabled={!selected} onClick={copy}>URLをコピー</button>
-      </div>
-    </div>
-    {editing && editing.kind !== 'delete' && <form className="figure-presets-edit" onSubmit={e => { e.preventDefault(); submitName(); }}>
-      <label>名前<input type="text" value={editing.name} maxLength={PRESET_NAME_MAX} autoFocus onChange={e => setEditing({ ...editing, name: e.target.value })} /></label>
-      <button type="submit">{editing.kind === 'save' ? '保存する' : '変更する'}</button>
-      <button type="button" onClick={() => setEditing(null)}>やめる</button>
-    </form>}
-    {editing?.kind === 'delete' && selected && <div className="figure-presets-edit">
-      <span>「{selected.name}」を削除しますか？</span>
-      <button type="button" onClick={remove}>削除する</button>
-      <button type="button" onClick={() => setEditing(null)}>やめる</button>
+    <button type="button" className="figure-presets-toggle" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(v => !v)}>
+      図の設定<span aria-hidden="true">{open ? '▴' : '▾'}</span>
+    </button>
+    {open && <div className="figure-presets-panel" id={panelId}>
+      {saving === null
+        ? <button type="button" className="figure-presets-save" disabled={!available} title={available ? undefined : 'このブラウザでは保存できません'} onClick={() => { setMessage(''); setSaving(''); }}>いまの設定を保存</button>
+        : <form className="figure-presets-edit" onSubmit={e => { e.preventDefault(); submitSave(); }}>
+          <label>名前<input type="text" value={saving} maxLength={PRESET_NAME_MAX} autoFocus onChange={e => setSaving(e.target.value)} /></label>
+          <button type="submit">保存する</button>
+          <button type="button" onClick={() => setSaving(null)}>やめる</button>
+        </form>}
+      {listed.length === 0
+        ? <p className="figure-presets-empty">{available ? '保存した設定はまだありません。' : 'このブラウザでは保存を使えません。'}</p>
+        : groups.map(([group, items]) => <div key={group} className="figure-presets-group">
+          <p className="figure-presets-group-label">{group}</p>
+          <ul className="figure-presets-list">
+            {items.map(p => {
+              const edit = rowEdit?.id === p.id ? rowEdit : null;
+              const matched = presetMatches(p, entity, figureId, params);
+              return <li key={p.id} className="figure-presets-item">
+                {edit?.kind === 'rename'
+                  ? <form className="figure-presets-edit" onSubmit={e => { e.preventDefault(); submitRename(); }}>
+                    <label>名前<input type="text" value={edit.name} maxLength={PRESET_NAME_MAX} autoFocus onChange={e => setRowEdit({ ...edit, name: e.target.value })} /></label>
+                    <button type="submit">変更する</button>
+                    <button type="button" onClick={() => setRowEdit(null)}>やめる</button>
+                  </form>
+                  : edit?.kind === 'delete'
+                    ? <div className="figure-presets-edit">
+                      <span>「{p.name}」を削除しますか？</span>
+                      <button type="button" className="figure-presets-danger" onClick={() => remove(p)}>削除する</button>
+                      <button type="button" onClick={() => setRowEdit(null)}>やめる</button>
+                    </div>
+                    : <>
+                      <button type="button" className={`figure-presets-apply${matched ? ' active' : ''}`} aria-pressed={matched} onClick={() => apply(p)}>{p.name}</button>
+                      <span className="figure-presets-actions">
+                        <button type="button" onClick={() => { setMessage(''); setRowEdit({ id: p.id, kind: 'rename', name: p.name }); }}>名前を変更</button>
+                        <button type="button" onClick={() => copy(p)}>URLをコピー</button>
+                        <button type="button" onClick={() => { setMessage(''); setRowEdit({ id: p.id, kind: 'delete' }); }}>削除</button>
+                      </span>
+                    </>}
+              </li>;
+            })}
+          </ul>
+        </div>)}
+      {manualUrl && <input className="figure-presets-url" readOnly value={manualUrl} aria-label="コピーするURL" onFocus={e => e.currentTarget.select()} />}
+      {message && <p className="figure-presets-message" role="status">{message}</p>}
     </div>}
-    {manualUrl && <input className="figure-presets-url" readOnly value={manualUrl} aria-label="コピーするURL" onFocus={e => e.currentTarget.select()} />}
-    {(message || (selected && !matched)) && <p className="figure-presets-message" role="status">{message || '選んだ設定から変更しています。'}</p>}
   </div>;
 }

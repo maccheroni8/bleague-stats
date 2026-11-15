@@ -1,16 +1,25 @@
-.figure-presets { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 12px; font-size: 13px; }
-.figure-presets-row, .figure-presets-edit { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
-.figure-presets-field { display: flex; flex-direction: column; gap: 2px; min-width: 0; max-width: 100%; }
-.figure-presets-field select { min-width: 12em; max-width: 100%; }
-.figure-presets-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+.figure-presets { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 8px 0 12px; font-size: 13px; }
 .figure-presets button { min-height: 32px; }
 .figure-presets button:disabled { opacity: 0.5; cursor: not-allowed; }
+.figure-presets-toggle { display: inline-flex; align-items: center; gap: 8px; }
+.figure-presets-panel { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; }
+.figure-presets-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .figure-presets-edit label { display: flex; align-items: center; gap: 6px; }
 .figure-presets-edit input[type="text"] { min-width: 12em; max-width: 100%; }
+.figure-presets-group { width: 100%; }
+.figure-presets-group-label { margin: 0 0 4px; font-size: 12px; color: var(--muted); }
+.figure-presets-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.figure-presets-item { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; padding: 4px 0; border-top: 1px solid var(--border); }
+.figure-presets-apply { text-align: left; max-width: 100%; }
+.figure-presets-apply.active { border-color: var(--accent); font-weight: 700; }
+.figure-presets-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.figure-presets-danger { border-color: var(--accent); color: var(--accent); }
+.figure-presets-empty { margin: 0; color: var(--muted); }
 .figure-presets-url { width: 100%; box-sizing: border-box; }
 .figure-presets-message { margin: 0; color: var(--text-muted, inherit); }
 @media (max-width: 560px) {
-  .figure-presets-field, .figure-presets-field select { width: 100%; }
+  .figure-presets-toggle, .figure-presets button { min-height: 44px; }
   .figure-presets-edit label { flex: 1 1 100%; }
   .figure-presets-edit input[type="text"] { flex: 1; }
+  .figure-presets-actions { width: 100%; margin-left: 0; }
 }
