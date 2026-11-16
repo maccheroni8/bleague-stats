@@ -29,7 +29,7 @@ import {
   latestEndedGameDate,
   matchesAtViewportWidth,
   runWithinDeadline,
-  tiesBeyondTop,
+  tieCutoff,
 } from "../src/lib/exportFormat.ts";
 import type { GameSummary } from "../shared/types.ts";
 
@@ -93,12 +93,19 @@ eq("シーズンの指定", baseDateOf(false, "2026-27", "both"), { kind: "seaso
 eq("同じ指定は同じ文字列（画面側が求め直さない）", baseDateSpecKey(baseDateOf(false, "2026-27", "regular")), baseDateSpecKey({ kind: "season", season: "2026-27", gameType: "regular" }));
 eq("指定が違えば違う文字列（求め直す）", baseDateSpecKey(baseDateOf(false, "2026-27", "regular")) !== baseDateSpecKey(baseDateOf(false, "2025-26", "regular")), true);
 
-// --- 3. 上位10名の同率 ---
-eq("10位の外に同じ順位が続かない", tiesBeyondTop(["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"], 10), 0);
-eq("10位と11位・12位が同じ順位（ほか2）", tiesBeyondTop(["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "j", "j", "k"], 10), 2);
-eq("5位〜が全部同じ（10位の外に続く分だけ数える）", tiesBeyondTop(["a", "b", "c", "d", "e", "e", "e", "e", "e", "e", "e", "e", "e", "f"], 10), 3);
-eq("10行以下なら 0", tiesBeyondTop(["a", "a", "a"], 10), 0);
-eq("ちょうど10行", tiesBeyondTop(["a", "a", "a", "a", "a", "a", "a", "a", "a", "a"], 10), 0);
+// --- 3. 件数の区切りの同率（415章。画面の上位20位・保存画像の上位10名で同じ関数） ---
+const seq = (n: number): string[] => Array.from({ length: n }, (_, i) => String.fromCharCode(97 + (i % 26)) + Math.floor(i / 26));
+const withTies = (before: number, tied: number, after: number): string[] => [...seq(before), ...Array(tied).fill("T"), ...seq(after).map((k) => "z" + k)];
+eq("区切りで同じ順位が続かない（10件）", tieCutoff(seq(11), 10), { shown: 10, hidden: 0 });
+eq("ちょうど10行", tieCutoff(seq(10), 10), { shown: 10, hidden: 0 });
+eq("10行以下", tieCutoff(["a", "a", "a"], 10), { shown: 3, hidden: 0 });
+eq("10位と11位・12位が同じ順位（12件に広げる）", tieCutoff(withTies(9, 3, 1), 10), { shown: 12, hidden: 0 });
+eq("8位が7チーム（14件に広げる）", tieCutoff(withTies(7, 7, 3), 10), { shown: 14, hidden: 0 });
+eq("ちょうど15件まで（N+5）は広げる", tieCutoff(withTies(7, 8, 3), 10), { shown: 15, hidden: 0 });
+eq("16件になるときは10件で切る", tieCutoff(withTies(7, 9, 3), 10), { shown: 10, hidden: 6 });
+eq("同じ順位がとても多い（0の人が多い）", tieCutoff(withTies(2, 500, 0), 10), { shown: 10, hidden: 492 });
+eq("20件の区切りでも同じ（N+5=25）", tieCutoff(withTies(15, 10, 3), 20), { shown: 25, hidden: 0 });
+eq("20件の区切り・26件になるときは20件で切る", tieCutoff(withTies(15, 11, 3), 20), { shown: 20, hidden: 6 });
 
 // --- 4. ファイル名 ---
 eq("初期の選択（写真あり・画面の件数）は変えない", exportFilenameWithOptions("ランキング.png", {}), "ランキング.png");

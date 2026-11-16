@@ -86,15 +86,28 @@ export function baseDateOf(allTime: boolean, season: string, gameType: BaseDateG
 /** 保存画像の「上位10名」の件数 */
 export const EXPORT_TOP_10 = 10;
 
+/** 件数の区切りで同じ順位が続くとき、続く分を全員載せてよい超過の上限（N＋この件数まで。DESIGN.md 415章） */
+export const TIE_CUTOFF_EXTRA = 5;
+
 /**
- * 並べた行の順位の判定用の値（keys。同じ値＝同じ順位）で、上位 top 件の外に、最後の行と同じ順位が続く行数（「10位タイ ほか◯人」の◯）。
- * 行が top 件以下のときは 0
+ * 件数の区切り（ランキングの表示件数 top。画面の上位20位・保存画像の上位10名など）の決め方。画面・保存画像で同じ関数を使う。
+ * keys は並べた行の順位の判定用の値（同じ値＝同じ順位）。
+ * 1. top 番目の行と同じ順位が top 件目の後ろに続くときは、その順位の全員を載せる（top 件を超えてよい）
+ * 2. ただし全員を載せると top＋extra 件を超えるときは、top 件で切る（残りは「◯位タイ ほか◯人」）
+ * 3. 区切りで同じ順位が続かないときは top 件
+ * shown＝載せる行数、hidden＝載せずに「ほか◯」とまとめる行数
  */
-export function tiesBeyondTop(keys: readonly string[], top: number): number {
-  if (top <= 0 || keys.length <= top) return 0;
+export function tieCutoff(
+  keys: readonly string[],
+  top: number,
+  extra: number = TIE_CUTOFF_EXTRA,
+): { shown: number; hidden: number } {
+  if (top <= 0 || keys.length <= top) return { shown: keys.length, hidden: 0 };
   let end = top;
   while (end < keys.length && keys[end] === keys[top - 1]) end += 1;
-  return end - top;
+  if (end === top) return { shown: top, hidden: 0 };
+  if (end <= top + extra) return { shown: end, hidden: 0 };
+  return { shown: top, hidden: end - top };
 }
 
 /**

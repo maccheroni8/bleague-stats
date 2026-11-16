@@ -6,7 +6,7 @@ import { StatHeaderLabel } from "./StatHeaderLabel";
 import { statDescription, type StatScope } from "../lib/statDescriptions";
 import { teamChipStyle } from "../lib/teamChipColors";
 import { rankPositions } from "../lib/seasonCompare";
-import { EXPORT_TOP_10, tiesBeyondTop } from "../lib/exportFormat";
+import { EXPORT_TOP_10, tieCutoff } from "../lib/exportFormat";
 
 /**
  * RankedListが実際に使う最小限の形（key/label/value/format）。statDefs.tsのStatDef<T>は
@@ -189,18 +189,17 @@ export function RankedList<T>({
     return new Map(pool.map((row, i) => [rowKey(row), poolRanks[i]!]));
   })();
   const rankOf = (i: number): number => poolRankByKey?.get(rowKey(sorted[i]!)) ?? rankAt(i);
-  // 同じ順位が境目をまたぐ分（limit より後ろで、limit 番目と同じ値の行）
-  let tieEnd = limit ?? sorted.length;
-  if (limit !== undefined && limit > 0) {
-    while (tieEnd < sorted.length && ranks[tieEnd] === ranks[limit - 1]) tieEnd += 1;
-  }
-  const hiddenTies = limit !== undefined ? Math.max(0, Math.min(tieEnd, sorted.length) - limit) : 0;
-  const expandedEnd = limit !== undefined && tieExpandMax !== undefined ? Math.min(tieEnd, Math.max(limit, tieExpandMax)) : tieEnd;
+  // 件数の区切りの決め方（同じ順位が区切りをまたぐときは全員載せる・多すぎるときは limit 件で切る。DESIGN.md 415章）。画面・保存画像で共通
+  const cut = limit !== undefined && limit > 0 ? tieCutoff(ranks, limit) : null;
+  const baseCount = limit === undefined ? sorted.length : cut ? cut.shown : Math.min(limit, sorted.length);
+  const hiddenTies = cut?.hidden ?? 0;
+  const tieEnd = baseCount + hiddenTies;
+  const expandedEnd = limit !== undefined && tieExpandMax !== undefined ? Math.min(tieEnd, Math.max(baseCount, tieExpandMax)) : tieEnd;
   const expandCapped = limit !== undefined && expandedEnd < Math.min(tieEnd, sorted.length);
-  // 保存画像の「上位10名」の版（DESIGN.md 239章）: 10位と同じ順位が11位以降に続くときは、「10位タイ ほか◯人」を1行にまとめる
-  // （画面の表は変えず、11行目以降を画像の中でだけ隠す。同じ順位の数え方は上の limit の境目と同じ）
-  const hiddenTies10 = tiesBeyondTop(ranks, EXPORT_TOP_10);
-  const shownCount = limit === undefined ? sorted.length : tiesExpanded ? expandedEnd : limit;
+  // 保存画像の「上位10名」の版（DESIGN.md 239章・415章）: 同じ決め方で10名の区切りを決め、その外の行を画像の中でだけ隠す
+  const cut10 = tieCutoff(ranks, EXPORT_TOP_10);
+  const hiddenTies10 = cut10.hidden;
+  const shownCount = limit === undefined ? sorted.length : tiesExpanded ? expandedEnd : baseCount;
   const limited = sorted.slice(0, shownCount);
   const toggleSortDir = () => {
     if (!sortable) return;
@@ -286,7 +285,7 @@ export function RankedList<T>({
                 </span>
               ) : null;
             return (
-              <tr key={rowKey(row)} className={i >= EXPORT_TOP_10 ? "rank-row-beyond10" : undefined}>
+              <tr key={rowKey(row)} className={i >= cut10.shown ? "rank-row-beyond10" : undefined}>
                 <td
                   className={`align-right rank-cell${accent ? " row-accent-cell" : ""}`}
                   style={accent ? ({ "--team-color": accent } as CSSProperties) : undefined}
