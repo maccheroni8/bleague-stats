@@ -150,7 +150,8 @@ export function checkRuleChange(games: GameRef[], scanTargets: GameRef[]): Check
   let newVocabCount = 0;
 
   for (const target of scanTargets) {
-    for (const ev of target.game.raw.PlayByPlays) {
+    // 取り込みの空の枠（開催予定・中止の試合。PlayByPlays が無い）でも落とさない（DESIGN.md 412章）
+    for (const ev of target.game.raw.PlayByPlays ?? []) {
       const text = String(ev.PlayText ?? "");
       const vocab = findNewVocabulary(text);
       if (vocab !== null) {
@@ -239,7 +240,7 @@ export function checkRuleChange(games: GameRef[], scanTargets: GameRef[]): Check
     }
     const recent = finished.slice(-watch.windowGames);
     const count = recent.reduce(
-      (sum, g) => sum + g.game.raw.PlayByPlays.filter((ev) => watch.codes.includes(ev.ActionCD1)).length,
+      (sum, g) => sum + (g.game.raw.PlayByPlays ?? []).filter((ev) => watch.codes.includes(ev.ActionCD1)).length,
       0,
     );
     const codesLabel = watch.codes.join("+");
