@@ -57,6 +57,9 @@
 .fouls-points-heading { font-size:16px; margin:0 0 8px; }
 .fouls-export-notes { margin-top:10px; font-size:12px; color:var(--muted); line-height:1.6; }
 .fouls-export-notes p { margin:0 0 4px; }
+/* 保存画像（幅820px）は列が最も多い版（合計＋TF1・TF2・FLAG・DQ・出場停止・9人以下の7列）でも右が切れないよう、数の列を詰める（418章） */
+.export-rendering .fouls-points-table .fouls-col { width:72px; }
+.export-rendering .fouls-points-table .fouls-name { width:240px; }
 /* 保存画像だけの反則金の表（注記の下・基準日の上） */
 .fp-fines { margin-top:8px; font-size:11px; color:var(--muted); }
 .fp-fines-title { margin:0 0 4px; }
