@@ -42,6 +42,8 @@ export interface LedgerRow {
   category: string;
   ejected: boolean;
   ejectionKind: EjectionKind | null;
+  /** 発表で失格・退場が取り消された（反則ポイントの退場の点に数えない。試合の記録の DQ などはそのまま） */
+  ejectionCancelled?: boolean;
   /** 「失効」「消化済み」「翌シーズンに持ち越し」「免除」などの本文の注記 */
   notes: string[];
   status: LedgerStatus;

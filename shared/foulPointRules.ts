@@ -44,6 +44,18 @@ export interface FoulPointRule {
     /** エントリー人数1人足りないごと（10名との差×この点） */
     entryShortPerPlayer: number;
   };
+  /**
+   * 反則金の段階（第2条。万円）。premier＝B1（2025-26 まで）・B.PREMIER、one＝B2（2025-26 まで）・B.ONE。
+   * 版が見つからないシーズンは、点数と同じく前後の版を当てはめる（推定）
+   */
+  fines: Record<"premier" | "one", readonly FoulPointFineStep[]>;
+}
+
+/** 反則ポイントの段階（from 点以上 to 点以下。to が null は「以上」）と反則金（万円） */
+export interface FoulPointFineStep {
+  from: number;
+  to: number | null;
+  manYen: number;
 }
 
 /** 反則金がかかる年間の合計（31点以上） */
@@ -52,15 +64,27 @@ export const FOUL_POINTS_FINE_THRESHOLD = 31;
 export const FOUL_POINTS_ENTRY_BASE = 10;
 
 const OLD_POINTS = { tf: 1, uf: 1, ejection: 3, suspension: 3, entryShortPerPlayer: 5 };
+const steps = (amounts: readonly number[]): FoulPointFineStep[] =>
+  amounts.map((manYen, i) => ({ from: 31 + i * 10, to: i === amounts.length - 1 ? null : 40 + i * 10, manYen }));
+/** 2017年版・2020年版（B1・B2）: B1 は 81点以上 150万円、B2 は 71点以上 100万円 */
+const OLD_FINES = { premier: steps([20, 40, 60, 80, 100, 150]), one: steps([20, 40, 60, 80, 100]) };
+/** 2026年版: B.PREMIER は 81点以上 300万円、B.ONE は 81点以上 150万円 */
+const NEW_FINES = { premier: steps([40, 80, 120, 160, 200, 300]), one: steps([20, 40, 60, 80, 100, 150]) };
 
 /** 新しい順（そのシーズン以前で最も新しい行を当てる） */
 export const FOUL_POINT_RULES: readonly FoulPointRule[] = [
-  { from: "2026-27", system: "new", version: "2026年8月18日改正", estimated: false, entry: true, points: { tf1: 2, tf2: 1, flagrant: 2, dq: 4, disruptive: 0, suspension: 4, entryShortPerPlayer: 5 } },
-  { from: "2020-21", system: "old", version: "2020年7月14日改正", estimated: false, entry: true, points: OLD_POINTS },
-  { from: "2019-20", system: "old", version: "2019年9月11日改正（版が見つからないため推定）", estimated: true, entry: false, points: OLD_POINTS },
-  { from: "2017-18", system: "old", version: "2017年7月12日改正", estimated: false, entry: false, points: OLD_POINTS },
-  { from: "2016-17", system: "old", version: "2016年6月1日施行（版が見つからないため推定）", estimated: true, entry: false, points: OLD_POINTS },
+  { from: "2026-27", system: "new", version: "2026年8月18日改正", estimated: false, entry: true, points: { tf1: 2, tf2: 1, flagrant: 2, dq: 4, disruptive: 0, suspension: 4, entryShortPerPlayer: 5 }, fines: NEW_FINES },
+  { from: "2020-21", system: "old", version: "2020年7月14日改正", estimated: false, entry: true, points: OLD_POINTS, fines: OLD_FINES },
+  { from: "2019-20", system: "old", version: "2019年9月11日改正（版が見つからないため推定）", estimated: true, entry: false, points: OLD_POINTS, fines: OLD_FINES },
+  { from: "2017-18", system: "old", version: "2017年7月12日改正", estimated: false, entry: false, points: OLD_POINTS, fines: OLD_FINES },
+  { from: "2016-17", system: "old", version: "2016年6月1日施行（版が見つからないため推定）", estimated: true, entry: false, points: OLD_POINTS, fines: OLD_FINES },
 ];
+
+/** 反則金の表のリーグの名前（2025-26 までは B1・B2） */
+export function foulPointLeagueLabel(season: string, category: "premier" | "one"): string {
+  if (season >= "2026-27") return category === "one" ? "B.ONE" : "B.PREMIER";
+  return category === "one" ? "B2" : "B1";
+}
 
 /** そのシーズンの規程（2016-17 より前は null） */
 export function foulPointRuleFor(season: string): FoulPointRule | null {

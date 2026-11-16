@@ -137,7 +137,16 @@ for (const season of seasons) {
   const n = teamFoulPointRows(neu, { kind: "all" }).find((r) => r.teamId === "A")!;
   assert.equal(n.total, 2 + 2 * 1 + 2 + 4 + 2 * 4, "新規程の合計（退場の点は無い）");
   assert.equal(n.ejection.points, 0);
-  checks += 12;
+  // 発表で取り消された選手の退場は、退場の点から1回引く（旧規程）
+  const cancelled = { ...old, penalties: [...old.penalties, { newsId: "4", teamId: "A", incidentDate: "2020-10-01", competition: "regular" as const, role: "選手", person: "w", suspensionGames: 0, coachEjection: false, ejectionCancelled: true, game: 0 }] };
+  assert.equal(teamFoulPointRows(cancelled, { kind: "all" }).find((r) => r.teamId === "A")!.ejection.count, a.ejection.count - 1, "取り消された退場は数えない");
+  // 反則金の段階（版ごと・リーグごと）
+  const fine = (season: string, cat: "premier" | "one") => foulPointRuleFor(season)!.fines[cat].map((s) => `${s.from}-${s.to ?? ""}:${s.manYen}`).join(" ");
+  assert.equal(fine("2026-27", "premier"), "31-40:40 41-50:80 51-60:120 61-70:160 71-80:200 81-:300");
+  assert.equal(fine("2026-27", "one"), "31-40:20 41-50:40 51-60:60 61-70:80 71-80:100 81-:150");
+  assert.equal(fine("2025-26", "premier"), "31-40:20 41-50:40 51-60:60 61-70:80 71-80:100 81-:150");
+  assert.equal(fine("2018-19", "one"), "31-40:20 41-50:40 51-60:60 61-70:80 71-:100");
+  checks += 17;
 }
 
 // 5. 実データで、手で数えた値

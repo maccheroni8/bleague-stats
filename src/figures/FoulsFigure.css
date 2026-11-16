@@ -50,22 +50,22 @@
   .fouls-who .player-cell-photo { width:32px !important; height:32px !important; }
 }
 
-/* 反則ポイントの表（416章）。数のマスは件数の下に点数を小さく。合計は太字 */
-.fouls-points-table .fp-cell { display:flex; flex-direction:column; align-items:center; line-height:1.25; }
-.fouls-points-table .fp-points { font-size:11px; color:var(--muted); }
+/* 反則ポイントの表（416章）。マスは点数だけ。合計は太字 */
 .fouls-points-table .fp-total { font-weight:700; }
-.fouls-points-table .fp-remaining { color:var(--fg); }
-.fouls-points-table .fp-reached { font-weight:700; color:#c0392b; }
-.fouls-points-table .fouls-l1 .fp-points,.fouls-points-table .fouls-l2 .fp-points,.fouls-points-table .fouls-l3 .fp-points { color:inherit; }
 .fouls-points-table .fouls-col { width:84px; }
 .fouls-points-table .fouls-name { width:240px; }
 .fouls-points-heading { font-size:16px; margin:0 0 8px; }
 .fouls-export-notes { margin-top:10px; font-size:12px; color:var(--muted); line-height:1.6; }
 .fouls-export-notes p { margin:0 0 4px; }
-.export-rendering.fouls-export:has(.fouls-points-table) { width:1040px !important; }
+/* 保存画像だけの反則金の表（注記の下・基準日の上） */
+.fp-fines { margin-top:8px; font-size:11px; color:var(--muted); }
+.fp-fines-title { margin:0 0 4px; }
+.fp-fines-table { border-collapse:collapse; font-variant-numeric:tabular-nums; }
+.fp-fines-table th,.fp-fines-table td { border:1px solid var(--border); padding:3px 8px; text-align:center; white-space:nowrap; font-weight:400; }
+.fp-fines-table th { background:var(--header-bg); }
 @media(max-width:560px) {
   .fouls-points-table .fouls-col { width:auto; }
-  .fouls-points-table .fp-points { font-size:10px; }
   .fouls-table.fouls-points-table:has(.fouls-team-line) .fouls-name { width:88px; }
-  .fouls-points-table { min-width:520px; }
+  /* 英字の見出し（FLAG など）を途中で折り返さない（日本語の見出しは今までどおり折り返す） */
+  .fouls-points-table th.fouls-col { word-break:normal; overflow-wrap:normal; }
 }

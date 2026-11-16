@@ -95,6 +95,8 @@ export function teamFoulPointRows(file: FoulPointsFile, range: SituationalRange,
           : pen.competition === "other" && pen.game < 0 && pen.incidentDate >= first && pen.incidentDate <= last;
       if (!counted) continue;
       row.suspension.count += pen.suspensionGames;
+      // 発表で取り消された選手の失格・退場は、退場の点に数えない（試合の記録の退場から1回引く）
+      if (rule.system === "old" && pen.ejectionCancelled) coachEjections--;
       if (rule.system === "old" && pen.coachEjection) {
         coachEjections++;
         if (pen.game >= 0) coachAbsorbed.set(pen.game, (coachAbsorbed.get(pen.game) ?? 0) + 2);

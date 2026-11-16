@@ -37,6 +37,8 @@ export interface FoulPenaltyRow {
   suspensionGames: number;
   /** ヘッドコーチ・アシスタントコーチの失格・退場（旧規程の退場の3点。選手の退場はプレーバイプレーから数える） */
   coachEjection: boolean;
+  /** 発表で失格・退場が取り消された（旧規程の退場の点から1回引く。取り消しのある行だけ持つ） */
+  ejectionCancelled?: boolean;
 }
 
 export interface FoulPenaltiesFile {

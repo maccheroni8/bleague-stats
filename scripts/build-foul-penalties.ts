@@ -90,7 +90,8 @@ function toPenaltyRow(r: LedgerRow, teamId: string): FoulPenaltyRow {
     role: r.role ?? "",
     person: r.person,
     suspensionGames: r.suspensionGames!,
-    coachEjection: r.ejected && (r.role === "ヘッドコーチ" || r.role === "アシスタントコーチ"),
+    coachEjection: r.ejected && !r.ejectionCancelled && (r.role === "ヘッドコーチ" || r.role === "アシスタントコーチ"),
+    ...(r.ejectionCancelled && r.role === "選手" ? { ejectionCancelled: true } : {}),
   };
 }
 

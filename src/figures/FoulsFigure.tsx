@@ -76,7 +76,7 @@ function sortCodec(param: string, keys: readonly string[], mainKey: string): Url
  * 順位は並べている列の多い順の順位（少ない順は並びだけ逆）。塗りは並べ替えに関係なく列ごとのトップ3（0 は塗らない）。
  * 保存画像は画面の並びのまま、サブタイトルに並び順（「合計▼」）
  */
-export function FoulTable<R>({ title, exportLabel, filename, season, conditions, gameType, rows, rowKey, rowName, columns, mainKey, sortParam, nameHeader, renderName, average, emptyText, exportNotes, className }: {
+export function FoulTable<R>({ title, exportLabel, filename, season, conditions, gameType, rows, rowKey, rowName, columns, mainKey, sortParam, nameHeader, renderName, average, emptyText, exportNotes, exportExtra, className }: {
   title: string; exportLabel: string; filename: string; season: string; conditions: string[]; gameType: SeasonGameTypeFilter;
   /** 並べる前の行 */
   rows: readonly R[]; rowKey: (row: R) => string; rowName: (row: R) => string; columns: readonly FoulColumn<R>[];
@@ -87,6 +87,8 @@ export function FoulTable<R>({ title, exportLabel, filename, season, conditions,
   nameHeader: string; renderName: (row: R) => ReactNode; average?: boolean; emptyText: string;
   /** 保存画像だけに入れる注記（画面には出さない） */
   exportNotes?: readonly string[];
+  /** 保存画像だけに入れる部品（注記の下・データの基準日の上。中で .export-only を付ける） */
+  exportExtra?: ReactNode;
   /** 表に足すクラス名 */
   className?: string;
 }) {
@@ -138,6 +140,7 @@ export function FoulTable<R>({ title, exportLabel, filename, season, conditions,
           </table>
         </div>}
       {exportNotes && exportNotes.length > 0 && <div className="figure-notes fouls-export-notes export-only">{exportNotes.map(n => <p key={n}>{n}</p>)}</div>}
+      {exportExtra}
     </ExportTarget>
   </section>;
 }
