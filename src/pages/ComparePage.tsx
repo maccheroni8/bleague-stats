@@ -412,9 +412,9 @@ function TeamCompareView({
   // Q別・前後半・延長・クラッチ、または登録区分を選んだスロットは、値も順位もランキング（チーム・シーズン成績）と同じ集計から出す（試合の生データは読まない）
   const overridden = slots.map((s, i) => valid[i]! && s.id !== LEAGUE_TEAM_ID && (s.period !== "all" || s.cls !== "all"));
   const slotData: TeamSlotData[] = [
-    useTeamCompareSlot({ teamId: slots[0]!.id, season: slots[0]!.season, filter: slots[0]!.filter, gameType: slots[0]!.gameType, active: valid[0]!, divisionHistory, seasons, league, skipBox: overridden[0] }),
-    useTeamCompareSlot({ teamId: slots[1]!.id, season: slots[1]!.season, filter: slots[1]!.filter, gameType: slots[1]!.gameType, active: valid[1]!, divisionHistory, seasons, league, skipBox: overridden[1] }),
-    useTeamCompareSlot({ teamId: slots[2]!.id, season: slots[2]!.season, filter: slots[2]!.filter, gameType: slots[2]!.gameType, active: valid[2]!, divisionHistory, seasons, league, skipBox: overridden[2] }),
+    useTeamCompareSlot({ teamId: slots[0]!.id, season: slots[0]!.season, filter: slots[0]!.filter, gameType: slots[0]!.gameType, active: valid[0]!, divisionHistory, seasons, skipBox: overridden[0], league }),
+    useTeamCompareSlot({ teamId: slots[1]!.id, season: slots[1]!.season, filter: slots[1]!.filter, gameType: slots[1]!.gameType, active: valid[1]!, divisionHistory, seasons, skipBox: overridden[1], league }),
+    useTeamCompareSlot({ teamId: slots[2]!.id, season: slots[2]!.season, filter: slots[2]!.filter, gameType: slots[2]!.gameType, active: valid[2]!, divisionHistory, seasons, skipBox: overridden[2], league }),
   ];
 
   // 順位: ランキング（チーム・シーズン成績）と同じ計算（useTeamSeasonRanking）を、スロットの条件（シーズン・試合区分・絞り込み）で全チームに掛ける。リーグ平均には付けない
@@ -656,9 +656,9 @@ function PlayerCompareView({
     usePlayerPickerGroups(slots[2]!.season, slots[2]!.gameType, playersBySeason?.get(slots[2]!.season) ?? null, pickerSources, league),
   ];
   const slotData: PlayerSlotData[] = [
-    usePlayerCompareSlot({ playerId: slots[0]!.id, season: slots[0]!.season, filter: slots[0]!.filter, gameType: slots[0]!.gameType, active: valid[0]!, divisionHistory, league, period: slots[0]!.period }),
-    usePlayerCompareSlot({ playerId: slots[1]!.id, season: slots[1]!.season, filter: slots[1]!.filter, gameType: slots[1]!.gameType, active: valid[1]!, divisionHistory, league, period: slots[1]!.period }),
-    usePlayerCompareSlot({ playerId: slots[2]!.id, season: slots[2]!.season, filter: slots[2]!.filter, gameType: slots[2]!.gameType, active: valid[2]!, divisionHistory, league, period: slots[2]!.period }),
+    usePlayerCompareSlot({ playerId: slots[0]!.id, season: slots[0]!.season, filter: slots[0]!.filter, gameType: slots[0]!.gameType, active: valid[0]!, divisionHistory, period: slots[0]!.period, league }),
+    usePlayerCompareSlot({ playerId: slots[1]!.id, season: slots[1]!.season, filter: slots[1]!.filter, gameType: slots[1]!.gameType, active: valid[1]!, divisionHistory, period: slots[1]!.period, league }),
+    usePlayerCompareSlot({ playerId: slots[2]!.id, season: slots[2]!.season, filter: slots[2]!.filter, gameType: slots[2]!.gameType, active: valid[2]!, divisionHistory, period: slots[2]!.period, league }),
   ];
 
   // 順位: ランキング（個人・シーズン成績）と同じ決め方。条件なしのレギュラーシーズンの枠だけ（絞り込み・プレーオフ・合算の枠はランキングに同じ条件の表が無いので出さない）。20位以内だけ
