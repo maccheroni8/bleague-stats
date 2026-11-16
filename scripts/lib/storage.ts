@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import type { Category, StoredGame } from "../../shared/types.ts";
 import { withChronologicalPlayByPlays } from "../../shared/pbpOrder.ts";
 import { applyBoxscoreNameFills } from "../../shared/boxscoreNameFills.ts";
+import { hasRealGameData } from "../../shared/gameRealData.ts";
 
 const SCRIPTS_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = path.resolve(SCRIPTS_DIR, "..", "..", "data");
@@ -79,6 +80,33 @@ export async function listStoredScheduleKeys(season: string, category: Category 
 }
 
 /**
+ * 生データがあるScheduleKeyのうち、「本物の生データ」（shared/gameRealData.ts）だけの集合と、空の枠だけの集合を返す（中身を読む）。
+ * 中止の判定（空の枠は、日程に「試合中止」のカードがあれば中止にする。本物の生データがある試合は中止にしない）に使う
+ */
+export async function classifyStoredGames(
+  season: string,
+  category: Category = "premier",
+): Promise<{ real: Set<string>; emptyFrames: Map<string, string> }> {
+  const real = new Set<string>();
+  const emptyFrames = new Map<string, string>();
+  const dir = gamesDir(season, category);
+  if (!existsSync(dir)) return { real, emptyFrames };
+  for (const f of (await readdir(dir)).filter((x) => x.endsWith(".json.gz"))) {
+    const key = f.replace(/\.json\.gz$/, "");
+    const game = JSON.parse(gunzipSync(await readFile(path.join(dir, f))).toString("utf-8")) as StoredGame;
+    if (hasRealGameData(game)) real.add(key);
+    else emptyFrames.set(key, game.date);
+  }
+  return { real, emptyFrames };
+}
+
+/** schedule.json の cancelledGames のScheduleKey（無ければ空）。集計・検証が中止の試合を外すために使う */
+export async function readCancelledScheduleKeys(season: string, category: Category = "premier"): Promise<Set<string>> {
+  const file = await readJsonGz<{ cancelledGames?: { scheduleKey: string }[] }>(path.join(DATA_DIR, seasonDirName(season, category), "schedule.json"));
+  return new Set((file?.cancelledGames ?? []).map((g) => String(g.scheduleKey)));
+}
+
+/**
  * シーズンに保存済みの全試合ファイルを読み込む（aggregate.ts等で使用）。
  * PBPは時系列に並べ直してから返す（メモリ上だけ。保存済みのファイルは変えない。2020-21以降の延長戦は公式の配列が時系列にならない。
  * shared/pbpOrder.ts・DESIGN.md 212章）。選手ID・氏名が空の行のうち、手で補う一覧（shared/boxscoreNameFills.ts）に当たる行には、その選手を入れる（256章）。
@@ -89,10 +117,15 @@ export async function readAllGames(season: string, category: Category = "premier
   if (!existsSync(dir)) return [];
   const files = (await readdir(dir)).filter((f) => f.endsWith(".json.gz"));
   const games: StoredGame[] = [];
+  // 中止の試合（公式の日程に「試合中止」のカードがある試合）の空の枠は、集計・検証の対象にしない（DESIGN.md 411章）。
+  // 本物の生データがある試合は、日程が中止でも外さない
+  const cancelled = await readCancelledScheduleKeys(season, category);
   for (const file of files) {
     const compressed = await readFile(path.join(dir, file));
+    const stored = JSON.parse(gunzipSync(compressed).toString("utf-8")) as StoredGame;
+    if (cancelled.has(file.replace(/\.json\.gz$/, "")) && !hasRealGameData(stored)) continue;
     // 手で補う選手（shared/boxscoreNameFills.ts。DESIGN.md 256章）を当ててから、プレーバイプレーを時系列に並べる
-    games.push(withChronologicalPlayByPlays(applyBoxscoreNameFills(JSON.parse(gunzipSync(compressed).toString("utf-8")) as StoredGame)));
+    games.push(withChronologicalPlayByPlays(applyBoxscoreNameFills(stored)));
   }
   return games;
 }

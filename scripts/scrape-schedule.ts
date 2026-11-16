@@ -31,7 +31,7 @@
 
 import path from "node:path";
 import { createThrottledFetch, formatRequestCounts } from "./lib/throttle.ts";
-import { DATA_DIR, listStoredScheduleKeys, readJson, seasonDirName, writeJson } from "./lib/storage.ts";
+import { DATA_DIR, listStoredScheduleKeys, classifyStoredGames, readJson, seasonDirName, writeJson } from "./lib/storage.ts";
 import { seasonStartYearForDate } from "./lib/season.ts";
 import { isMainModule } from "./lib/isMain.ts";
 import { fetchGameDetailInfo, fetchGameDetailPage, type GameDetailInfo } from "./lib/upcomingGame.ts";
@@ -336,7 +336,8 @@ async function resolveCancelled(
     normalKeys: input.normalKeys,
     cancelledKeys: input.cancelledKeys,
     existingCancelledKeys: input.existingCancelled.map((g) => g.scheduleKey),
-    withBoxscore: await listStoredScheduleKeys(season, category),
+    // 本物の生データがある試合だけ中止にしない。開催予定の取り込みが作る空の枠（得点なし・全員DNP）は、中止のカードがあれば中止にする（411章）
+    withBoxscore: (await classifyStoredGames(season, category)).real,
   });
   const known = new Map<string, CancelledGameEntry>();
   for (const g of input.existingUpcoming) known.set(g.scheduleKey, g);
@@ -533,6 +534,20 @@ async function main(): Promise<void> {
     const referenceDate = asOfIndex !== -1 ? new Date(`${args[asOfIndex + 1]}T12:00:00+09:00`) : new Date();
     if (Number.isNaN(referenceDate.getTime())) throw new Error("--as-of には YYYY-MM-DD を指定してください");
     const recent = await scrapeRecentSchedule(season, days, events, referenceDate, tab);
+    // 空の枠（得点なし・全員DNPの生データ）がある試合の日は、直近の範囲の外でも問い合わせ直す。試合日をすぎたあとに中止のカードが
+    // 付いても、取りこぼさないため（11/15 の 506592 は、取り込みの空の枠ができたあとに中止と分かった。411章）
+    const frames = (await classifyStoredGames(season, category)).emptyFrames;
+    const extraDays = [...new Set(frames.values())].filter((d) => !recent.queriedDays.includes(d) && !!d).sort();
+    for (const day of extraDays) {
+      const [, mm, dd] = day.split("-") as [string, string, string];
+      for (const event of events) {
+        const cards = await fetchDaySchedule(Number(season.split("-")[0]), mm, dd, event, tab);
+        recent.keys.push(...cards.keys.filter((k) => !recent.keys.includes(k)));
+        recent.cancelledKeys.push(...cards.cancelledKeys.filter((k) => !recent.cancelledKeys.includes(k)));
+        recent.forfeits.push(...cards.forfeits.filter((f) => !recent.forfeits.some((x) => x.scheduleKey === f.scheduleKey)));
+      }
+    }
+    if (extraDays.length > 0) console.log(`[${season}] 空の枠がある試合の日を追加で確認: ${extraDays.join(", ")}`);
     const recentKeys = recent.keys;
 
     // 深夜のみ: 今後N日分の日程も問い合わせ、開催予定の日付・時刻の変更を検知する（DESIGN.md 8-7章）

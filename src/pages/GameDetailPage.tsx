@@ -4,7 +4,7 @@ import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
 import { useParams } from "react-router-dom";
 import { SeasonLink as Link } from "../components/SeasonLink";
-import { fetchGame, fetchPlayers, fetchSeasonRules, fetchTeamColors, fetchYahooGamePbp } from "../lib/data";
+import { fetchGame, fetchPlayers, fetchSchedule, fetchSeasonRules, fetchTeamColors, fetchYahooGamePbp } from "../lib/data";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { useJsonData } from "../lib/useJsonData";
 import { LEAGUE_LABELS, useLeague } from "../lib/league";
@@ -329,6 +329,12 @@ export function GameDetailPage({ season }: { season: string }) {
     () => (scheduleKey ? fetchGame(season, scheduleKey, league) : Promise.reject(new Error("試合が指定されていません"))),
     [season, scheduleKey, league],
   );
+  // 公式の日程で中止になった試合（schedule.json の cancelledGames）。試合の生データに空の枠があっても、中止とだけ出す（DESIGN.md 411章）
+  const { data: scheduleFile, loading: scheduleLoading } = useJsonData(
+    () => fetchSchedule(season, league).catch(() => null),
+    [season, league],
+  );
+  const cancelledEntry = scheduleKey ? scheduleFile?.cancelledGames?.find((g) => g.scheduleKey === scheduleKey) : undefined;
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
   // スポーツナビの記録は B.PREMIER だけ取っている（B.ONE には無い。DESIGN.md 297章）
   const { supported: yahooPremierSupported } = useYahooPbpCoverage(season);
@@ -369,6 +375,20 @@ export function GameDetailPage({ season }: { season: string }) {
   // ラインナップ別成績のQ別/前後半（ボックススコアのトグルとは独立）
   const [lineupPeriodRange, setLineupPeriodRange] = useState<PeriodRangeValue>("all");
 
+  if (scheduleLoading) return <p className="loading">読み込み中...</p>;
+  if (cancelledEntry) {
+    return (
+      <div className="game-cancelled">
+        <h2>
+          {cancelledEntry.homeTeamName} vs {cancelledEntry.awayTeamName}
+        </h2>
+        <p>
+          <span className="cancelled-badge">中止</span> {cancelledEntry.date.replaceAll("-", "/")}
+        </p>
+        <p>この試合は中止になりました。</p>
+      </div>
+    );
+  }
   if (loading || coverageLoading || playersLoading || registrationsLoading) return <p className="loading">読み込み中...</p>;
   if (error) return <p className="error-message">{error}</p>;
   if (!game) return <p className="error-message">試合が見つかりませんでした</p>;

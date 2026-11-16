@@ -5,6 +5,7 @@
 //  3. 個人: 全選手・全試合で、sumPlayerForeign（1試合ずつ）の合計と、player-foreign.json を直接足した値が一致する。
 //     人数ごとの時間の合計が出場時間（試合ログの min）とどれだけ違うか（除外した5人組の分）を出す
 //  使い方: npm run validate:on4-games（先に npm run build:data）。1つでも食い違いがあれば終了コード1
+import { hasRealGameData } from "../shared/gameRealData.ts";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import path from "node:path";
@@ -35,8 +36,11 @@ let infeasibleN = 0;
 let unknownRows = 0;
 const feasibleByKey = new Map<string, boolean>();
 const samples: string[] = [];
+// 中止の試合（日程に「試合中止」のカードがある試合）の空の枠は対象にしない（DESIGN.md 411章）
+const cancelledKeys = new Set<string>(((rj(`${DATA}/${season}/schedule.json`)?.cancelledGames ?? []) as { scheduleKey: string }[]).map((c) => String(c.scheduleKey)));
 for (const f of files) {
   const g = rj(path.join(dir, f));
+  if (cancelledKeys.has(f.replace(/\.json\.gz$/, "")) && !hasRealGameData(g)) continue;
   games++;
   const counts = benchForeignCounts(g, classify);
   for (const [side, rows] of [["home", g.raw.HomeBoxscores], ["away", g.raw.AwayBoxscores]] as const) {
