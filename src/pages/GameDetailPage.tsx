@@ -268,7 +268,7 @@ interface GameLeaderStatDef {
 }
 
 const GAME_LEADER_STAT_DEFS: GameLeaderStatDef[] = [
-  { key: "min", label: "プレータイム（MIN）", value: (r) => playTimeToSeconds(r.PlayTime), format: (r) => r.PlayTime },
+  { key: "min", label: "MIN", value: (r) => playTimeToSeconds(r.PlayTime), format: (r) => r.PlayTime },
   { key: "pts", label: "PTS", value: (r) => r.Point, format: (r) => String(r.Point) },
   { key: "oreb", label: "OR", value: (r) => r.RB_OFF, format: (r) => String(r.RB_OFF) },
   { key: "dreb", label: "DR", value: (r) => r.RB_DEF, format: (r) => String(r.RB_DEF) },
@@ -1306,7 +1306,7 @@ function GameLeadersMatchup({
               <LeaderMatchupPlayer leader={homeLeader} displayName={displayName} season={season} />
               <span className="leader-matchup-value">{homeLeader ? def.format(homeLeader.player) : "—"}</span>
             </div>
-            <span className="leader-matchup-label">{narrow && def.key === "min" ? "MIN" : def.label}</span>
+            <span className="leader-matchup-label">{def.label}</span>
             <div className="leader-matchup-side leader-matchup-side-away">
               <span className="leader-matchup-value">{awayLeader ? def.format(awayLeader.player) : "—"}</span>
               <LeaderMatchupPlayer leader={awayLeader} displayName={displayName} season={season} />
