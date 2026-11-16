@@ -4,7 +4,7 @@
 import { useMemo } from "react";
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
 import type { Category } from "../../shared/types";
-import { FOUL_POINTS_FINE_THRESHOLD, foulPointLeagueLabel, foulPointRuleFor, type FoulPointRule } from "../../shared/foulPointRules";
+import { foulPointLeagueLabel, foulPointRuleFor, type FoulPointRule } from "../../shared/foulPointRules";
 import { fetchFoulPoints } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { teamFoulPointRows, type FoulPointCount, type TeamFoulPointRow } from "../lib/figureFoulPoints";
@@ -47,19 +47,20 @@ function FineTable({ season, category, rule }: { season: string; category: Categ
   </div>;
 }
 
-/** 保存画像の下の注記（数え方） */
-export function foulPointNotes(season: string, rule: FoulPointRule): string[] {
+/** 保存画像の下の注記（2行）。点数は規程の表（shared/foulPointRules.ts）から作る。くわしい数え方は用語集に書く */
+export function foulPointNotes(_season: string, rule: FoulPointRule): string[] {
   const p = rule.points;
-  const entry = rule.entry ? `、エントリーが9人以下の試合は（10－人数）×${p.entryShortPerPlayer}点（「9人以下」の列）` : "";
-  const points =
-    rule.system === "old"
-      ? `テクニカル・アンスポーツマンライク1回${p.tf}点、退場1回${p.ejection}点（5ファウルの退場を除く。同じ試合のテクニカル・アンスポーツマンライク2回の退場は退場の${p.ejection}点だけ）、出場停止1試合${p.suspension}点${entry}。`
-      : `テクニカル（カテゴリ2）${p.tf2}点、テクニカル（カテゴリ1）・フレグラント${p.flagrant}点、ディスクォリファイング${p.dq}点、出場停止1試合${p.suspension}点${entry}。ディスラプティブは0点。`;
-  return [
-    `反則ポイントは、${season}シーズンの「反則金に関する規程」（${rule.version}）の点数で数えた目安です。${points}`,
-    ...(rule.estimated ? ["このシーズンは規程の版が見つからないため、前後の版と同じ点数・反則金で推定しています。"] : []),
-    `リーグ戦のレギュラーシーズンだけを数え、試合開始の遅れの点は含みません。出場停止とコーチの退場は、リーグの懲罰の発表から作った台帳で数えます。${FOUL_POINTS_FINE_THRESHOLD}点以上で反則金の対象です。`,
-  ];
+  // 点数の種類（表示名と点）。同じ点のものは「・」でまとめ、点の低い順に並べる
+  const items: Array<[string, number]> = rule.system === "old"
+    ? [["TF", p.tf ?? 0], ["UF", p.uf ?? 0], ["退場", p.ejection ?? 0], ["出場停止1試合", p.suspension]]
+    : [["TF2", p.tf2 ?? 0], ["TF1", p.tf1 ?? 0], ["FLAG", p.flagrant ?? 0], ["DQ", p.dq ?? 0], ["出場停止1試合", p.suspension]];
+  const byPoints = new Map<number, string[]>();
+  for (const [name, pt] of items) byPoints.set(pt, [...(byPoints.get(pt) ?? []), name]);
+  const parts = [...byPoints.entries()].sort((x, y) => x[0] - y[0]).map(([pt, names]) => `${names.join("・")}：${pt}点`);
+  if (rule.entry) parts.push(`エントリー9人以下：(10−人数)×${p.entryShortPerPlayer}点`);
+  const line1 = `${parts.join("、")}（反則金に関する規程より）${rule.estimated ? " （推定）" : ""}`;
+  const line2 = `${rule.system === "old" ? "出場停止とコーチの退場" : "出場停止"}は、リーグの懲罰の発表から数えています`;
+  return [line1, line2];
 }
 
 export function TeamFoulPointsTable({ season, category, range, gameType, conditions }: {
@@ -71,7 +72,7 @@ export function TeamFoulPointsTable({ season, category, range, gameType, conditi
   const request = useJsonData(() => fetchFoulPoints(season, category), [season, category]);
   const rows = useMemo(() => request.data ? teamFoulPointRows(request.data, range) : [], [request.data, range]);
   const columns = useMemo(() => rule ? columnsFor(rule) : [], [rule]);
-  const title = "反則ポイント（チーム）";
+  const title = "反則ポイント";
   if (!rule) return null;
   if (gameType === "playoff") {
     return <section className="fouls-block" aria-label={title}>

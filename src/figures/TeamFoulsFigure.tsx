@@ -28,9 +28,9 @@ export default function TeamFoulsFigure({ season, category }: FigureProps) {
   const split = foulSplitSeason(season);
   // 初めの並びは主な数（合計・UF・DQ）の多い順。表の列の並びは指定どおり（2026-27 からは フレグラント／ディスラプティブ／合計）
   const tables = [
-    { id: "tf", title: "テクニカルファウル（チーム）", label: "TF", file: "チーム_テクニカルファウル", columns: TF_COLUMNS, mainKey: "tf", sortParam: "fst", notes: split ? [TF_TOTAL_NOTE] : [] },
-    { id: "uf", title: "アンスポーツマンライクファウル系（チーム）", label: "UF", file: "チーム_アンスポーツマンライクファウル系", columns: split ? UF_COLUMNS_NEW : UF_COLUMNS_OLD, mainKey: "uf", sortParam: "fsu", notes: [] },
-    { id: "dq", title: "ディスクォリファイングファウル（チーム）", label: "DQ", file: "チーム_ディスクォリファイングファウル", columns: DQ_COLUMNS, mainKey: "dq", sortParam: "fsd", notes: [] },
+    { id: "tf", title: "テクニカルファウル", label: "TF", file: "チーム_テクニカルファウル", columns: TF_COLUMNS, mainKey: "tf", sortParam: "fst", notes: split ? [TF_TOTAL_NOTE] : [] },
+    { id: "uf", title: "アンスポーツマンライクファウル系", label: "UF", file: "チーム_アンスポーツマンライクファウル系", columns: split ? UF_COLUMNS_NEW : UF_COLUMNS_OLD, mainKey: "uf", sortParam: "fsu", notes: [] },
+    { id: "dq", title: "ディスクォリファイングファウル", label: "DQ", file: "チーム_ディスクォリファイングファウル", columns: DQ_COLUMNS, mainKey: "dq", sortParam: "fsd", notes: [] },
   ];
   const status = foulsStatus(request);
   return <section aria-label="ファウル（チーム）" className="fouls-figure">

@@ -37,9 +37,9 @@ export default function PlayerFoulsFigure({ season, category }: FigureProps) {
   const split = foulSplitSeason(season);
   const ufColumns = split ? UF_COLUMNS_NEW : UF_COLUMNS_OLD;
   const tables = [
-    { id: "tf", title: "テクニカルファウル（選手）", label: "TF", file: "選手_テクニカルファウル", columns: TF_COLUMNS, main: TF_COLUMNS[0]!, sortParam: "fpt", notes: split ? [TF_TOTAL_NOTE] : [] },
-    { id: "uf", title: "アンスポーツマンライクファウル系（選手）", label: "UF", file: "選手_アンスポーツマンライクファウル系", columns: ufColumns, main: ufColumns.find(c => c.key === "uf")!, sortParam: "fpu", notes: [] },
-    { id: "dq", title: "ディスクォリファイングファウル（選手）", label: "DQ", file: "選手_ディスクォリファイングファウル", columns: DQ_COLUMNS, main: DQ_COLUMNS[0]!, sortParam: "fpd", notes: [] },
+    { id: "tf", title: "テクニカルファウル", label: "TF", file: "選手_テクニカルファウル", columns: TF_COLUMNS, main: TF_COLUMNS[0]!, sortParam: "fpt", notes: split ? [TF_TOTAL_NOTE] : [] },
+    { id: "uf", title: "アンスポーツマンライクファウル系", label: "UF", file: "選手_アンスポーツマンライクファウル系", columns: ufColumns, main: ufColumns.find(c => c.key === "uf")!, sortParam: "fpu", notes: [] },
+    { id: "dq", title: "ディスクォリファイングファウル", label: "DQ", file: "選手_ディスクォリファイングファウル", columns: DQ_COLUMNS, main: DQ_COLUMNS[0]!, sortParam: "fpd", notes: [] },
   ];
   const status = foulsStatus(request);
   return <section aria-label="ファウル（選手）" className="fouls-figure">
