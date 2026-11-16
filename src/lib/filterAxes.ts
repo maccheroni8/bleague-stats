@@ -374,17 +374,19 @@ export function periodAxis(
 export function classificationAxis<V extends PlayerGroupFilter>(
   value: V,
   onChange: (v: V) => void,
-  opts: SimpleAxisOptions & { season?: string | null } = {},
+  opts: SimpleAxisOptions & { season?: string | null; /** チームの表: 「外国籍・帰化・アジア」を日本人の次の選択肢に置き、細かい区分をそのあとに並べる */ teamCombined?: boolean } = {},
 ): FilterAxis {
   const season = opts.season ?? null;
   const splitOk = season === null || splitClassificationSeason(season);
   const rookie = isRookieFilter(value);
-  // 分けて選べるシーズンでは、まとめ（URL の intl）は外国籍・帰化・アジア特別枠の3つにチェックが入った状態として表示する
-  const tokens = classTokens(value).flatMap((t) => (t === COMBINED_INTL_GROUP && season !== null && splitOk ? [...SPLIT_CLASSIFICATION_GROUPS] : [t]));
+  const teamCombined = !!opts.teamCombined;
+  // 分けて選べるシーズンでは、まとめ（URL の intl）は外国籍・帰化・アジア特別枠の3つにチェックが入った状態として表示する（チームの表はまとめを1つの選択肢として持つ）
+  const tokens = classTokens(value).flatMap((t) => (t === COMBINED_INTL_GROUP && season !== null && splitOk && !teamCombined ? [...SPLIT_CLASSIFICATION_GROUPS] : [t]));
   const options: FilterAxisOption[] = [
     { value: "日本人", label: "日本人" },
+    ...(teamCombined ? [{ value: COMBINED_INTL_GROUP, label: COMBINED_INTL_GROUP }] : []),
     ...SPLIT_CLASSIFICATION_GROUPS.map((c) => ({ value: c, label: c, disabled: !splitOk, disabledReason: splitOk ? undefined : SPLIT_CLASSIFICATION_UNAVAILABLE_REASON })),
-    ...(season === null || !splitOk ? [{ value: COMBINED_INTL_GROUP, label: COMBINED_INTL_GROUP }] : []),
+    ...(!teamCombined && (season === null || !splitOk) ? [{ value: COMBINED_INTL_GROUP, label: COMBINED_INTL_GROUP }] : []),
   ];
   const axis = multiSelectAxis({
     id: "classification",
@@ -394,7 +396,7 @@ export function classificationAxis<V extends PlayerGroupFilter>(
     selected: tokens,
     onChangeSelected: (values) => onChange(composeGroupFilter(joinClassTokens(values), rookie) as V),
     allLabel: "全選手",
-    presets: [{ label: "外国籍・帰化・アジア特別枠", values: bulkIntlTokens(season) }],
+    presets: teamCombined ? [] : [{ label: "外国籍・帰化・アジア特別枠", values: bulkIntlTokens(season) }],
     maxShown: Infinity,
     disabledReason: opts.disabledReason,
   });

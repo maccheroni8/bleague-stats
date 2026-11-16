@@ -47,6 +47,9 @@ import {
   type SituationalFilter,
 } from "./situational";
 import { useJsonData } from "./useJsonData";
+import type { PeriodRangeValue } from "./periodRange";
+import { buildTeamSplitRowsFromPeriodSource, loadSeasonPeriodSource } from "./seasonPeriod";
+import { playerRecordOfLogs } from "./playerQuarterSplit";
 import type { SeasonBoxscoreCtx } from "./playerSeasonBoxscore";
 import { recordOfLogs, teamTotalsFromBoxTotals, type CompareRecord } from "./compareShared";
 import { sumTeamGameLogs, type TeamTotals } from "./teamStatsColumns";
@@ -180,6 +183,8 @@ interface CommonArgs {
   divisionHistory: DivisionHistoryFile | null;
   /** 見ているリーグ（B.PREMIER／B.ONE）。読み込み・条件・キャッシュの鍵に使う */
   league: League;
+  /** Q別・前後半・延長・クラッチ（"all"＝試合全体）。選手はピリオド別の索引から出す。チームの値はランキングと同じ集計（ComparePage）で出すので、ここでは使わない */
+  period?: PeriodRangeValue;
 }
 
 // --- チーム版 ---
@@ -193,7 +198,8 @@ export function useTeamCompareSlot({
   divisionHistory,
   seasons,
   league,
-}: CommonArgs & { teamId: string; seasons: SeasonEntry[] | null }): TeamSlotData {
+  skipBox = false,
+}: CommonArgs & { teamId: string; seasons: SeasonEntry[] | null; /** 値をランキングと同じ集計で出すスロット: 試合の生データは読まない */ skipBox?: boolean }): TeamSlotData {
   // 「リーグ平均」（teamId が LEAGUE_TEAM_ID）: そのシーズン全体の値（data/{season}/league-compare.json）。シチュエーションの絞り込みは使わない
   const isLeague = teamId === LEAGUE_TEAM_ID;
   const leagueFile = useJsonData(
@@ -244,10 +250,10 @@ export function useTeamCompareSlot({
   const shotChartSupported = league === "premier" && seasonEntry?.coverage === "full";
   const yahooPbpSupported = league === "premier" && (seasonEntry?.yahooPbp ?? false);
   const scheduleKeys = useMemo(() => filtered.map((g) => g.scheduleKey), [filtered]);
-  const { games, yahoo, pending } = useRawGames(season, scheduleKeys, yahooPbpSupported, league);
+  const { games, yahoo, pending } = useRawGames(season, skipBox ? [] : scheduleKeys, yahooPbpSupported, league);
 
   const boxTotals = useMemo(() => {
-    if (!base || filtered.length === 0 || pending > 0) return null;
+    if (skipBox || !base || filtered.length === 0 || pending > 0) return null;
     const entries = filtered
       .map((g) => {
         const game = games.get(g.scheduleKey);
@@ -256,7 +262,7 @@ export function useTeamCompareSlot({
       .filter((e): e is { game: StoredGame; isHome: boolean } => e !== null);
     const yahooTurnovers = new Map(entries.map(({ game }) => [game.scheduleKey, yahoo.get(game.scheduleKey)?.turnovers ?? []]));
     return buildTeamMultiGameBoxTotals(entries, yahooTurnovers, shotChartSupported, yahooPbpSupported);
-  }, [base, filtered, pending, games, yahoo, shotChartSupported, yahooPbpSupported]);
+  }, [skipBox, base, filtered, pending, games, yahoo, shotChartSupported, yahooPbpSupported]);
 
   // 外国籍・帰化・アジア特別枠の得点は、区分を分けて記録しているシーズン（388章から全シーズン）だけ（DESIGN.md 298章）
   const logTotals = useMemo(
@@ -291,7 +297,7 @@ export function useTeamCompareSlot({
   else if (!base) status = "loading";
   else if (filtered.length === 0) status = "empty";
   else if (pending > 0) status = "fetching";
-  else status = boxTotals ? "ready" : "empty";
+  else status = boxTotals || skipBox ? "ready" : "empty";
 
   return {
     status,
@@ -354,11 +360,20 @@ export function usePlayerCompareSlot({
   active,
   divisionHistory,
   league,
+  period = "all",
 }: CommonArgs & { playerId: string }): PlayerSlotData {
   const { data, loading, error } = useJsonData(
     () => (active ? loadPlayerBase(season, playerId, league) : Promise.resolve(null)),
     [active, season, playerId, league],
   );
+  // Q別・前後半・延長・クラッチを選んだときは、ピリオド別の索引（個人詳細のQ別タブ・シーズン別成績と同じ集計）から出す
+  const periodOn = period !== "all";
+  const periodSrc = useJsonData(
+    () => (active && periodOn ? loadSeasonPeriodSource(season, league).then((source) => ({ key: leagueCacheKey(season, league), source })) : Promise.resolve(null)),
+    [active, periodOn, season, league],
+  );
+  const periodSource = periodOn && periodSrc.data?.key === leagueCacheKey(season, league) && !periodSrc.loading ? periodSrc.data.source : null;
+  const periodPending = periodOn && active && !periodSrc.error && (periodSrc.loading || !periodSrc.data);
   const base = data && data.key === `${leagueCacheKey(season, league)}|${playerId}` && !loading ? data : null;
 
   const boundary = useMemo(() => (base ? computeSeasonHalfBoundary(base.summaries) : null), [base]);
@@ -386,30 +401,42 @@ export function usePlayerCompareSlot({
     const teamTotals = sumTeamTotalsForLogs(filtered, base.ownTeamByScheduleKey, base.teamLogsByTeamId);
     const seasonStartYear = Number(season.split("-")[0]);
     // 移籍した選手の合計の行の USG%・PPP・DRtg の分母も、本人が出場した試合の所属チームの合計（チーム別の行の合計。DESIGN.md 333章）
-    const rows = buildTeamSplitRows("slot", filtered, base.ownTeamByScheduleKey, teamTotals, "perGame", seasonStartYear);
+    if (periodOn && !periodSource) return null;
+    const rows = periodOn
+      ? buildTeamSplitRowsFromPeriodSource("slot", filtered, base.ownTeamByScheduleKey, teamTotals, "perGame", seasonStartYear, playerId, period, periodSource)
+      : buildTeamSplitRows("slot", filtered, base.ownTeamByScheduleKey, teamTotals, "perGame", seasonStartYear);
     const combined = rows[rows.length - 1];
     if (!combined) return null;
     const latest = [...played].sort((a, b) => b.date.localeCompare(a.date))[0];
     const latestTeamId = latest ? (base.ownTeamByScheduleKey.get(latest.scheduleKey)?.teamId ?? null) : null;
     const teamIds = rows.filter((r) => !r.isCombined && r.teamId).map((r) => r.teamId!);
     // G（combined.ctx の試合数）と同じ試合＝出場した試合（combined.logs）での所属チームの勝敗
-    return { ctx: combined.ctx, latestTeamId, teamIds, record: recordOfLogs(combined.logs), ddtd: countDoubleTripleDoubles(combined.logs) };
-  }, [base, filtered, season, filter, gameType, opponentRecords, divisionHistory]);
+    // 区間を選んだときの勝敗は G（その区間の値がある試合）と同じ試合。DD2・TD3・PTS10 は区間では出さない
+    return {
+      ctx: combined.ctx,
+      latestTeamId,
+      teamIds,
+      record: periodOn ? playerRecordOfLogs(combined.logs, playerId, period, periodSource) : recordOfLogs(combined.logs),
+      ddtd: periodOn ? null : countDoubleTripleDoubles(combined.logs),
+      games: periodOn ? combined.ctx.raw.gamesPlayed : played.length,
+    };
+  }, [base, filtered, season, filter, gameType, opponentRecords, divisionHistory, periodOn, period, periodSource, playerId]);
 
   let status: SlotStatus;
   if (!active) status = "idle";
   else if (error) status = "error";
-  else if (!base) status = "loading";
+  else if (!base || periodPending) status = "loading";
+  else if (periodOn && !periodSource) status = "error";
   else if (!result) status = "empty";
   else status = "ready";
 
   return {
     status,
-    error: active ? error : null,
+    error: active ? (error ?? (periodOn && !periodPending && !periodSource ? "この区間の記録を読み込めませんでした" : null)) : null,
     boundary,
     opponentWinRateSupported: !!opponentRecords,
     ownTeamDivisionSupported: !!divisionHistory && !!base,
-    gamesCount: filtered.filter((g) => g.min > 0).length,
+    gamesCount: result?.games ?? filtered.filter((g) => g.min > 0).length,
     pendingGames: 0,
     ctx: result?.ctx ?? null,
     record: result?.record ?? null,

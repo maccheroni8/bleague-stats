@@ -548,6 +548,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
     gameTypeAxis(gameType, setGameType, season, { disabledReason: teamScopedReason }),
     perspectiveAxis(perspective, setPerspective, { disabledReason: teamFilterDisabledReason, disabledValues: classActive ? ["diff"] : undefined }),
     classificationAxis(classFilter, setClassFilter, {
+      teamCombined: true,
       disabledReason: isBoxscore ? undefined : "登録区分別の値は Traditional〜Scoring のタブでだけ見られます。",
       season,
     }),

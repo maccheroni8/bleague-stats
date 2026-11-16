@@ -5388,7 +5388,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 }) && <p className="page-subtitle">登録区分が付いていない選手（選手マスタに無い選手）の記録は、どの区分にも入れていません。</p>}
                 <p className="page-subtitle">
                   {[...openClassSeasons].some((sn) => splitClassificationSeason(sn))
-                    ? "外国籍・帰化・アジア特別枠を分け、試合ごとの区分で数えています。"
+                    ? "外国籍・帰化・アジアは、試合ごとの区分で数えています。"
                     : ""}
                   {JAPANESE_DEEMED_NOTE}
                 </p>

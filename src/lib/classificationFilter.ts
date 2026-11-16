@@ -118,6 +118,7 @@ export function classificationFilterLabel(filter: string): string {
   const hasAllSplit = SPLIT_CLASSIFICATION_GROUPS.every((g) => tokens.includes(g));
   const names: string[] = [];
   for (const t of tokens) {
+    if (isSplitClassificationGroup(t) && tokens.includes(COMBINED_INTL_GROUP)) continue;
     if (hasAllSplit && isSplitClassificationGroup(t)) {
       if (t === "外国籍" && !tokens.includes(COMBINED_INTL_GROUP)) names.push(COMBINED_INTL_GROUP);
       continue;

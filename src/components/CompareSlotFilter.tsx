@@ -1,12 +1,16 @@
 import type { Division } from "../../shared/types";
 import { FilterBar } from "./FilterBar";
 import {
+  classificationAxis,
   gameTypeAxis,
+  periodAxis,
   situationalAxes,
   type FilterAxis,
   type FilterAxisOption,
 } from "../lib/filterAxes";
 import type { SeasonGameTypeFilter } from "../lib/playerSeasonBoxscore";
+import type { PeriodRangeValue } from "../lib/periodRange";
+import { SEASON_PERIOD_OPTIONS } from "../lib/seasonPeriod";
 import type { SeasonHalfBoundary, SituationalFilter } from "../lib/situational";
 
 /** スロットの先頭に並べる「どの対象か」の選択（シーズン・チーム・選手）。値は既定値を持たず、チップにも出さない */
@@ -34,6 +38,12 @@ interface CompareSlotFilterProps {
     /** スロットのシーズン（ポストシーズンの表示名「CS」/「プレーオフ」の切り替えに使う） */
     season: string | null;
   };
+  /** Q別・前後半・延長・クラッチ（比較ページのスロットだけ） */
+  period?: { value: PeriodRangeValue; onChange: (v: PeriodRangeValue) => void };
+  /** 登録区分（比較ページのチームのスロットだけ。選手は区分が決まっているので渡さない） */
+  classification?: { value: string; onChange: (v: string) => void; season: string | null };
+  /** 「すべて解除」を1回の更新で行う（スロットの条件をまとめて戻す。順に更新すると、あとの更新が前の更新を古い値で上書きする） */
+  onClear?: () => void;
   boundary?: SeasonHalfBoundary | null;
   opponentWinRateSupported?: boolean;
   ownTeamDivisionSupported?: boolean;
@@ -57,6 +67,9 @@ export function CompareSlotFilter({
   filter,
   onFilter,
   gameType,
+  period,
+  classification,
+  onClear,
   boundary,
   opponentWinRateSupported,
   ownTeamDivisionSupported,
@@ -78,6 +91,10 @@ export function CompareSlotFilter({
   const axes: FilterAxis[] = [...selectAxes];
   if (enabled) {
     if (gameType) axes.push(gameTypeAxis(gameType.value, gameType.onChange, gameType.season));
+    if (period && !situationalDisabledNote) axes.push(periodAxis(period.value, period.onChange, SEASON_PERIOD_OPTIONS));
+    if (classification && !situationalDisabledNote) {
+      axes.push(classificationAxis(classification.value as "all", classification.onChange as (v: "all") => void, { season: classification.season, teamCombined: true }));
+    }
     if (!situationalDisabledNote) axes.push(
       // 会場はスロットでは詳細フィルタ側に置く（スロットの幅では主要軸を絞るため）
       ...situationalAxes(filter, onFilter, { boundary, opponentWinRateSupported, ownTeamDivisionSupported, opponentDivisions }).map(
@@ -87,8 +104,11 @@ export function CompareSlotFilter({
   }
 
   const clearAll = () => {
+    if (onClear) return onClear();
     onFilter({ range: { kind: "all" } });
     gameType?.onChange("regular");
+    period?.onChange("all");
+    classification?.onChange("all");
   };
 
   return (

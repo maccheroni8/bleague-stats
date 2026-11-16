@@ -29,17 +29,24 @@ import {
   gameTypeLabels,
   joinLabels,
   perspectiveLabels,
+  periodLabels,
   situationalFilterLabels,
+  teamClassLabels,
 } from "../lib/conditionLabels";
+import type { PeriodRangeValue } from "../lib/periodRange";
+import { SEASON_PERIOD_OPTIONS, seasonPeriodOption } from "../lib/seasonPeriod";
+import { CLASSIFICATION_PARAM } from "../lib/classificationParam";
+import { isClassUnavailableStat } from "../lib/teamSeasonRanking";
 import {
   seasonBoxCompareDefs,
   teamCompareDefs,
   type CompareColumnData,
   type TeamCompareColumnData,
+  type TeamCompareOverride,
 } from "../lib/compareShared";
 import { SEASON_DISPLAY_MODE_LABELS, SEASON_GAME_TYPE_KEYS, type SeasonGameTypeFilter } from "../lib/playerSeasonBoxscore";
 import type { SituationalFilter } from "../lib/situational";
-import { TEAM_PERSPECTIVE_LABELS, type TeamPerspective } from "../lib/teamStatsColumns";
+import { TEAM_PERSPECTIVE_LABELS, type AllTeamsRow, type TeamPerspective } from "../lib/teamStatsColumns";
 import {
   usePlayerCompareSlot,
   useTeamCompareSlot,
@@ -99,13 +106,18 @@ interface SlotValue {
   /** レギュラー/プレーオフ/合算。詳細ページの比較タブは全スロット共通だが、このページでは
    * 「スロット1はレギュラー、スロット2はプレーオフ」のような比較ができるようスロットごとに持つ */
   gameType: SeasonGameTypeFilter;
+  /** Q別・前後半・延長・クラッチ（"all"＝試合全体） */
+  period: PeriodRangeValue;
+  /** 登録区分（チームのスロットだけ。"all"＝全選手。選手のスロットは常に "all"） */
+  cls: string;
 }
 
 // --- URLパラメータ ---
 // スロットは "id@season"（?t0=703@2018-19 等。paramが無ければ「そのスロットは未上書き＝ページの
 // デフォルトシーズン＋デフォルトIDを使う」）、そのスロットのシチュエーション別フィルタは
 // JSON（?tf0=...、無指定＝シーズン全体）、そのスロットの
-// レギュラー・プレーオフ・合算は tg0/pg0（無指定＝レギュラー）、共通の軸は cat（カテゴリタブ）/
+// レギュラー・プレーオフ・合算は tg0/pg0（無指定＝レギュラー）、Q別・前後半・延長・クラッチは tq0/pq0（無指定＝試合全体）、
+// チームの登録区分は tc0（無指定＝全選手。ランキングの cls と同じ書き方）、共通の軸は cat（カテゴリタブ）/
 // v（自チーム・opp・+/-、チーム版のみ）で持つ。共有・リロードで再現できる
 function parseSlotParam(raw: string | null): { id: string; season: string } | null {
   if (raw === null) return null;
@@ -157,14 +169,31 @@ const PERSPECTIVE_KEYS = Object.keys(TEAM_PERSPECTIVE_LABELS) as TeamPerspective
 
 /** スロットのフィルタは参照が変わるたびに集計をやり直す（60試合分の再計算）ため、URL上の文字列が
  * 同じ間は同じオブジェクトを返す */
-function useParsedSlot(rawSlot: string | null, rawFilter: string | null, rawGameType: string | null) {
+const PERIOD_KEYS = SEASON_PERIOD_OPTIONS.map((o) => o.value) as PeriodRangeValue[];
+
+/** URL の登録区分（cls）。区分として読めない文字・ルーキーは「全選手」に戻す */
+function parseClassParam(raw: string | null): string {
+  if (!raw) return "all";
+  return CLASSIFICATION_PARAM.read(new URLSearchParams({ cls: raw })) ?? "all";
+}
+
+/** 登録区分 → URL の書き方（ランキングの cls と同じ。cls=intl・cls=jp,foreign など） */
+function encodeClassParam(cls: string): string | null {
+  const p = new URLSearchParams();
+  CLASSIFICATION_PARAM.write(p, cls as "all");
+  return p.get("cls");
+}
+
+function useParsedSlot(rawSlot: string | null, rawFilter: string | null, rawGameType: string | null, rawPeriod: string | null = null, rawClass: string | null = null) {
   return useMemo(
     () => ({
       base: parseSlotParam(rawSlot),
       filter: parseFilterParam(rawFilter),
       gameType: parseEnumParam(rawGameType, GAME_TYPE_KEYS, "regular"),
+      period: parseEnumParam(rawPeriod, PERIOD_KEYS, "all"),
+      cls: parseClassParam(rawClass),
     }),
-    [rawSlot, rawFilter, rawGameType],
+    [rawSlot, rawFilter, rawGameType, rawPeriod, rawClass],
   );
 }
 
@@ -219,6 +248,10 @@ interface SlotCardProps {
   onEntity: (id: string) => void;
   onFilter: (filter: SituationalFilter) => void;
   onGameType: (gameType: SeasonGameTypeFilter) => void;
+  onPeriod: (period: PeriodRangeValue) => void;
+  /** チームのスロットだけ渡す（選手は区分が決まっているので出さない） */
+  onClass?: (cls: string) => void;
+  onClear: () => void;
 }
 
 const STATUS_TEXT: Partial<Record<SlotStatus, (d: SlotCardProps["data"]) => string>> = {
@@ -243,6 +276,9 @@ function CompareSlotCard({
   onEntity,
   onFilter,
   onGameType,
+  onPeriod,
+  onClass,
+  onClear,
 }: SlotCardProps) {
   const statusText = data.status === "error" ? (data.error ?? "取得に失敗しました") : STATUS_TEXT[data.status]?.(data);
   return (
@@ -270,6 +306,9 @@ function CompareSlotCard({
         filter={slot.filter}
         onFilter={onFilter}
         gameType={{ value: slot.gameType, onChange: onGameType, season: slot.season || null }}
+        period={{ value: slot.period, onChange: onPeriod }}
+        classification={onClass ? { value: slot.cls, onChange: onClass, season: slot.season || null } : undefined}
+        onClear={onClear}
         boundary={data.boundary}
         opponentWinRateSupported={data.opponentWinRateSupported}
         ownTeamDivisionSupported={data.ownTeamDivisionSupported}
@@ -283,8 +322,15 @@ function CompareSlotCard({
 }
 
 /** 比較表の列見出し・タイトルに出す、そのスロットの条件ラベル（シーズン以外の絞り込み部分） */
-function slotConditionLabel(slot: SlotValue, data: Pick<TeamSlotData, "boundary">): string {
-  return joinLabels(composeLabels(gameTypeLabels(slot.gameType, slot.season || null), situationalFilterLabels(slot.filter, { boundary: data.boundary })));
+function slotConditionLabel(slot: SlotValue, data: Pick<TeamSlotData, "boundary">, perspective: TeamPerspective = "own"): string {
+  return joinLabels(
+    composeLabels(
+      gameTypeLabels(slot.gameType, slot.season || null),
+      slot.period === "all" ? [] : periodLabels(seasonPeriodOption(slot.period)),
+      teamClassLabels(slot.cls as "all", perspective),
+      situationalFilterLabels(slot.filter, { boundary: data.boundary }),
+    ),
+  );
 }
 
 function categoryLabel(cat: BoxscoreTabKey): string {
@@ -363,10 +409,12 @@ function TeamCompareView({
   // 「リーグ平均」（DESIGN.md 149章）もチームと同じ枠で選べる（シーズン・試合種別は選べる。シチュエーションの絞り込みは無し）
   const valid = slots.map((s, i) => !!s.id && (s.id === LEAGUE_TEAM_ID ? !!lists[i] : !!lists[i]?.some((t) => t.teamId === s.id)));
   // スロットごとに独立して（そのスロットが選択されて初めて）取得する。3つのフックは固定数の呼び出し
+  // Q別・前後半・延長・クラッチ、または登録区分を選んだスロットは、値も順位もランキング（チーム・シーズン成績）と同じ集計から出す（試合の生データは読まない）
+  const overridden = slots.map((s, i) => valid[i]! && s.id !== LEAGUE_TEAM_ID && (s.period !== "all" || s.cls !== "all"));
   const slotData: TeamSlotData[] = [
-    useTeamCompareSlot({ teamId: slots[0]!.id, season: slots[0]!.season, filter: slots[0]!.filter, gameType: slots[0]!.gameType, active: valid[0]!, divisionHistory, seasons, league }),
-    useTeamCompareSlot({ teamId: slots[1]!.id, season: slots[1]!.season, filter: slots[1]!.filter, gameType: slots[1]!.gameType, active: valid[1]!, divisionHistory, seasons, league }),
-    useTeamCompareSlot({ teamId: slots[2]!.id, season: slots[2]!.season, filter: slots[2]!.filter, gameType: slots[2]!.gameType, active: valid[2]!, divisionHistory, seasons, league }),
+    useTeamCompareSlot({ teamId: slots[0]!.id, season: slots[0]!.season, filter: slots[0]!.filter, gameType: slots[0]!.gameType, active: valid[0]!, divisionHistory, seasons, league, skipBox: overridden[0] }),
+    useTeamCompareSlot({ teamId: slots[1]!.id, season: slots[1]!.season, filter: slots[1]!.filter, gameType: slots[1]!.gameType, active: valid[1]!, divisionHistory, seasons, league, skipBox: overridden[1] }),
+    useTeamCompareSlot({ teamId: slots[2]!.id, season: slots[2]!.season, filter: slots[2]!.filter, gameType: slots[2]!.gameType, active: valid[2]!, divisionHistory, seasons, league, skipBox: overridden[2] }),
   ];
 
   // 順位: ランキング（チーム・シーズン成績）と同じ計算（useTeamSeasonRanking）を、スロットの条件（シーズン・試合区分・絞り込み）で全チームに掛ける。リーグ平均には付けない
@@ -385,11 +433,12 @@ function TeamCompareView({
         perspective,
         filter: slot.filter,
         turnoverDirection: "forced",
-        period: "all",
+        period: slot.period,
         statConditions: DEFAULT_STAT_CONDITIONS,
+        classFilter: slot.cls,
       };
       // eslint-disable-next-line react-hooks/rules-of-hooks
-      return useTeamSeasonRanking(slot.season, params, { enabled: active && showRank && valid[i]! && slot.id !== LEAGUE_TEAM_ID, skipConditionItems: true, league, foulIndex: category === "misc" });
+      return useTeamSeasonRanking(slot.season, params, { enabled: active && (showRank || overridden[i]!) && valid[i]! && slot.id !== LEAGUE_TEAM_ID, skipConditionItems: true, league, foulIndex: category === "misc" });
     }),
   );
   const teamRankOfDef = (def: ComparisonStatDef<TeamPageRow>, item: TeamPageRow): string | undefined => {
@@ -400,30 +449,60 @@ function TeamCompareView({
       if (!r || r.gameLogsLoading || !r.gameLogsByTeam) continue;
       const col = matchRankColumn(r.columns, def);
       if (!col) continue;
+      if (overrides[i]?.override?.unavailable(col.key)) return undefined;
       const rank = teamRankOf(r.boxRows, col, perspective, item.teamId);
       return rank === null ? undefined : rankText(rank);
     }
     return undefined;
   };
 
+  // 値をランキングと同じ集計から出すスロットの、そのチームの行・列と読み込みの様子
+  const overrideOf = (i: number): { status: SlotStatus; error: string | null; override: TeamCompareOverride | null; row: AllTeamsRow | null } | null => {
+    if (!overridden[i]) return null;
+    const src = rankSources[0]![i]!;
+    const slot = slots[i]!;
+    if (src.classUnreadable || src.rawGamesFailedCount > 0 || src.classPeriodMissing || src.teamsError) {
+      return { status: "error", error: src.classPeriodMissing ? "この区分のQ別の記録がありません" : "この条件の記録を読み込めませんでした", override: null, row: null };
+    }
+    if (src.teamsLoading || src.gameLogsLoading || !src.gameLogsByTeam || src.classLoading || src.rawGamesLoading) return { status: "loading", error: null, override: null, row: null };
+    const row = src.boxRows.find((r) => r.team.teamId === slot.id) ?? null;
+    if (!row || row.gamesPlayed === 0) return { status: "empty", error: null, override: null, row: null };
+    const classOn = slot.cls !== "all";
+    const columns = [...src.columns, ...(rankSources[1]![i]!.columns ?? [])];
+    return {
+      status: "ready",
+      error: null,
+      row,
+      override: { row, columns, unavailable: (key) => classOn && (perspective === "diff" || isClassUnavailableStat(key)) },
+    };
+  };
+  const overrides = SLOT_INDEXES.map((i) => overrideOf(i));
+  const cardData = (i: number): TeamSlotData => {
+    const o = overrides[i];
+    const d = slotData[i]!;
+    return o ? { ...d, status: o.status, error: o.error, gamesCount: o.row?.gamesPlayed ?? 0, pendingGames: 0 } : d;
+  };
+
   const rows: ComparisonRow<TeamPageRow>[] = [];
   const descriptions: string[] = [];
   slots.forEach((slot, i) => {
-    const data = slotData[i]!;
+    const ov = overrides[i];
+    const data = cardData(i);
     const isLeague = slot.id === LEAGUE_TEAM_ID;
     const team = isLeague ? { teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME } : lists[i]?.find((t) => t.teamId === slot.id);
-    if (!team || data.status !== "ready" || !data.boxTotals) return;
-    const cond = isLeague ? joinLabels(gameTypeLabels(slot.gameType, slot.season || null)) : slotConditionLabel(slot, data);
+    if (!team || data.status !== "ready" || (!ov && !data.boxTotals)) return;
+    const cond = isLeague ? joinLabels(gameTypeLabels(slot.gameType, slot.season || null)) : slotConditionLabel(slot, data, perspective);
     rows.push({
       item: {
         key: `slot${i}`,
         label: team.teamName,
         teamId: team.teamId,
         season: slot.season,
-        boxTotals: data.boxTotals,
+        boxTotals: data.boxTotals ?? ({} as NonNullable<typeof data.boxTotals>),
         gamesCount: data.gamesCount,
-        record: data.record ?? undefined,
-        resultOnlyNote: isLeague
+        record: ov?.row ? { wins: ov.row.wins, losses: ov.row.losses } : (data.record ?? undefined),
+        override: ov?.override ?? undefined,
+        resultOnlyNote: isLeague || ov
           ? undefined
           : resultOnlyCompareNote(resultOnlyBySeason?.get(slot.season), team.teamId, slot.gameType, data.record ?? undefined, isDefaultFilter(slot.filter)),
         logTotals: data.logTotals,
@@ -436,17 +515,22 @@ function TeamCompareView({
     descriptions.push(`${team.teamName}（${slot.season}・${cond}）`);
   });
 
+  // 区間・登録区分は、比べているスロットで同じときだけ条件の行に出す（違うときは列ごとの下の行に出る）
+  const shown = rows.map((r) => slots[Number(r.item.key.slice(4))]!);
+  const samePeriod = shown.every((x) => x.period === shown[0]!.period);
+  const sameClass = shown.every((x) => x.cls === shown[0]!.cls);
   const conditions = composeLabels(
     tabConditionLabel(cat),
     perspectiveLabels(perspective),
     displayModeLabels("perGame"),
-    "試合全体",
+    samePeriod ? periodLabels(seasonPeriodOption(shown[0]?.period ?? "all")) : [],
+    sameClass && shown[0] ? teamClassLabels(shown[0].cls as "all", perspective) : [],
   );
   // 大見出しは「長崎ヴェルカ vs 宇都宮ブレックス」だけ。シーズン・条件は列見出しの下に出す（同じ名前が並ぶときだけシーズンを添える）
   const title = rows.length > 0 ? versusTitle(rows.map((r) => ({ name: r.item.label, season: r.season }))) : "チーム比較";
   const filenameFor = (tab: BoxscoreTabKey) => // ファイル名は長いと途中で切れるので、タブ名は先頭に近い位置に置く（4枚が同じ名前にならないように）
-    buildExportFilename(["比較", "チーム", tabConditionLabel(tab), ...descriptions, ...composeLabels(perspectiveLabels(perspective), displayModeLabels("perGame"), "試合全体")]);
-  const anyBusy = slotData.some((d) => d.status === "loading" || d.status === "fetching");
+    buildExportFilename(["比較", "チーム", tabConditionLabel(tab), ...descriptions, ...composeLabels(perspectiveLabels(perspective), displayModeLabels("perGame"), samePeriod ? periodLabels(seasonPeriodOption(shown[0]?.period ?? "all")) : [])]);
+  const anyBusy = SLOT_INDEXES.some((i) => cardData(i).status === "loading" || cardData(i).status === "fetching");
   // 保存の窓がタブを切り替えたとき、描き直し（全チームの順位の材料の読み込み）が終わったか
   saveCtl.current = {
     cat,
@@ -456,6 +540,7 @@ function TeamCompareView({
         SLOT_INDEXES.every((i) => {
           if (!valid[i] || slots[i]!.id === LEAGUE_TEAM_ID) return true;
           const r = rankSources[0]![i]!;
+          if (overridden[i] && overrides[i]?.status === "loading") return false;
           return !!r.gameLogsByTeam && !r.gameLogsLoading;
         })),
   };
@@ -484,10 +569,13 @@ function TeamCompareView({
             }
             entityLoaded={lists[i] !== null && lists[i] !== undefined}
             entityValid={valid[i]!}
-            data={slotData[i]!}
+            data={cardData(i)}
             opponentDivisions={opponentDivisionChoices(divisionHistory, slots[i]!.season, league)}
             onSeason={(season) => onUpdateSlot(i, { season, filter: DEFAULT_FILTER })}
             onGameType={(gameType) => onUpdateSlot(i, { gameType })}
+            onPeriod={(period) => onUpdateSlot(i, { period })}
+            onClass={(cls) => onUpdateSlot(i, { cls })}
+            onClear={() => onUpdateSlot(i, { filter: DEFAULT_FILTER, gameType: "regular", period: "all", cls: "all" })}
             onEntity={(id) => onUpdateSlot(i, { id })}
             onFilter={(filter) => onUpdateSlot(i, { filter })}
           />
@@ -568,13 +656,13 @@ function PlayerCompareView({
     usePlayerPickerGroups(slots[2]!.season, slots[2]!.gameType, playersBySeason?.get(slots[2]!.season) ?? null, pickerSources, league),
   ];
   const slotData: PlayerSlotData[] = [
-    usePlayerCompareSlot({ playerId: slots[0]!.id, season: slots[0]!.season, filter: slots[0]!.filter, gameType: slots[0]!.gameType, active: valid[0]!, divisionHistory, league }),
-    usePlayerCompareSlot({ playerId: slots[1]!.id, season: slots[1]!.season, filter: slots[1]!.filter, gameType: slots[1]!.gameType, active: valid[1]!, divisionHistory, league }),
-    usePlayerCompareSlot({ playerId: slots[2]!.id, season: slots[2]!.season, filter: slots[2]!.filter, gameType: slots[2]!.gameType, active: valid[2]!, divisionHistory, league }),
+    usePlayerCompareSlot({ playerId: slots[0]!.id, season: slots[0]!.season, filter: slots[0]!.filter, gameType: slots[0]!.gameType, active: valid[0]!, divisionHistory, league, period: slots[0]!.period }),
+    usePlayerCompareSlot({ playerId: slots[1]!.id, season: slots[1]!.season, filter: slots[1]!.filter, gameType: slots[1]!.gameType, active: valid[1]!, divisionHistory, league, period: slots[1]!.period }),
+    usePlayerCompareSlot({ playerId: slots[2]!.id, season: slots[2]!.season, filter: slots[2]!.filter, gameType: slots[2]!.gameType, active: valid[2]!, divisionHistory, league, period: slots[2]!.period }),
   ];
 
   // 順位: ランキング（個人・シーズン成績）と同じ決め方。条件なしのレギュラーシーズンの枠だけ（絞り込み・プレーオフ・合算の枠はランキングに同じ条件の表が無いので出さない）。20位以内だけ
-  const rankEnabled = SLOT_INDEXES.map((i) => showRank && valid[i]! && slots[i]!.gameType === "regular" && isDefaultFilter(slots[i]!.filter));
+  const rankEnabled = SLOT_INDEXES.map((i) => showRank && valid[i]! && slots[i]!.gameType === "regular" && slots[i]!.period === "all" && isDefaultFilter(slots[i]!.filter));
   const rankLabels = SLOT_INDEXES.map((i) => {
     const slot = slots[i]!;
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -617,9 +705,12 @@ function PlayerCompareView({
     descriptions.push(`${player.name}（${slot.season}・${cond}）`);
   });
 
-  const conditions = composeLabels(tabConditionLabel(cat), displayModeLabels("perGame"), "試合全体");
+  const shownPeriods = rows.map((r) => slots[Number(r.item.key.slice(4))]!.period);
+  const samePeriod = shownPeriods.every((x) => x === shownPeriods[0]);
+  const periodLabel = samePeriod ? periodLabels(seasonPeriodOption(shownPeriods[0] ?? "all")) : [];
+  const conditions = composeLabels(tabConditionLabel(cat), displayModeLabels("perGame"), periodLabel);
   const title = rows.length > 0 ? versusTitle(rows.map((r) => ({ name: r.item.label, season: r.season }))) : "個人比較";
-  const filenameFor = (tab: BoxscoreTabKey) => buildExportFilename(["比較", "個人", tabConditionLabel(tab), ...descriptions, ...composeLabels(displayModeLabels("perGame"), "試合全体")]);
+  const filenameFor = (tab: BoxscoreTabKey) => buildExportFilename(["比較", "個人", tabConditionLabel(tab), ...descriptions, ...composeLabels(displayModeLabels("perGame"), periodLabel)]);
   const anyBusy = slotData.some((d) => d.status === "loading");
   // 保存の窓がタブを切り替えたとき、描き直し（順位の材料の読み込み）が終わったか。順位を出さない枠（絞り込みなど）は待たない
   saveCtl.current = { cat, ready: !anyBusy && SLOT_INDEXES.every((i) => !rankEnabled[i] || rankLabels[i] !== null) };
@@ -656,6 +747,8 @@ function PlayerCompareView({
             opponentDivisions={opponentDivisionChoices(divisionHistory, slots[i]!.season, league)}
             onSeason={(season) => onUpdateSlot(i, { season, filter: DEFAULT_FILTER })}
             onGameType={(gameType) => onUpdateSlot(i, { gameType })}
+            onPeriod={(period) => onUpdateSlot(i, { period })}
+            onClear={() => onUpdateSlot(i, { filter: DEFAULT_FILTER, gameType: "regular", period: "all" })}
             onEntity={(key) => {
               setPickedTeam((prev) => ({ ...prev, [i]: key.slice(pickerPlayerIdOf(key).length + 1) }));
               onUpdateSlot(i, { id: pickerPlayerIdOf(key) });
@@ -727,12 +820,12 @@ export function ComparePage({ season }: { season: string }) {
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory(), []);
 
-  const t0 = useParsedSlot(searchParams.get("t0"), searchParams.get("tf0"), searchParams.get("tg0"));
-  const t1 = useParsedSlot(searchParams.get("t1"), searchParams.get("tf1"), searchParams.get("tg1"));
-  const t2 = useParsedSlot(searchParams.get("t2"), searchParams.get("tf2"), searchParams.get("tg2"));
-  const p0 = useParsedSlot(searchParams.get("p0"), searchParams.get("pf0"), searchParams.get("pg0"));
-  const p1 = useParsedSlot(searchParams.get("p1"), searchParams.get("pf1"), searchParams.get("pg1"));
-  const p2 = useParsedSlot(searchParams.get("p2"), searchParams.get("pf2"), searchParams.get("pg2"));
+  const t0 = useParsedSlot(searchParams.get("t0"), searchParams.get("tf0"), searchParams.get("tg0"), searchParams.get("tq0"), searchParams.get("tc0"));
+  const t1 = useParsedSlot(searchParams.get("t1"), searchParams.get("tf1"), searchParams.get("tg1"), searchParams.get("tq1"), searchParams.get("tc1"));
+  const t2 = useParsedSlot(searchParams.get("t2"), searchParams.get("tf2"), searchParams.get("tg2"), searchParams.get("tq2"), searchParams.get("tc2"));
+  const p0 = useParsedSlot(searchParams.get("p0"), searchParams.get("pf0"), searchParams.get("pg0"), searchParams.get("pq0"));
+  const p1 = useParsedSlot(searchParams.get("p1"), searchParams.get("pf1"), searchParams.get("pg1"), searchParams.get("pq1"));
+  const p2 = useParsedSlot(searchParams.get("p2"), searchParams.get("pf2"), searchParams.get("pg2"), searchParams.get("pq2"));
   const rawTeamSlots = [t0, t1, t2];
   const rawPlayerSlots = [p0, p1, p2];
   // URL のスロットのシーズンが、見ているリーグに無いとき（B.PREMIER のシーズンのリンクで B.ONE を開いたなど）は、ページのシーズンにする。比較は同じリーグの中どうしだけ
@@ -755,8 +848,8 @@ export function ComparePage({ season }: { season: string }) {
   const resolveSlots = (raw: typeof rawTeamSlots, defaultIdsBySeason: (slotSeason: string) => string[]): SlotValue[] =>
     raw.map((r, i) => {
       const slotSeason = slotSeasonOf(r);
-      if (r.base !== null) return { id: r.base.id, season: slotSeason, filter: r.filter, gameType: r.gameType };
-      return { id: (i < 2 ? defaultIdsBySeason(slotSeason)[i] : undefined) ?? "", season: slotSeason, filter: r.filter, gameType: r.gameType };
+      if (r.base !== null) return { id: r.base.id, season: slotSeason, filter: r.filter, gameType: r.gameType, period: r.period, cls: r.cls };
+      return { id: (i < 2 ? defaultIdsBySeason(slotSeason)[i] : undefined) ?? "", season: slotSeason, filter: r.filter, gameType: r.gameType, period: r.period, cls: r.cls };
     });
   const resolvedTeamSlots = resolveSlots(rawTeamSlots, (s) => defaultTeamIds(teamsBySeason?.get(s)));
   const resolvedPlayerSlots = resolveSlots(rawPlayerSlots, (s) =>
@@ -780,6 +873,11 @@ export function ComparePage({ season }: { season: string }) {
       else params.set(`${kind}f${index}`, encoded);
       if (merged.gameType === "regular") params.delete(`${kind}g${index}`);
       else params.set(`${kind}g${index}`, merged.gameType);
+      if (merged.period === "all") params.delete(`${kind}q${index}`);
+      else params.set(`${kind}q${index}`, merged.period);
+      const encodedClass = kind === "p" ? null : encodeClassParam(merged.cls);
+      if (encodedClass === null) params.delete(`${kind}c${index}`);
+      else params.set(`${kind}c${index}`, encodedClass);
     });
   };
 

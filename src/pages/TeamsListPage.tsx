@@ -1080,6 +1080,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
       disabledValues: isForeignCategory ? ["diff"] : undefined,
     }),
     classificationAxis(classFilter, setClassFilter, {
+      teamCombined: true,
       disabledReason: !classTab ? "登録区分別の値は Traditional〜Scoring のタブでだけ見られます。" : undefined,
       season,
     }),

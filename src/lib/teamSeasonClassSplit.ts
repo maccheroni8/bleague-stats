@@ -6,8 +6,7 @@
 import type { TeamGameLog } from "../../shared/types";
 import type { SeasonDisplayMode } from "./playerSeasonBoxscore";
 import type { GameRecordPeriod } from "./periodIndex";
-import { classPeriodAvailable, DETAILED_SPLIT_CLASSES, SPLIT_CLASS_LABELS, SPLIT_CLASSES, sumClassTotals, withOppMinutes, CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS, type SplitClass } from "./teamClassSplit";
-import { splitClassificationSeason } from "./classificationFilter";
+import { classPeriodAvailable, SPLIT_CLASS_LABELS, SPLIT_CLASSES, sumClassTotals, withOppMinutes, CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS, type SplitClass } from "./teamClassSplit";
 import type { ClassSplitSourceState } from "./teamClassSplitLoad";
 import {
   buildAdvancedColumns,
@@ -25,9 +24,9 @@ export function classRowLabel(cls: SplitClass, perspective: TeamPerspective): st
   return perspective === "opp" ? `相手の${name}` : name;
 }
 
-/** そのシーズンの区分の行（記録のあるシーズンは外国籍・帰化・アジア特別枠を分ける） */
-export function seasonSplitClasses(season: string): readonly SplitClass[] {
-  return splitClassificationSeason(season) ? DETAILED_SPLIT_CLASSES : SPLIT_CLASSES;
+/** そのシーズンの区分の行。全シーズン「日本人」「外国籍・帰化・アジア」の2行（試合詳細のボックススコアの内訳と同じ括り） */
+export function seasonSplitClasses(_season: string): readonly SplitClass[] {
+  return SPLIT_CLASSES;
 }
 
 /** 1シーズン・1区分の行（SeasonPeriodRow と同じ形。ready のとき数えた試合・勝敗・合計が入る） */

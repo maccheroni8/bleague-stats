@@ -31,6 +31,7 @@ import {
 import type { TeamGameLog } from "../../shared/types";
 import type { Column } from "../components/SortableTable";
 import { NATURALIZED_ASIA_LABEL } from "./statNames";
+import { matchRankColumn } from "./compareRank";
 
 // 「日程結果」タブ・比較タブの+/-（差分）表示用。BoxscoreColumnはformat(単一のBoxscoreCounts)のみを
 // 持ち差分表示を想定していないため、col.value(own/opp双方の生数値)から差分を求めて
@@ -141,6 +142,18 @@ export interface TeamCompareColumnData {
    * （`teamTotalsFromBoxTotals`。試合ログにしか無いベンチ得点・登録区分別得点は「-」）
    */
   logTotals?: { totals: TeamTotals; games: number; classPoints?: SplitClassPoints | null } | null;
+  /**
+   * Q別・前後半・延長・クラッチ、または登録区分を選んだスロットの値の元。ランキング（チーム・シーズン成績）と同じ集計の行と列
+   * （useTeamSeasonRanking）で、これがあるときは表の値をすべてこの列の式で出す（ランキングと同じ値・同じ順位になる）
+   */
+  override?: TeamCompareOverride;
+}
+
+export interface TeamCompareOverride {
+  row: AllTeamsRow;
+  columns: readonly Column<AllTeamsRow>[];
+  /** 登録区分別では出せない項目か（列のキー） */
+  unavailable: (key: string) => boolean;
 }
 
 /**
@@ -349,6 +362,15 @@ export function teamCompareDefs(
   });
   // 全チームスタッツ・チーム詳細にあって、ボックススコアの列定義には無い項目（DESIGN.md 235章）
   const extras = teamLogTotalsDefs(tabKey, perspective, foulSplit);
+  return withTeamOverride(buildTeamCompareDefList(tabKey, perspective, defs, extras));
+}
+
+function buildTeamCompareDefList(
+  tabKey: BoxscoreTabKey,
+  perspective: TeamPerspective,
+  defs: ComparisonStatDef<TeamCompareColumnData>[],
+  extras: ComparisonStatDef<TeamCompareColumnData>[],
+): ComparisonStatDef<TeamCompareColumnData>[] {
   if (tabKey === "scoring") {
     defs.unshift({
       key: "paint2games",
@@ -365,6 +387,36 @@ export function teamCompareDefs(
     return [TEAM_GAMES_DEF, ...defs];
   }
   return [TEAM_GAMES_DEF, ...defs, ...extras];
+}
+
+/** override のあるスロットは、値・表示をランキングの列の式で出す（G の行は試合数と勝敗なのでそのまま） */
+function withTeamOverride(defs: ComparisonStatDef<TeamCompareColumnData>[]): ComparisonStatDef<TeamCompareColumnData>[] {
+  return defs.map((def) => {
+    if (def.key === "g" || def.key === "paint2games") return def;
+    const colOf = (r: TeamCompareColumnData) => {
+      const o = r.override;
+      if (!o) return null;
+      const col = matchRankColumn(o.columns, def);
+      return !col || o.unavailable(col.key) ? undefined : col;
+    };
+    return {
+      ...def,
+      value: (r) => {
+        const col = colOf(r);
+        if (col === null) return def.value(r);
+        if (col === undefined) return 0;
+        const v = Number(col.sortValue(r.override!.row));
+        return Number.isFinite(v) ? v : 0;
+      },
+      format: (r) => {
+        const col = colOf(r);
+        if (col === null) return def.format(r);
+        if (col === undefined) return "-";
+        const row = r.override!.row;
+        return cleanNumericString(col.format ? col.format(row) : String(col.sortValue(row)));
+      },
+    };
+  });
 }
 
 /** 試合ログにしか無い項目（リーグ平均の値は作れない） */
