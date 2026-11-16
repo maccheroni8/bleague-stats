@@ -2465,8 +2465,12 @@ table.boxscore-table .boxscore-summary-grand-total td {
     white-space: normal;
   }
 
-  .rankings-table .rank-cell {
-    width: 28px;
+  /* 「参考」「100」のような2〜3文字の順位欄も、左右の余白に収まる幅（28px だと名前の列との間にはみ出していた） */
+  .rankings-table .rank-cell,
+  [data-design="v2"] table.rankings-table td.rank-cell {
+    width: 36px;
+    padding-left: 4px;
+    padding-right: 6px;
   }
 
   .rankings-table .rank-sublabel {
@@ -8955,15 +8959,6 @@ table.sortable-table.tts-table th {
   padding: 0 3px;
   font-size: 8px;
   background: var(--bg);
-}
-
-/* 同じ値が3つ以上並ぶときの順位の添え書き（「1位（5人が同じ値）」） */
-.rankings-table .rank-tie-count {
-  display: block;
-  font-size: 0.7em;
-  font-weight: 400;
-  color: var(--muted);
-  white-space: nowrap;
 }
 
 /* 順位表ページの画像保存（DESIGN.md 393章）。保存ボタンは保存範囲の右上。保存画像の幅は表の幅に合わせる（横に長い表は長いまま。PC幅で見る前提） */

@@ -188,12 +188,6 @@ export function RankedList<T>({
     const poolRanks = rankPositions(pool.map((row) => (tieKey ?? def.format)(row)));
     return new Map(pool.map((row, i) => [rowKey(row), poolRanks[i]!]));
   })();
-  // 同じ値の行の数（3つ以上並ぶときだけ、先頭の行の順位に「（5人が同じ値）」と添える）
-  const tieSizeAt = (i: number): number => {
-    let n = 1;
-    for (let j = i + 1; j < ranks.length && ranks[j] === ranks[i]; j += 1) n += 1;
-    return n;
-  };
   const rankOf = (i: number): number => poolRankByKey?.get(rowKey(sorted[i]!)) ?? rankAt(i);
   // 同じ順位が境目をまたぐ分（limit より後ろで、limit 番目と同じ値の行）
   let tieEnd = limit ?? sorted.length;
@@ -298,9 +292,6 @@ export function RankedList<T>({
                   style={accent ? ({ "--team-color": accent } as CSSProperties) : undefined}
                 >
                   {unranked?.(row) ? (unrankedLabel?.(row) ?? "参考") : rankOf(i)}
-                  {!unranked?.(row) && !bySortDiff && tieSizeAt(i) >= 3 && rankAt(i) === i + 1 && (
-                    <span className="rank-tie-count">{`（${tieSizeAt(i)}${unit}が同じ値）`}</span>
-                  )}
                 </td>
                 <td className={`align-left${externalLinkTo?.(row) ? " has-external-link" : ""}`}>
                   {(() => {
