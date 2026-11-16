@@ -7,7 +7,7 @@ import { PlayerPhoto } from "../components/PlayerPhoto";
 import { PlayerNamePool } from "../components/PlayerNamePool";
 import { ResponsivePlayerName } from "../components/ResponsivePlayerName";
 import { LastTeamName } from "../components/LastTeamName";
-import { FoulTable, foulsStatus, useFoulsScope, type FoulColumn } from "./FoulsFigure";
+import { FoulTable, TF_TOTAL_NOTE, foulsStatus, useFoulsScope, type FoulColumn } from "./FoulsFigure";
 import type { FigureProps } from "./catalog";
 
 type Col = FoulColumn<PlayerFoulRow>;
@@ -37,9 +37,9 @@ export default function PlayerFoulsFigure({ season, category }: FigureProps) {
   const split = foulSplitSeason(season);
   const ufColumns = split ? UF_COLUMNS_NEW : UF_COLUMNS_OLD;
   const tables = [
-    { id: "tf", title: "テクニカルファウル（選手）", label: "TF", file: "選手_テクニカルファウル", columns: TF_COLUMNS, main: TF_COLUMNS[0]!, sortParam: "fpt" },
-    { id: "uf", title: "アンスポーツマンライクファウル系（選手）", label: "UF", file: "選手_アンスポーツマンライクファウル系", columns: ufColumns, main: ufColumns.find(c => c.key === "uf")!, sortParam: "fpu" },
-    { id: "dq", title: "ディスクォリファイングファウル（選手）", label: "DQ", file: "選手_ディスクォリファイングファウル", columns: DQ_COLUMNS, main: DQ_COLUMNS[0]!, sortParam: "fpd" },
+    { id: "tf", title: "テクニカルファウル（選手）", label: "TF", file: "選手_テクニカルファウル", columns: TF_COLUMNS, main: TF_COLUMNS[0]!, sortParam: "fpt", notes: split ? [TF_TOTAL_NOTE] : [] },
+    { id: "uf", title: "アンスポーツマンライクファウル系（選手）", label: "UF", file: "選手_アンスポーツマンライクファウル系", columns: ufColumns, main: ufColumns.find(c => c.key === "uf")!, sortParam: "fpu", notes: [] },
+    { id: "dq", title: "ディスクォリファイングファウル（選手）", label: "DQ", file: "選手_ディスクォリファイングファウル", columns: DQ_COLUMNS, main: DQ_COLUMNS[0]!, sortParam: "fpd", notes: [] },
   ];
   const status = foulsStatus(request);
   return <section aria-label="ファウル（選手）" className="fouls-figure">
@@ -50,7 +50,7 @@ export default function PlayerFoulsFigure({ season, category }: FigureProps) {
       const names = listed.map(r => r.name);
       return <PlayerNamePool key={`${t.id}:${split}`} names={names}>
         <FoulTable title={t.title} exportLabel={t.label} filename={t.file} season={season} conditions={conditions} gameType={scope.gameType}
-          rows={listed} rowKey={r => r.playerId} rowName={playerName} columns={t.columns} mainKey={t.main.key} sortParam={t.sortParam} nameHeader="PLAYER" emptyText="この条件で吹かれた選手はいません。"
+          rows={listed} rowKey={r => r.playerId} rowName={playerName} columns={t.columns} mainKey={t.main.key} sortParam={t.sortParam} nameHeader="PLAYER" emptyText="この条件で吹かれた選手はいません。" exportNotes={t.notes}
           renderName={r => <div className="fouls-who">
             <PlayerPhoto playerId={r.playerId} size={40} className="player-cell-photo" placeholder season={season} teamId={r.lastTeamId} />
             <span className="fouls-who-line">

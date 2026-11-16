@@ -37,14 +37,26 @@ export function useFoulsScope(season: string, category: Category, stateKey: stri
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season)];
   const [periodLabel] = situationalFilterLabels(filter);
   const conditions = visibleConditionLabels([periodLabel ?? "", seasonGameTypeLabels(season)[gameType]].filter(Boolean));
+  // 反則ポイントの表は試合区分によらずレギュラーシーズンだけを数えるので、その表の見出しの条件はレギュラーシーズンのもの
+  const regularConditions = visibleConditionLabels([periodLabel ?? "", seasonGameTypeLabels(season).regular].filter(Boolean));
   const filterBar = <FilterBar axes={axes} stateKey={stateKey} onClearAll={() => { setFilter(DEFAULT); setGameType("regular"); }} />;
-  return { scope: { gameType, range: filter.range }, conditions, filterBar, request: request as { data: FoulsIndexFile | null | undefined; loading: boolean; error: unknown } };
+  return { scope: { gameType, range: filter.range }, conditions, regularConditions, filterBar, request: request as { data: FoulsIndexFile | null | undefined; loading: boolean; error: unknown } };
 }
+
+/** テクニカルファウルの表の保存画像の注記（2026-27 以降のシーズン） */
+export const TF_TOTAL_NOTE = "2026-27シーズン以降のテクニカルファウルは、カテゴリ1（TF1）とカテゴリ2（TF2）の合計です。";
 
 export interface FoulColumn<R> {
   key: string;
   label: string;
+  /** 並べ替え・塗り・平均に使う値 */
   value: (row: R) => number;
+  /** マスの中身（無ければ value の数） */
+  render?: (row: R) => ReactNode;
+  /** false なら上位3つを塗らない（「31点までの残り」など、多い順の塗りが意味を持たない列） */
+  highlight?: boolean;
+  /** 見出しのツールチップ */
+  title?: string;
 }
 
 /** 表ごとの並べ替えの URL（`{param}=列` で多い順・`列:asc` で少ない順）。初期値（主な数の多い順）は URL に載せない */
@@ -64,7 +76,7 @@ function sortCodec(param: string, keys: readonly string[], mainKey: string): Url
  * 順位は並べている列の多い順の順位（少ない順は並びだけ逆）。塗りは並べ替えに関係なく列ごとのトップ3（0 は塗らない）。
  * 保存画像は画面の並びのまま、サブタイトルに並び順（「合計▼」）
  */
-export function FoulTable<R>({ title, exportLabel, filename, season, conditions, gameType, rows, rowKey, rowName, columns, mainKey, sortParam, nameHeader, renderName, average, emptyText }: {
+export function FoulTable<R>({ title, exportLabel, filename, season, conditions, gameType, rows, rowKey, rowName, columns, mainKey, sortParam, nameHeader, renderName, average, emptyText, exportNotes, className }: {
   title: string; exportLabel: string; filename: string; season: string; conditions: string[]; gameType: SeasonGameTypeFilter;
   /** 並べる前の行 */
   rows: readonly R[]; rowKey: (row: R) => string; rowName: (row: R) => string; columns: readonly FoulColumn<R>[];
@@ -73,6 +85,10 @@ export function FoulTable<R>({ title, exportLabel, filename, season, conditions,
   /** 並べ替えを持つ URL の名前（表ごとに別） */
   sortParam: string;
   nameHeader: string; renderName: (row: R) => ReactNode; average?: boolean; emptyText: string;
+  /** 保存画像だけに入れる注記（画面には出さない） */
+  exportNotes?: readonly string[];
+  /** 表に足すクラス名 */
+  className?: string;
 }) {
   const target = useRef<HTMLDivElement>(null);
   const baseDate = { kind: "season" as const, season, gameType };
@@ -84,7 +100,7 @@ export function FoulTable<R>({ title, exportLabel, filename, season, conditions,
   const { rows: sorted, ranks } = useMemo(() => sortFoulRows(rows, sortCol.value, [main, ...columns.filter(c => c !== main)].filter(c => c !== sortCol).map(c => c.value), rowName, descending),
     [rows, sortCol, main, columns, rowName, descending]);
   // 塗りは並びに関係なく、列ごとの多い順トップ3（並べたあとの順の位置に合わせて出す）
-  const levels = useMemo(() => columns.map(c => topThreeLevels(sorted.map(r => c.value(r)))), [sorted, columns]);
+  const levels = useMemo(() => columns.map(c => c.highlight === false ? sorted.map(() => null) : topThreeLevels(sorted.map(r => c.value(r)))), [sorted, columns]);
   const averages = average && rows.length > 0 ? columns.map(c => rows.reduce((n, r) => n + c.value(r), 0) / rows.length) : null;
   const titleConditions = [...conditions, foulSortLabel(sortCol.label, descending)];
   const onSort = (key: string) => setSort({ key, descending: sortCol.key === key ? !descending : true });
@@ -94,14 +110,14 @@ export function FoulTable<R>({ title, exportLabel, filename, season, conditions,
       <ConditionTitle title={title} exportScope={`${season}シーズン`} conditions={titleConditions} />
       {rows.length === 0 ? <p className="empty-message">{emptyText}</p> :
         <div className="fouls-scroll" tabIndex={0} role="region" aria-label={title}>
-          <table className={`fouls-table fouls-cols-${columns.length}`}>
+          <table className={`fouls-table fouls-cols-${columns.length}${className ? ` ${className}` : ""}`}>
             <thead><tr>
               <th className="fouls-rank">#</th>
               <th className="fouls-name">{nameHeader}</th>
               {columns.map(c => {
                 const active = c.key === sortCol.key;
                 return <th key={c.key} className={`fouls-col${active ? " fouls-sorted" : ""}`} aria-sort={active ? (descending ? "descending" : "ascending") : "none"}>
-                  <button type="button" onClick={() => onSort(c.key)} title={active ? (descending ? "多い順（押すと少ない順）" : "少ない順（押すと多い順）") : "押すと多い順に並べ替え"}>
+                  <button type="button" onClick={() => onSort(c.key)} title={`${c.title ? `${c.title}。` : ""}${active ? (descending ? "多い順（押すと少ない順）" : "少ない順（押すと多い順）") : "押すと多い順に並べ替え"}`}>
                     {c.label}<SortMark active={active} descending={descending} />
                   </button>
                 </th>;
@@ -111,7 +127,7 @@ export function FoulTable<R>({ title, exportLabel, filename, season, conditions,
               {sorted.map((row, i) => <tr key={rowKey(row)}>
                 <td className="fouls-rank">{ranks[i]}</td>
                 <td className="fouls-name">{renderName(row)}</td>
-                {columns.map((c, j) => { const level = levels[j]![i]; return <td key={c.key} className={`fouls-cell${level ? ` fouls-l${level}` : ""}`}>{c.value(row)}</td>; })}
+                {columns.map((c, j) => { const level = levels[j]![i]; return <td key={c.key} className={`fouls-cell${level ? ` fouls-l${level}` : ""}`}>{c.render ? c.render(row) : c.value(row)}</td>; })}
               </tr>)}
               {averages && <tr className="fouls-average">
                 <td className="fouls-rank" />
@@ -121,6 +137,7 @@ export function FoulTable<R>({ title, exportLabel, filename, season, conditions,
             </tbody>
           </table>
         </div>}
+      {exportNotes && exportNotes.length > 0 && <div className="figure-notes fouls-export-notes export-only">{exportNotes.map(n => <p key={n}>{n}</p>)}</div>}
     </ExportTarget>
   </section>;
 }

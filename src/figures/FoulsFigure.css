@@ -49,3 +49,23 @@
   .fouls-who { gap:6px; }
   .fouls-who .player-cell-photo { width:32px !important; height:32px !important; }
 }
+
+/* 反則ポイントの表（416章）。数のマスは件数の下に点数を小さく。合計は太字 */
+.fouls-points-table .fp-cell { display:flex; flex-direction:column; align-items:center; line-height:1.25; }
+.fouls-points-table .fp-points { font-size:11px; color:var(--muted); }
+.fouls-points-table .fp-total { font-weight:700; }
+.fouls-points-table .fp-remaining { color:var(--fg); }
+.fouls-points-table .fp-reached { font-weight:700; color:#c0392b; }
+.fouls-points-table .fouls-l1 .fp-points,.fouls-points-table .fouls-l2 .fp-points,.fouls-points-table .fouls-l3 .fp-points { color:inherit; }
+.fouls-points-table .fouls-col { width:84px; }
+.fouls-points-table .fouls-name { width:240px; }
+.fouls-points-heading { font-size:16px; margin:0 0 8px; }
+.fouls-export-notes { margin-top:10px; font-size:12px; color:var(--muted); line-height:1.6; }
+.fouls-export-notes p { margin:0 0 4px; }
+.export-rendering.fouls-export:has(.fouls-points-table) { width:1040px !important; }
+@media(max-width:560px) {
+  .fouls-points-table .fouls-col { width:auto; }
+  .fouls-points-table .fp-points { font-size:10px; }
+  .fouls-table.fouls-points-table:has(.fouls-team-line) .fouls-name { width:88px; }
+  .fouls-points-table { min-width:520px; }
+}

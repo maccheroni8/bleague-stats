@@ -195,6 +195,8 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 407章: **チーム詳細のチームスタッツに、リーグ内の順位と上位3位・下位3位の色**（シーズン別成績の Traditional〜Scoring〔登録区分の行・Q別も〕と Q別タブ。`TeamRankScope`〔`src/components/TeamRankScope.tsx`〕が `useTeamSeasonRanking` を行の条件で掛け、`teamRanksOf`〔`compareRank.ts`〕で順位と色を出す。「順位を表示」・良し悪しなしは順位も色も無し・色は `--rank-top-bg`・`--rank-bottom-bg`）。Shooting・Forced TOV などは未対応。検証は `npm run validate:team-detail-rank`。**画面だけの変更でキー不変**
 - 413章: **登録区分のまとめ方をそろえた**（チームの区分の選択肢は「日本人」「外国籍・帰化・アジア」→細かい区分〔`classificationAxis` の `teamCombined`〕、チーム詳細の展開は日本人／外国籍・帰化・アジアの2行〔`seasonSplitClasses`〕、比較のスロットに Q別・前後半・延長・クラッチ〔URL `tq0`・`pq0`〕とチームの登録区分〔`tc0`〕。チームの値・順位はランキングと同じ `useTeamSeasonRanking`、選手は個人詳細のQ別タブと同じ集計）。**画面だけの変更でキー不変**
 - 414章: ランキングの「（N人が同じ値）」表記を消した（順位の数字は不変）。スマホ幅の順位欄を広げた。**画面だけの変更でキー不変**
+- 415章: ランキングの件数の区切り（上位10位・20位など）で同じ順位が続くときは、その順位の全員を載せる（N＋5件を超えるときだけ N件で切って「◯位タイ ほか◯チーム」）。画面の表示件数と保存画像の上位10名で同じ関数（`src/lib/exportFormat.ts` の `tieCutoff`）。**画面だけの変更でキー不変**
+- 416章: 図解「ファウル」のチームタブの**「反則ポイント」**（クラブ単位・レギュラーシーズンだけ・そのシーズンの「反則金に関する規程」の点数。点数の表と版ごとの根拠は `shared/foulPointRules.ts` の1か所、画面の計算は `src/lib/figureFoulPoints.ts`、数は導出データ `foul-points.json.gz`〔`shared/foulPoints.ts`・`scripts/aggregate-foul-points.ts`〕）。出場停止・旧規程のコーチの退場は**懲罰のリリースの台帳** `docs/foul-points/`（キー対象外）から作る元データ `data/{season}/foul-penalties.json.gz`。2016-17・2019-20 は規程の版が見つからず推定。説明は用語集と保存画像の注記だけ。検証は `npm run validate:foul-points`。**保存キーが変わった**
 - 410章: 試合詳細の画面の小さな直し3つ（Lead Tracker に大きなランの帯と「+12」〔`bigRunMarks`・保存画像の2枚目と同じ判定〕、キースタッツのシュートに成功数/試投数、ゲームリーダーの詳細比較に「プレータイム（MIN）」）。**画面だけの変更でキー不変**
 - 412章: **中止の試合の空の枠**（取り込みが作った得点なし・全員DNPの生データ）は、日程に「試合中止」のカードがあれば中止にして `cancelledGames` に移し、`readAllGames` で外す。中止にするのはカードがある試合だけ。「本物の生データ」の判定は `shared/gameRealData.ts` の1か所。試合詳細は「中止」とだけ出す。検証は `npm run validate:cancelled-games`。**保存キーが変わった**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
@@ -254,6 +256,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   CI では設定も実行もしない）。**`--no-verify` でフックを飛ばさない。** フックが失敗したら、ステージを直す前に、失敗の原因（どのファイルが混ざったか）を報告してから対処する
 - **pushの直前に自動更新（`chore: update 20xx-xx stats`）が入ったとき**（2026-10-25 の決まり）: 取り込んだ変更が `data/2026-27`（現在のシーズン）だけなら、**validate:all の全件は直前の結果を使い、変更に関係する検証だけ流し直す**
   （`validate:all` が30分近くかかる日は、30分おきの更新が毎回入り、取り込んだ直後の状態では終わらないため）。報告には「validate:all の全件は、取り込み一つ前の状態での結果」と書く。`data/` の変更が現在のシーズン以外に及ぶときは、手順どおり全件を通し直す
+- **出場停止の台帳（反則ポイント。設計書416章）は手で更新する**: `npm run fetch:penalty-releases`（bleague.jp のニュース一覧の1〜2ページだけを見て、台帳に無い懲罰のリリースを3.5秒間隔で取り、本文を `docs/foul-points/releases/` に残して `suspensions.json` に下書きする。`-- --pages 5` で見るページを増やせる）→ 状態が「要確認」の行は本文を読み、`docs/foul-points/manual.json` に行を書いて `npm run fetch:penalty-releases -- --reparse`（問い合わせない）→ `npm run build:foul-penalties`（`data/{season}/foul-penalties.json.gz` を作り直す。変わったシーズンだけ保存キーが変わる）→ `npm run build:data`・`validate:foul-points`。同じ人・同じ日の行為の先の発表は自動で「後の発表に含む」になる。自動更新のワークフローには入れない（リリースの書式が変わると読み違えるため、人が確かめる）
 - **pushする時間は、毎時00〜15分か30〜45分**（2026-10-25 の決まり）。本番の30分おきの更新は cron-job.org が毎時22分・52分に起動する（GitHub 側の 07分・37分は予備）ので、その前後を避ける。深夜の更新（3:10ごろ起動・15〜25分）の間も避ける。直前に `git fetch` して origin/main に追いつかせてから push する
 - **作業場所の確認用サーバーを `preview_start` で起動する手順**（2026-11-07 に確かめた）: `preview_start` が読む `launch.json` は、**セッションを開いたフォルダ（`10_Claude関連`）の `.claude/launch.json`** で、
   作業場所（`../bleague-stats-xxx`）の中の `.claude/launch.json` は読まれない（足しても `No server named …` になる）。このフォルダの `launch.json` はコミットされず、全作業場所で共通。

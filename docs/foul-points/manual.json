@@ -1,0 +1,224 @@
+{
+ "note": "手で確かめた行（scripts/fetch-penalty-releases.ts が本文からの下書きの代わりに使う）。newsId ごとに、確かめた内容（reviewNote）と行。本文は releases/{newsId}.txt",
+ "16214": {
+  "reviewNote": "懲罰免除のリリース。2017-11-05 の TF＋UF の退場は、新しい定義のアンスポーツマンライクのため懲罰を免除（出場停止なし）。同じ行為の先の発表は無い",
+  "rows": [
+   {
+    "season": "2017-18",
+    "league": "B1",
+    "competition": "regular",
+    "incidentDate": "2017-11-05",
+    "club": "京都ハンナリーズ",
+    "person": "岡田 優介",
+    "role": "選手",
+    "suspensionGames": 0,
+    "category": "免除（懲罰なし）",
+    "ejected": true,
+    "ejectionKind": "TF+UF",
+    "notes": [
+     "免除の記載"
+    ]
+   }
+  ]
+ },
+ "16415": {
+  "reviewNote": "コートにつばを吐いた行為（テクニカル）で4試合。発表の時はアルバルク東京と契約解除済みだが、行為の時の所属（アルバルク東京）に数える。退場ではない",
+  "rows": [
+   {
+    "season": "2016-17",
+    "league": "B1",
+    "competition": "regular",
+    "incidentDate": "2017-01-29",
+    "club": "アルバルク東京",
+    "person": "トロイ・ギレンウォーター",
+    "role": "選手",
+    "suspensionGames": 4,
+    "category": "つばを吐いた行為",
+    "ejected": false,
+    "ejectionKind": null,
+    "notes": [
+     "発表の時はクラブと契約解除済み（行為の時の所属で数える）",
+     "翌シーズンに持ち越しの記載"
+    ]
+   }
+  ]
+ },
+ "16455": {
+  "reviewNote": "1本に2人。選手はテクニカル2回、ヘッドコーチはテクニカル2回で失格・退場。どちらも1試合",
+  "rows": [
+   {
+    "season": "2016-17",
+    "league": "B1",
+    "competition": "regular",
+    "incidentDate": "2016-12-04",
+    "club": "三遠ネオフェニックス",
+    "person": "オルー・アシャオル",
+    "role": "選手",
+    "suspensionGames": 1,
+    "category": "テクニカル2回で退場",
+    "ejected": true,
+    "ejectionKind": "TF2",
+    "notes": []
+   },
+   {
+    "season": "2016-17",
+    "league": "B1",
+    "competition": "regular",
+    "incidentDate": "2016-12-04",
+    "club": "三遠ネオフェニックス",
+    "person": "藤田 弘輝",
+    "role": "ヘッドコーチ",
+    "suspensionGames": 1,
+    "category": "コーチ・ベンチのテクニカルで退場",
+    "ejected": true,
+    "ejectionKind": "コーチのTF",
+    "notes": []
+   }
+  ]
+ },
+ "16463": {
+  "reviewNote": "1本に2人（両クラブ）。暴力行為で失格・退場（PBP はどちらもディスクォリファイング）。どちらも1試合",
+  "rows": [
+   {
+    "season": "2016-17",
+    "league": "B1",
+    "competition": "regular",
+    "incidentDate": "2016-11-27",
+    "club": "滋賀レイクスターズ",
+    "person": "デイビッド・ウィーバー",
+    "role": "選手",
+    "suspensionGames": 1,
+    "category": "ディスクォリファイングで退場",
+    "ejected": true,
+    "ejectionKind": "DQ",
+    "notes": []
+   },
+   {
+    "season": "2016-17",
+    "league": "B1",
+    "competition": "regular",
+    "incidentDate": "2016-11-27",
+    "club": "京都ハンナリーズ",
+    "person": "佐藤 託矢",
+    "role": "選手",
+    "suspensionGames": 1,
+    "category": "ディスクォリファイングで退場",
+    "ejected": true,
+    "ejectionKind": "DQ",
+    "notes": []
+   }
+  ]
+ },
+ "69736": {
+  "reviewNote": "1本に3人（表の形）。3人とも DQ で失格・退場。松井は懲罰なし（判定はアンスポーツマンライクが妥当とされた）、ウォーカーは2度目のアンスポーツマンライク相当で1試合、マブンガは暴行で1試合",
+  "rows": [
+   {
+    "season": "2019-20",
+    "league": "B1",
+    "competition": "regular",
+    "incidentDate": "2019-10-06",
+    "club": "京都ハンナリーズ",
+    "person": "松井 啓十郎",
+    "role": "選手",
+    "suspensionGames": 0,
+    "category": "ディスクォリファイングで退場",
+    "ejected": true,
+    "ejectionKind": "DQ",
+    "notes": [
+     "懲罰は科さない"
+    ]
+   },
+   {
+    "season": "2019-20",
+    "league": "B1",
+    "competition": "regular",
+    "incidentDate": "2019-10-06",
+    "club": "滋賀レイクスターズ",
+    "person": "ヘンリー・ウォーカー",
+    "role": "選手",
+    "suspensionGames": 1,
+    "category": "ディスクォリファイングで退場",
+    "ejected": true,
+    "ejectionKind": "DQ",
+    "notes": []
+   },
+   {
+    "season": "2019-20",
+    "league": "B1",
+    "competition": "regular",
+    "incidentDate": "2019-10-06",
+    "club": "京都ハンナリーズ",
+    "person": "ジュリアン・マブンガ",
+    "role": "選手",
+    "suspensionGames": 1,
+    "category": "ディスクォリファイングで退場",
+    "ejected": true,
+    "ejectionKind": "DQ",
+    "notes": []
+   }
+  ]
+ },
+ "98779": {
+  "reviewNote": "懲罰の適用のリリース。2020-10-23 の出場停止（未消化の1試合）を移籍先の試合に当てるだけで、新たな懲罰ではない（試合数は元の発表で数える）",
+  "rows": [
+   {
+    "season": "2020-21",
+    "league": "B2",
+    "competition": "regular",
+    "incidentDate": "2020-10-23",
+    "club": "青森ワッツ",
+    "person": "ダニエル・オルトン",
+    "role": "選手",
+    "suspensionGames": 0,
+    "category": "既に決まった出場停止の適用（新たな懲罰なし）",
+    "ejected": true,
+    "ejectionKind": "UF2",
+    "notes": [
+     "適用の記載"
+    ]
+   }
+  ]
+ },
+ "455653": {
+  "reviewNote": "アンスポーツマンライクとテクニカルで失格・退場。酌量減軽で罰金5万円だけ（出場停止なし）",
+  "rows": [
+   {
+    "season": "2024-25",
+    "league": "B1",
+    "competition": "regular",
+    "incidentDate": "2025-02-09",
+    "club": "サンロッカーズ渋谷",
+    "person": "アンソニー・クレモンズ",
+    "role": "選手",
+    "suspensionGames": 0,
+    "category": "テクニカルとアンスポーツマンライクで退場",
+    "ejected": true,
+    "ejectionKind": "TF+UF",
+    "notes": [
+     "酌量減軽"
+    ]
+   }
+  ]
+ },
+ "85870": {
+  "reviewNote": "アンスポーツマンライク2回で失格・退場だが、検証の結果「懲罰は科さない」（見出しが「適用条項」だけ）",
+  "rows": [
+   {
+    "season": "2020-21",
+    "league": "B2",
+    "competition": "regular",
+    "incidentDate": "2021-01-02",
+    "club": "ライジングゼファー福岡",
+    "person": "谷口 淳",
+    "role": "選手",
+    "suspensionGames": 0,
+    "category": "アンスポーツマンライク2回で退場",
+    "ejected": true,
+    "ejectionKind": "UF2",
+    "notes": [
+     "懲罰は科さない"
+    ]
+   }
+  ]
+ }
+}
