@@ -9412,3 +9412,15 @@ table.sortable-table.tts-table th {
   min-height: 44px;
   min-width: 64px;
 }
+
+/* 表の名前の欄の1行の名前（NameText の lineFirst）。画面は今までどおり1行・保存画像は入りきらないとき縮める（足りなければ .name-text-wrap で2行） */
+.export-target .name-text.name-text-line {
+  white-space: nowrap;
+  min-width: 0;
+}
+.export-target .name-text.name-text-line:not(.name-text-wrap) wbr {
+  display: none;
+}
+.export-target .name-text.name-text-line.name-text-wrap {
+  white-space: normal;
+}

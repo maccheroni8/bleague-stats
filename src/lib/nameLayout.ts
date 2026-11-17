@@ -32,6 +32,23 @@ export function teamNameUnits(name: string): string[] {
 /** 実際の列幅で最長の単位を測る。保存時は複製側の固定幅で呼び直す。 */
 export function fitNameText(el: HTMLElement): void {
   el.style.removeProperty("font-size");
+  el.classList.remove("name-text-wrap");
+  // 1行のまま見せる名前（表の名前の欄。lineFirst）: 画面はそのまま。保存画像だけ、入りきらないときに字を小さくし、
+  // 読める大きさ（12px）に収まらないときは単位（地名とクラブ名の間）で2行に折り返す
+  if (el.classList.contains("name-text-line")) {
+    if (!el.closest(".export-rendering")) return;
+    const view = el.ownerDocument.defaultView!;
+    const base = parseFloat(view.getComputedStyle(el).fontSize);
+    const available = el.clientWidth;
+    const needed = el.scrollWidth;
+    if (available <= 0 || needed <= available) return;
+    const size = Math.floor((base * (available - 0.5) / needed) * 100) / 100;
+    if (size >= LINE_FIT_MINIMUM_PX) {
+      el.style.fontSize = `${size}px`;
+      return;
+    }
+    el.classList.add("name-text-wrap");
+  }
   const width = el.getBoundingClientRect().width;
   if (width <= 0) return;
   const view = el.ownerDocument.defaultView!;
@@ -43,6 +60,9 @@ export function fitNameText(el: HTMLElement): void {
     el.style.fontSize = `${size}px`;
   }
 }
+
+/** 1行のまま縮める名前（lineFirst）の下限。これより小さくなるときは2行に折り返す */
+const LINE_FIT_MINIMUM_PX = 12;
 
 export function fitNamesIn(root: HTMLElement): void {
   root.querySelectorAll<HTMLElement>(".name-text").forEach(fitNameText);

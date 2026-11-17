@@ -38,7 +38,7 @@ export default function TeamFoulsFigure({ season, category }: FigureProps) {
     {status ?? (rows.length === 0 ? <p className="empty-message">この条件で表示できるチームがありません。</p> : tables.map(t =>
       <FoulTable key={`${t.id}:${split}`} title={t.title} exportLabel={t.label} filename={t.file} season={season} conditions={conditions} gameType={scope.gameType}
         rows={rows} rowKey={r => r.teamId} rowName={teamName} columns={t.columns} mainKey={t.mainKey} sortParam={t.sortParam} nameHeader="TEAM" average emptyText="この条件で表示できるチームがありません。" exportNotes={t.notes}
-        renderName={r => <span className="fouls-team-line"><TeamLogo teamId={r.teamId} size={24} /><ResponsiveTeamName teamId={r.teamId} name={r.teamName} nowrap /></span>} />))}
+        renderName={r => <span className="fouls-team-line"><TeamLogo teamId={r.teamId} size={24} /><ResponsiveTeamName teamId={r.teamId} name={r.teamName} lineFirst /></span>} />))}
     {!status && <TeamFoulPointsTable key={`points:${season}:${category}`} season={season} category={category} range={scope.range} gameType={scope.gameType} conditions={regularConditions} />}
   </section>;
 }

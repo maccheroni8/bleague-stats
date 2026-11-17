@@ -86,5 +86,5 @@ export function TeamFoulPointsTable({ season, category, range, gameType, conditi
     rows={rows} rowKey={r => r.teamId} rowName={r => r.teamName} columns={columns} mainKey="total" sortParam="fsp" nameHeader="TEAM" average
     emptyText="この条件で表示できるチームがありません。" className="fouls-points-table" exportNotes={foulPointNotes(season, rule)}
     exportExtra={<FineTable season={season} category={category} rule={rule} />}
-    renderName={r => <span className="fouls-team-line"><TeamLogo teamId={r.teamId} size={24} /><ResponsiveTeamName teamId={r.teamId} name={r.teamName} nowrap /></span>} />;
+    renderName={r => <span className="fouls-team-line"><TeamLogo teamId={r.teamId} size={24} /><ResponsiveTeamName teamId={r.teamId} name={r.teamName} lineFirst /></span>} />;
 }

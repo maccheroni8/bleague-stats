@@ -106,7 +106,7 @@ export default function TeamShootTableFigure({ season, category }: FigureProps) 
       <ExportTarget ref={target} className="ratings-export shoot-export" baseDate={baseDate}>
         <ConditionTitle title={shootTitle(view)} exportScope={`${season}シーズン`} conditions={conditions} />
         <ShootTableView rows={sorted} rowKey={r => r.teamId} columns={columns} sort={sortKey} onSort={toggleSort} ranks={ranks} nameHeader="TEAM" ariaLabel="シュート成功率（チーム）" highlight={r => hl.has([r.teamId])}
-          renderName={r => <span className="shoot-team-line"><TeamLogo teamId={r.teamId} size={24} /><ResponsiveTeamName teamId={r.teamId} name={r.teamName} nowrap /></span>} />
+          renderName={r => <span className="shoot-team-line"><TeamLogo teamId={r.teamId} size={24} /><ResponsiveTeamName teamId={r.teamId} name={r.teamName} lineFirst /></span>} />
         <ShootLegend reversed={!higher} />
       </ExportTarget>
     </>}
