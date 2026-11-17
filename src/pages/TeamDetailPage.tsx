@@ -5058,7 +5058,6 @@ export function TeamDetailPage({ season }: { season: string }) {
                       <th className="align-right" title={statDescription("試合数")}>試合数</th>
                       <th className="align-right" title={statDescription("勝敗")}>勝敗</th>
                       <th className="align-right" title={statDescription("勝率")}>勝率</th>
-                    <th className="align-right" title={statDescription("試合割合")}>試合割合</th>
                       <PeriodScoringHeaderCells />
                     </tr>
                   </thead>
@@ -5211,7 +5210,6 @@ export function TeamDetailPage({ season }: { season: string }) {
                     <th className="align-right" title={statDescription("試合数")}>試合数</th>
                     <th className="align-right" title={statDescription("勝敗")}>勝敗</th>
                     <th className="align-right" title={statDescription("勝率")}>勝率</th>
-                    <th className="align-right" title={statDescription("試合割合")}>試合割合</th>
                     {seasonTableColumns.map((c) => (
                       <th className="align-right" key={c.key} title={statDescription(c.label, "team")}>
                         <StatHeaderLabel label={c.label} />
