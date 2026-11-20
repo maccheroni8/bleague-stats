@@ -11,6 +11,7 @@ import {
   BL_SUM_WIDTH,
   type BestLineupSize,
   type BestLineupsFile,
+  BEST_LINEUP_FILE_MIN_POSS,
 } from "../../shared/bestLineups";
 import { ratingsFromPossessions } from "./lineupRatings";
 
@@ -107,13 +108,31 @@ function totalsOf(parts: readonly Part[], gameType: BestLineupGameType): BestLin
   return t;
 }
 
+/** 2つの下限の組み合わせ方。both＝どちらも満たす、either＝どちらかを満たす */
+export type BestLineupCombine = "both" | "either";
+export const BEST_LINEUP_COMBINES: readonly BestLineupCombine[] = ["both", "either"];
+export const BEST_LINEUP_COMBINE_LABELS: Record<BestLineupCombine, string> = { both: "どちらも満たす", either: "どちらかを満たす" };
+
 export interface BestLineupQuery {
   gameType: BestLineupGameType;
   /** null はすべて。数値はその OC の部分だけ */
   oc: number | null;
   /** 攻守とも、この数以上のポゼッション */
   minPoss: number;
+  /** その組が一緒に出た試合数（選んだ試合区分・OC の範囲）がこの数以上。0 または省略は指定なし（組み合わせ方も効かない） */
+  minGames?: number;
+  /** 2つの下限の組み合わせ方（省略は both） */
+  combine?: BestLineupCombine;
   sort: BestLineupSort;
+}
+
+/** 下限の判定。試合数の下限が0（指定なし）のときはポゼッションの下限だけ */
+export function passesBestLineupMins(t: BestLineupTotals, q: Pick<BestLineupQuery, "minPoss" | "minGames" | "combine">): boolean {
+  const possOk = Math.min(t.ownPoss, t.oppPoss) >= q.minPoss;
+  const minGames = q.minGames ?? 0;
+  if (minGames <= 0) return possOk;
+  const gamesOk = t.games >= minGames;
+  return q.combine === "either" ? possOk || gamesOk : possOk && gamesOk;
 }
 
 /** 表示の値（順位の判定に使う）。率は小数第2位に丸めた値、時間は秒 */
@@ -131,7 +150,7 @@ export function queryBestLineups(groups: readonly BestLineupGroup[], q: BestLine
     if (parts.length === 0) continue;
     const t = totalsOf(parts, q.gameType);
     if (t.games === 0 && t.seconds === 0) continue;
-    if (Math.min(t.ownPoss, t.oppPoss) < q.minPoss) continue;
+    if (!passesBestLineupMins(t, q)) continue;
     const r = ratingsFromPossessions(t.ownPoints, t.oppPoints, t.ownPoss, t.oppPoss);
     if (r.net === null) continue;
     rows.push({ ...t, group: g, off: r.off, def: r.def, net: r.net });
@@ -167,18 +186,37 @@ export function ocChoices(groups: readonly BestLineupGroup[], size: BestLineupSi
   return bestLineupOcValues(groups).filter((v) => v <= size);
 }
 
-/** 下限のスライダー（最小は導出データが持つ候補の下限。それより下は選べない。最大・刻みは人数ごと。DESIGN.md 371章） */
+/**
+ * ポゼッションの下限のスライダー（下端は導出データの下限〔BEST_LINEUP_FILE_MIN_POSS〕。それより下の組はファイルに無いので選べない。
+ * 最大は人数ごと、刻みは10。DESIGN.md 371・422章）
+ */
 export const BEST_LINEUP_SLIDER: Record<BestLineupSize, { min: number; max: number; step: number }> = {
-  5: { min: 50, max: 600, step: 50 },
-  4: { min: 200, max: 1400, step: 100 },
-  3: { min: 400, max: 2000, step: 100 },
-  2: { min: 600, max: 3000, step: 100 },
+  5: { min: BEST_LINEUP_FILE_MIN_POSS, max: 600, step: 10 },
+  4: { min: BEST_LINEUP_FILE_MIN_POSS, max: 1400, step: 10 },
+  3: { min: BEST_LINEUP_FILE_MIN_POSS, max: 2000, step: 10 },
+  2: { min: BEST_LINEUP_FILE_MIN_POSS, max: 3000, step: 10 },
 };
 
-/** URL の下限を、スライダーの範囲・刻みに収める */
+/** URL のポゼッションの下限を、スライダーの範囲・刻みに収める（古い URL の50刻み・100刻みの値はそのまま使える） */
 export function clampBestLineupMin(size: BestLineupSize, v: number): number {
   const s = BEST_LINEUP_SLIDER[size];
   return Math.min(s.max, Math.max(s.min, Math.round(v / s.step) * s.step));
+}
+
+/** 試合数の下限のスライダー（0＝指定なし。1シーズン×1クラブの組なので、最大はシーズンの試合数の目安） */
+export const BEST_LINEUP_GAMES_SLIDER = { min: 0, max: 60, step: 1 } as const;
+
+/** URL の試合数の下限を、スライダーの範囲に収める */
+export function clampBestLineupGames(v: number): number {
+  const s = BEST_LINEUP_GAMES_SLIDER;
+  return Math.min(s.max, Math.max(s.min, Math.round(v)));
+}
+
+/** 下限を文にする（保存画像のサブタイトル・ボタンの要約）。試合数が0なら従来どおりポゼッションだけ */
+export function bestLineupMinLabel(minPoss: number, minGames: number, combine: BestLineupCombine): string {
+  const poss = `攻守とも${minPoss}ポゼッション以上`;
+  if (minGames <= 0) return poss;
+  return `${poss}${combine === "either" ? "、または" : "、かつ"}${minGames}試合以上`;
 }
 
 /** 範囲（null＝歴代）で組を絞る */

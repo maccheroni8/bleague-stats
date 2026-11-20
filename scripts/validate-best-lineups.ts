@@ -20,7 +20,7 @@ import type { PlayerGameIndexFile } from "../shared/gameIndex.ts";
 import { GAME_FLAG_SHORT } from "../shared/gameIndex.ts";
 import {
   BEST_LINEUP_MIN_POSS_DEFAULT,
-  BEST_LINEUP_MIN_POSS_OPTIONS,
+  BEST_LINEUP_FILE_MIN_POSS,
   BEST_LINEUP_SIZES,
   bestLineupFileName,
   type BestLineupSize,
@@ -135,7 +135,7 @@ for (const season of seasons) {
       for (const l of screen.lineups) {
         const key = prefix + l.lineupKey;
         const o = ours.get(key);
-        const qualifies = Math.min(l.ownPoss!, l.oppPoss!) >= BEST_LINEUP_MIN_POSS_OPTIONS[5][0]!;
+        const qualifies = Math.min(l.ownPoss!, l.oppPoss!) >= BEST_LINEUP_FILE_MIN_POSS;
         if (qualifies) g1all.add(!!o, () => `${gt} ${key} が無い`);
         if (!o) continue;
         const a = [o.seconds, o.games, o.ownPoints, o.oppPoints, o.ownPoss, o.oppPoss].join(",");
@@ -183,7 +183,7 @@ for (const season of seasons) {
           const o = ours.get(key);
           if (!o) {
             // 下限は全試合（合算）で判定するので、合算で下限未満なら無くてよい（レギュラー・ポストの漏れは 3 で確かめる）
-            g2.add(gt !== "both" || Math.min(r.on.ownPoss, r.on.oppPoss) < BEST_LINEUP_MIN_POSS_OPTIONS[size][0]!, () => `${unit} ${gt} ${key} が無い`);
+            g2.add(gt !== "both" || Math.min(r.on.ownPoss, r.on.oppPoss) < BEST_LINEUP_FILE_MIN_POSS, () => `${unit} ${gt} ${key} が無い`);
             continue;
           }
           const a = [o.seconds, o.games, o.ownPoints, o.oppPoints, o.ownPoss, o.oppPoss].join(",");
@@ -206,7 +206,7 @@ for (const size of BEST_LINEUP_SIZES) {
   const byKey = new Map(groups.get(size)!.map((g) => [g.key, g]));
   for (const [k, e] of indep.get(size)!) {
     const both = e.sums.regular.map((v, i) => v + e.sums.playoff[i]!);
-    const qualifies = Math.min(both[3]!, both[4]!) >= BEST_LINEUP_MIN_POSS_OPTIONS[size][0]!;
+    const qualifies = Math.min(both[3]!, both[4]!) >= BEST_LINEUP_FILE_MIN_POSS;
     const g = byKey.get(k);
     if (qualifies) g3all.add(!!g, () => `${k} が無い`);
     else g3all.add(!g, () => `${k} は下限未満なのに入っている`);
@@ -231,7 +231,7 @@ g4.report();
     const list = [...indep.get(size)!.values()];
     const ocValues = [...new Set(list.flatMap((e) => [...e.oc]))].filter((v) => v >= 0).sort();
     for (const gt of GAME_TYPES) {
-      for (const min of BEST_LINEUP_MIN_POSS_OPTIONS[size]) {
+      for (const min of [BEST_LINEUP_FILE_MIN_POSS, 50, 100, BEST_LINEUP_MIN_POSS_DEFAULT[size], BEST_LINEUP_SLIDER[size].max]) {
         const sumOf = (e: Indep) => (gt === "both" ? e.sums.regular.map((v, i) => v + e.sums.playoff[i]!) : e.sums[gt]);
         // 独立の数え直しは、組の OC が1つの組だけを OC で分ける（2つ以上の組は 6 の人工データで確かめる）
         const passes = (e: Indep) => Math.min(sumOf(e)[3]!, sumOf(e)[4]!) >= min && (sumOf(e)[0]! > 0 || sumOf(e).some((v) => v !== 0));
@@ -263,7 +263,7 @@ g4.report();
     const sl = BEST_LINEUP_SLIDER[size];
     const file = files.get(size)!;
     check(`5-2. ${size}人 スライダーの下端は導出データの下限（${file.minPoss}）と同じ・最初の値は範囲内で刻みの上`,
-      sl.min === file.minPoss && sl.min === BEST_LINEUP_MIN_POSS_OPTIONS[size][0] && BEST_LINEUP_MIN_POSS_DEFAULT[size] >= sl.min && BEST_LINEUP_MIN_POSS_DEFAULT[size] <= sl.max
+      sl.min === file.minPoss && sl.min === BEST_LINEUP_FILE_MIN_POSS && BEST_LINEUP_MIN_POSS_DEFAULT[size] >= sl.min && BEST_LINEUP_MIN_POSS_DEFAULT[size] <= sl.max
         && (BEST_LINEUP_MIN_POSS_DEFAULT[size] - sl.min) % sl.step === 0 && (sl.max - sl.min) % sl.step === 0, JSON.stringify(sl));
     check(`5-2. ${size}人 下限の丸め（下端未満は下端・上端超は上端）`, clampBestLineupMin(size, 0) === sl.min && clampBestLineupMin(size, 99999) === sl.max && clampBestLineupMin(size, BEST_LINEUP_MIN_POSS_DEFAULT[size]) === BEST_LINEUP_MIN_POSS_DEFAULT[size]);
     const list = [...indep.get(size)!.entries()];
@@ -323,6 +323,14 @@ g4.report();
   check("6. 上位の境目の同率はすべて出す", topBestLineups(all.filter((r) => r.row.group.teamId !== "A"), 1).length === 2);
   const def = queryBestLineups(gs, { gameType: "regular", oc: null, minPoss: 0, sort: "def" });
   check("6. DRtg は低い順", def[0]!.row.def! <= def[def.length - 1]!.row.def!);
+  const q = (minPoss: number, minGames: number, combine: "both" | "either") => queryBestLineups(gs, { gameType: "regular", oc: null, minPoss, minGames, combine, sort: "net" }).map((r) => r.row.group.teamId).sort().join("");
+  check("6. 試合数の下限 どちらも満たす（A は試合5・ポゼッション50、B・C は試合2・ポゼッション300・600）", q(100, 5, "both") === "" && q(10, 3, "both") === "A" && q(100, 2, "both") === "BC", `${q(100, 5, "both")} / ${q(10, 3, "both")} / ${q(100, 2, "both")}`);
+  check("6. 試合数の下限 どちらかを満たす", q(100, 5, "either") === "ABC" && q(400, 5, "either") === "AC" && q(700, 6, "either") === "", `${q(100, 5, "either")} / ${q(400, 5, "either")} / ${q(700, 6, "either")}`);
+  check("6. 試合数の下限が0（指定なし）なら組み合わせ方は効かない・省略とも同じ", q(100, 0, "both") === "BC" && q(100, 0, "either") === "BC" && queryBestLineups(gs, { gameType: "regular", oc: null, minPoss: 100, sort: "net" }).length === 2);
+  check("6. 試合数は選んだ試合区分・OC の範囲で数える（OC2 の部分は試合2・ポストシーズンを足すと3）",
+    queryBestLineups(gs, { gameType: "regular", oc: 2, minPoss: 10, minGames: 2, combine: "both", sort: "net" }).length === 1
+    && queryBestLineups(gs, { gameType: "regular", oc: 2, minPoss: 10, minGames: 3, combine: "both", sort: "net" }).length === 0
+    && queryBestLineups(gs, { gameType: "both", oc: 2, minPoss: 10, minGames: 3, combine: "both", sort: "net" }).length === 1);
   const top1 = topBestLineups(all, 1);
   const hb = highlightedBest(all, top1, ["C", "A", "Z"]);
   check("6. 強調クラブが表示中に無ければ最上位と全体の順位、組が無ければ null（表示中のクラブは出さない）", hb.length === 2 && hb[0]!.best?.row.group.teamId === "A" && hb[0]!.best.rank === 3 && hb[1]!.best === null, JSON.stringify(hb.map((h) => [h.teamId, h.best?.rank])));
@@ -342,6 +350,34 @@ g4.report();
     const ok = !!hit && hit.row.net!.toFixed(2) === k.net.toFixed(2) && hit.row.off!.toFixed(2) === k.off.toFixed(2) && hit.row.def!.toFixed(2) === k.def.toFixed(2);
     check(`7. 調査の照合 ${k.season} ${k.team} ${k.min}`, ok, hit ? `${hit.row.net} ${hit.row.off} ${hit.row.def}` : "見つからない");
   }
+}
+
+// 8. 試合数の下限と組み合わせ方（実データ。組の値から独立に数え直す）
+{
+  const g8 = new Group("8. 試合数の下限×組み合わせ方の対象数が、組の値からの数え直しと一致（人数×試合区分×下限）");
+  const lines: string[] = [];
+  for (const size of BEST_LINEUP_SIZES) {
+    const gs = groups.get(size)!;
+    for (const gt of GAME_TYPES) {
+      const offsets = gt === "regular" ? [0] : gt === "playoff" ? [6] : [0, 6];
+      const stat = (g: (typeof gs)[number], idx: number) => g.parts.reduce((a, p) => a + offsets.reduce((b, o) => b + p.sums[o + idx]!, 0), 0);
+      for (const [P, G] of [[BEST_LINEUP_FILE_MIN_POSS, 5], [BEST_LINEUP_MIN_POSS_DEFAULT[size], 10], [BEST_LINEUP_FILE_MIN_POSS, 20], [BEST_LINEUP_SLIDER[size].max, 15]] as const) {
+        const present = gs.filter((g) => stat(g, 0) > 0 || stat(g, 1) > 0);
+        const possOk = (g: (typeof gs)[number]) => Math.min(stat(g, 4), stat(g, 5)) >= P;
+        const gamesOk = (g: (typeof gs)[number]) => stat(g, 1) >= G;
+        const base = (c: "both" | "either") => queryBestLineups(gs, { gameType: gt, oc: null, minPoss: P, minGames: G, combine: c, sort: "net" }).length;
+        const wantBoth = present.filter((g) => possOk(g) && gamesOk(g)).length;
+        const wantEither = present.filter((g) => possOk(g) || gamesOk(g)).length;
+        g8.add(base("both") === wantBoth, () => `${size}人 ${gt} P${P} G${G} both: 図 ${base("both")} / 数え直し ${wantBoth}`);
+        g8.add(base("either") === wantEither, () => `${size}人 ${gt} P${P} G${G} either: 図 ${base("either")} / 数え直し ${wantEither}`);
+        const poss = queryBestLineups(gs, { gameType: gt, oc: null, minPoss: P, sort: "net" }).length;
+        g8.add(wantBoth <= poss && poss <= wantEither, () => `${size}人 ${gt} P${P} G${G}: both ${wantBoth} ≤ ポゼッションだけ ${poss} ≤ either ${wantEither}`);
+        if (gt === "regular") lines.push(`   ${size}人 レギュラー ポゼッション${P}・試合${G}: どちらも ${wantBoth}  どちらか ${wantEither}  （ポゼッションだけ ${poss}）`);
+      }
+    }
+  }
+  g8.report();
+  console.log(lines.join("\n"));
 }
 
 if (failures > 0) {

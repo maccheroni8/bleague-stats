@@ -42,3 +42,9 @@
   :root:not([data-theme="light"]) .best-lineup-card.is-highlighted { --hl-color-shown:color-mix(in srgb, var(--hl-color) 62%, #ffffff); border-left-color:var(--hl-color-shown); background:color-mix(in srgb, var(--hl-color-shown) 12%, var(--bg)); }
   :root:not([data-theme="light"]) .best-lineup-card.is-highlighted .best-lineup-photo { outline-color:var(--hl-color-shown); }
 }
+
+/* 下限の窓: 2本のスライダーと組み合わせ方 */
+.best-lineup-mins { display:flex; flex-direction:column; gap:14px; min-width:min(280px, 100%); }
+.best-lineup-combine { display:flex; flex-wrap:wrap; gap:6px 16px; font-size:14px; }
+.best-lineup-combine label { display:inline-flex; align-items:center; gap:6px; min-height:32px; }
+.best-lineup-combine input:disabled + * , .best-lineup-combine label:has(input:disabled) { opacity:.5; }

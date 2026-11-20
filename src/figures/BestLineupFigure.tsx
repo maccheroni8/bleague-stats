@@ -9,7 +9,7 @@ import { GAME_TYPE_PARAM } from '../lib/urlFilterParams';
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from '../../shared/gameType';
 import { BEST_LINEUP_FIRST_SEASON, BEST_LINEUP_MIN_POSS_DEFAULT, BEST_LINEUP_SIZES, type BestLineupSize } from '../../shared/bestLineups';
 import {
-  BEST_LINEUP_SLIDER, BEST_LINEUP_SORTS, BEST_LINEUP_SORT_LABELS, bestLineupGroups, bestLineupGroupsInSeason, clampBestLineupMin, highlightedBest, ocChoices, queryBestLineups, topBestLineups, type BestLineupSort, type RankedBestLineup,
+  BEST_LINEUP_COMBINES, BEST_LINEUP_COMBINE_LABELS, BEST_LINEUP_GAMES_SLIDER, BEST_LINEUP_SLIDER, BEST_LINEUP_SORTS, BEST_LINEUP_SORT_LABELS, bestLineupGroups, bestLineupGroupsInSeason, bestLineupMinLabel, clampBestLineupGames, clampBestLineupMin, highlightedBest, ocChoices, queryBestLineups, topBestLineups, type BestLineupCombine, type BestLineupSort, type RankedBestLineup,
 } from '../lib/bestLineups';
 import { formatDecimal } from '../lib/format';
 import { formatMinutesFromSeconds } from '../lib/boxscoreAggregate';
@@ -41,6 +41,14 @@ const minCodec: UrlCodec<number | null> = {
   read: p => { const v = Number(p.get('blp')); return p.get('blp') && Number.isFinite(v) ? v : undefined; },
   write: (p, v) => { if (v !== null) p.set('blp', String(v)); },
 };
+/** 試合数の下限（その組が一緒に出た試合数。無ければ指定なし＝0）。古い URL・保存した設定には無い */
+const gamesCodec: UrlCodec<number | null> = {
+  keys: ['blg'],
+  read: p => { const v = Number(p.get('blg')); return p.get('blg') && Number.isFinite(v) ? v : undefined; },
+  write: (p, v) => { if (v !== null) p.set('blg', String(v)); },
+};
+/** 2つの下限の組み合わせ方。無ければ「どちらも満たす」 */
+const combineCodec = enumParam<BestLineupCombine>('blc', BEST_LINEUP_COMBINES, 'both');
 /** 範囲。無ければ歴代（2016-17〜）、あればそのシーズンだけ（例 2025-26） */
 const rangeCodec: UrlCodec<string | null> = {
   keys: ['blse'],
@@ -70,12 +78,16 @@ export default function BestLineupFigure({ season, category }: FigureProps) {
   const [gameType, setGameType] = useUrlState(gameCodec, 'regular');
   const [topParam, setTop] = useUrlState(topCodec, '10');
   const [minParam, setMin] = useUrlState(minCodec, null);
+  const [gamesParam, setGames] = useUrlState(gamesCodec, null);
+  const [combine, setCombine] = useUrlState(combineCodec, 'both');
   const [rangeParam, setRange] = useUrlState(rangeCodec, null);
   const [ocParam, setOc] = useUrlState(ocCodec, null);
   const [teamParam, setTeam] = useUrlState(teamCodec, null);
   const size = Number(sizeParam) as BestLineupSize;
   const slider = BEST_LINEUP_SLIDER[size];
   const minPoss = minParam !== null ? clampBestLineupMin(size, minParam) : BEST_LINEUP_MIN_POSS_DEFAULT[size];
+  const minGames = gamesParam !== null ? clampBestLineupGames(gamesParam) : 0;
+  const minLabel = bestLineupMinLabel(minPoss, minGames, combine);
   const top = Number(topParam);
   const target = useRef<HTMLDivElement>(null);
   const request = useJsonData(() => category === 'premier' ? fetchBestLineups(size) : Promise.resolve(null), [size, category], { discardStale: true });
@@ -95,7 +107,7 @@ export default function BestLineupFigure({ season, category }: FigureProps) {
   const groups = useMemo(() => teamId === null ? groupsInRange : groupsInRange.filter(g => g.teamId === teamId), [groupsInRange, teamId]);
   const ocValues = useMemo(() => ocChoices(groups, size), [groups, size]);
   const oc = ocParam !== null && ocValues.includes(ocParam) ? ocParam : null;
-  const ranked = useMemo(() => queryBestLineups(groups, { gameType, oc, minPoss, sort }), [groups, gameType, oc, minPoss, sort]);
+  const ranked = useMemo(() => queryBestLineups(groups, { gameType, oc, minPoss, minGames, combine, sort }), [groups, gameType, oc, minPoss, minGames, combine, sort]);
   const shown = useMemo(() => topBestLineups(ranked, top), [ranked, top]);
   const hl = useHighlightClubs({ season, category, teams: clubs, divisionOf: () => undefined, allTime: true });
   // チームを選んでいるときは、強調するクラブは使わない（1チームだけの並びなので）
@@ -116,17 +128,23 @@ export default function BestLineupFigure({ season, category }: FigureProps) {
     { kind: 'select', id: 'blSize', label: '人数', tier: 'primary', value: sizeParam, defaultValue: '5', options: SIZE_VALUES.map(v => ({ value: v, label: `${v}人` })), onChange: v => { setSize(v as `${BestLineupSize}`); setMin(null); setOc(null); } },
     { kind: 'select', id: 'blSort', label: '並び順', tier: 'primary', value: sort, defaultValue: 'net', options: BEST_LINEUP_SORTS.map(s => ({ value: s, label: s === 'def' ? `${BEST_LINEUP_SORT_LABELS[s]}（低い順）` : `${BEST_LINEUP_SORT_LABELS[s]}（${s === 'min' ? '長い' : '高い'}順）` })), onChange: v => setSort(v as BestLineupSort) },
     gameTypeAxis(gameType, setGameType, null),
-    { kind: 'popover', id: 'blMin', label: '下限', tier: 'primary', value: String(minPoss), defaultValue: String(BEST_LINEUP_MIN_POSS_DEFAULT[size]), onChange: () => setMin(null), summary: `攻守とも${minPoss}ポゼッション以上`, chipValue: `攻守とも${minPoss}ポゼッション以上`,
-      content: <EligibilitySlider label="ポゼッション（攻守とも）" value={minPoss} min={slider.min} max={slider.max} step={slider.step} format={v => String(v)} onChange={v => setMin(v === BEST_LINEUP_MIN_POSS_DEFAULT[size] ? null : v)} /> },
+    { kind: 'popover', id: 'blMin', label: '下限', tier: 'primary', value: `${minPoss}|${minGames}|${combine}`, defaultValue: `${BEST_LINEUP_MIN_POSS_DEFAULT[size]}|0|both`, onChange: () => { setMin(null); setGames(null); setCombine('both'); }, summary: minLabel, chipValue: minLabel,
+      content: <div className="best-lineup-mins">
+        <EligibilitySlider label="ポゼッション（攻守とも）" value={minPoss} min={slider.min} max={slider.max} step={slider.step} format={v => String(v)} onChange={v => setMin(v === BEST_LINEUP_MIN_POSS_DEFAULT[size] ? null : v)} />
+        <EligibilitySlider label="試合数（一緒に出た試合）" value={minGames} min={BEST_LINEUP_GAMES_SLIDER.min} max={BEST_LINEUP_GAMES_SLIDER.max} step={BEST_LINEUP_GAMES_SLIDER.step} format={v => v === 0 ? '指定なし（0）' : String(v)} onChange={v => setGames(v === 0 ? null : v)} />
+        <div className="best-lineup-combine" role="radiogroup" aria-label="2つの下限の組み合わせ方">
+          {BEST_LINEUP_COMBINES.map(c => <label key={c}><input type="radio" name="best-lineup-combine" checked={combine === c} disabled={minGames === 0} onChange={() => setCombine(c)} />{BEST_LINEUP_COMBINE_LABELS[c]}</label>)}
+        </div>
+      </div> },
     { kind: 'select', id: 'blOc', label: 'オンザコート', tier: 'primary', value: oc === null ? 'all' : String(oc), defaultValue: 'all', options: [{ value: 'all', label: 'すべて' }, ...ocValues.map(v => ({ value: String(v), label: `OC${v}` }))], onChange: v => setOc(v === 'all' ? null : Number(v)) },
     { kind: 'select', id: 'blTop', label: '表示', tier: 'primary', value: topParam, defaultValue: '10', options: [{ value: '10', label: '上位10組' }, { value: '20', label: '上位20組' }], onChange: v => setTop(v as '10' | '20') },
     ...(teamId === null ? [hl.axis] : []),
   ];
   const teamLabel = teamId === null ? null : teamShortName(teamId, clubs.find(c => c.teamId === teamId)?.teamName ?? teamId);
-  const conditions = [range, ...(teamLabel ? [teamLabel] : []), `${size}人`, gameLabels[gameType], `攻守とも${minPoss}ポゼッション以上`, ...(oc === null ? [] : [`OC${oc}`]), sortLabel(sort), ...(teamId === null ? hl.labels : [])];
+  const conditions = [range, ...(teamLabel ? [teamLabel] : []), `${size}人`, gameLabels[gameType], minLabel, ...(oc === null ? [] : [`OC${oc}`]), sortLabel(sort), ...(teamId === null ? hl.labels : [])];
   const title = '最強ラインナップ';
   const baseDate = rangeSeason === null ? { kind: 'allTime' as const, gameType } : isCurrent ? { kind: 'season' as const, season: rangeSeason, gameType } : undefined;
-  const reset = () => { setRange(null); setTeam(null); setSize('5'); setSort('net'); setGameType('regular'); setTop('10'); setMin(null); setOc(null); hl.setIds([]); };
+  const reset = () => { setRange(null); setTeam(null); setSize('5'); setSort('net'); setGameType('regular'); setTop('10'); setMin(null); setGames(null); setCombine('both'); setOc(null); hl.setIds([]); };
 
   if (category !== 'premier') return <section aria-label="最強ラインナップ"><p className="empty-message">この図は B.PREMIER（旧B1）だけです。</p></section>;
   const card = (r: RankedBestLineup) => <LineupCard key={r.row.group.key} item={r} size={size} sort={sort} highlighted={hlIds.includes(r.row.group.teamId)} color={colorOf(r.row.group.teamId)} playerLabel={playerLabel} />;

@@ -22,7 +22,7 @@ import { makeClassifier, type SeasonRegistrationFile } from "../shared/registrat
 import { seasonRuleFor } from "../shared/seasonRules.ts";
 import {
   BEST_LINEUP_FIRST_SEASON,
-  BEST_LINEUP_MIN_POSS_OPTIONS,
+  BEST_LINEUP_FILE_MIN_POSS,
   BEST_LINEUP_SIZES,
   BL_GAMES,
   BL_OPP,
@@ -191,8 +191,7 @@ async function main(): Promise<void> {
       w.opp += acc.sums[BL_OPP_POSS]! + acc.sums[BL_SUM_WIDTH + BL_OPP_POSS]!;
       whole.set(k, w);
     }
-    const options = BEST_LINEUP_MIN_POSS_OPTIONS[size];
-    const minPoss = Math.min(...options);
+    const minPoss = BEST_LINEUP_FILE_MIN_POSS;
     if (MEASURE) {
       const regular = new Map<string, { own: number; opp: number }>();
       for (const acc of map.values()) {
