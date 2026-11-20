@@ -8312,25 +8312,6 @@ table.sortable-table.lineup-search-table tbody th {
   background: color-mix(in srgb, var(--rank-top-bg) 55%, transparent);
 }
 
-/* 外国籍人数別: 「9勝4敗」の勝・敗それぞれの色（マスの中の短い帯。濃さは条件別順位表と同じ） */
-.foreign-count-table .rank-tier-chip {
-  display: inline-block;
-  padding: 0 3px;
-  border-radius: 3px;
-}
-
-.foreign-count-table .rank-tier-chip.rank-tier-top {
-  background: var(--rank-top-bg);
-}
-
-.foreign-count-table .rank-tier-chip.rank-tier-1 {
-  background-image: linear-gradient(var(--rank-top-bg), var(--rank-top-bg));
-}
-
-.foreign-count-table .rank-tier-chip.rank-tier-3 {
-  background: color-mix(in srgb, var(--rank-top-bg) 55%, transparent);
-}
-
 .tab-bar-with-toggle > .compare-rank-toggle {
   margin-left: auto;
 }
@@ -9665,6 +9646,12 @@ table.sortable-table.tts-table th {
 .foreign-count-table :is(th, td).fc-season { background: color-mix(in srgb, var(--fg) 7%, var(--bg)); }
 .foreign-count-table th.fc-head { text-align: center; cursor: default; }
 .foreign-count-table thead th { cursor: pointer; }
+/* 見出しの2行目（試合数・勝・負・勝率）は固定しない（順位・チームの固定が、2行目の先頭2つにも効いて左に残るのを防ぐ） */
+.foreign-count-table.sortable-table thead tr:nth-child(2) th {
+  position: static !important;
+  left: auto !important;
+  box-shadow: none !important;
+}
 /* 上位3位の色は、まとまりごとの背景色の上に重ねる（背景色は残し、色の層だけ足す。濃さは 1位＞2位＞3位） */
 .foreign-count-table td.rank-tier-top.rank-tier-1 {
   background-image: linear-gradient(var(--rank-top-bg), var(--rank-top-bg)), linear-gradient(var(--rank-top-bg), var(--rank-top-bg));
