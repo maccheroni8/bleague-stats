@@ -9616,3 +9616,19 @@ table.sortable-table.tts-table th {
 .page-title-actions .export-controls {
   display: contents;
 }
+
+/* 順位表「外国籍人数別」タブ: 人数のまとまりごとに背景色を変える（画面・保存画像で同じ。色は --fc） */
+.foreign-count-standings .fc-g0 { --fc: #3b82f6; }
+.foreign-count-standings .fc-g1 { --fc: #10b981; }
+.foreign-count-standings .fc-g2 { --fc: #f59e0b; }
+.foreign-count-standings .fc-g3 { --fc: #ef4444; }
+.foreign-count-standings .fc-g4 { --fc: #8b5cf6; }
+.foreign-count-standings .fc-g5 { --fc: #ec4899; }
+.foreign-count-standings .fc-g6 { --fc: #14b8a6; }
+.foreign-count-table :is(th, td)[class*="fc-g"] { background: color-mix(in srgb, var(--fc) 16%, var(--bg)); }
+.foreign-count-table :is(th, td).fc-season { background: color-mix(in srgb, var(--fg) 7%, var(--bg)); }
+.foreign-count-table th.fc-head { text-align: center; cursor: default; }
+.foreign-count-table thead th { cursor: pointer; }
+.fc-group-choice { flex-wrap: wrap; align-items: center; gap: 6px; }
+.fc-choice { border-color: var(--fc); }
+.fc-choice.active { background: color-mix(in srgb, var(--fc) 28%, var(--bg)); color: var(--fg); }

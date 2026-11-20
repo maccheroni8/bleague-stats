@@ -24,6 +24,7 @@ export const GLOSSARY_ANCHORS = {
   teamStreaks: "team-streaks",
   timeToShot: "time-to-shot",
   conditionalStandings: "conditional-standings",
+  foreignCountStandings: "foreign-count-standings",
   magicNumber: "magic-number",
   profile: "profile",
   career: "career",

@@ -28,6 +28,7 @@ import { teamMultiAxis } from "../lib/filterAxes";
 import { playoffZonePreset } from "../lib/playoffZone";
 import { playoffLineSortValue, playoffLineStatus, playoffLineText, playoffWinLine, type PlayoffWinLine } from "../lib/playoffWinLine";
 import { ConditionalStandingsTable } from "../components/ConditionalStandingsTable";
+import { ForeignCountStandings } from "../components/ForeignCountStandings";
 import { ConditionLine, ConditionTitle, ExportScopeLine } from "../components/ConditionTitle";
 import { ExportImageButton } from "../components/ExportImageButton";
 import { ExportTarget } from "../components/ExportTarget";
@@ -79,6 +80,7 @@ type StandingsTab =
   | "h2h"
   | "winLoss"
   | "conditional"
+  | "foreignCount"
   | "rankTrend"
   | "winsTrend"
   | "winPctTrend"
@@ -91,6 +93,7 @@ const TAB_LABELS: Record<StandingsTab, string> = {
   winLoss: "勝敗表",
   annual: "年間スケジュール",
   conditional: "条件別順位表",
+  foreignCount: "外国籍人数別",
   rankTrend: "順位推移",
   winsTrend: "勝ち星推移",
   winPctTrend: "勝率推移",
@@ -1600,6 +1603,25 @@ export function StandingsPage({ season }: { season: string }) {
           teamColors={teamColors ?? undefined}
           resultOnlyGames={resultOnlyEntries}
         />
+      )}
+
+      {activeTab === "foreignCount" && (
+        gameLogsLoading || !gameLogsByTeam ? (
+          <p className="loading">読み込み中...</p>
+        ) : (
+          <ForeignCountStandings
+            season={season}
+            seasonLabel={seasonLabel}
+            asOfLabel={asOfLabel}
+            groups={
+              divisionStandingsGroups.length > 0
+                ? groupByDivision(standingsTeams, league).map((g) => ({ division: g.division as Division | null, teams: g.teams }))
+                : [{ division: null, teams: [...standingsTeams].sort((a, b) => a.rank - b.rank) }]
+            }
+            gameLogsByTeam={gameLogsByTeam}
+            teamColors={teamColors ?? undefined}
+          />
+        )
       )}
 
       {activeTab === "rankTrend" && (
