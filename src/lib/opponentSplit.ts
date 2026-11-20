@@ -78,7 +78,7 @@ export interface OpponentSplitRow extends AllTeamsRow, OpponentRowBase {
 
 export const OPPONENT_SPLIT_TOTAL_LABEL = "全体";
 
-function makeRow(teamId: string, key: string, name: string, opponentTeamId: string | null, logs: TeamGameLog[]): OpponentSplitRow {
+export function makeRow(teamId: string, key: string, name: string, opponentTeamId: string | null, logs: TeamGameLog[]): OpponentSplitRow {
   const wins = logs.filter((g) => g.win).length;
   return {
     key,

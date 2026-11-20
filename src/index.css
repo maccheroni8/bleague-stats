@@ -8806,6 +8806,78 @@ table.sortable-table.tts-table th {
 }
 
 
+/* 個人詳細「出場有無」の保存範囲。画面は幅いっぱい、保存画像は幅を固定する */
+.export-rendering.export-target-ps {
+  width: max-content;
+  min-width: 1280px;
+  max-width: none;
+}
+
+.export-rendering.export-target-ps .table-scroll {
+  overflow: visible;
+}
+
+.export-rendering.export-target-ps .played-split-table table.sortable-table :is(th, td):nth-child(1) {
+  position: static;
+}
+
+.played-split-block + .played-split-block {
+  margin-top: 20px;
+}
+
+.played-split-team {
+  margin: 12px 0 6px;
+  font-size: 16px;
+}
+
+/* 左の「条件」の列を固定して、残りの成績の列を横にスクロールする。差の行（一番下）は太字 */
+.played-split-table table.sortable-table :is(th, td):nth-child(1) {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  width: 190px;
+  min-width: 190px;
+  max-width: 190px;
+  background: var(--bg);
+  white-space: normal;
+  text-align: left;
+}
+
+.played-split-table table.sortable-table th:nth-child(1) {
+  background: var(--header-bg);
+  z-index: 2;
+}
+
+.played-split-table table.sortable-table tr.pinned-row td:nth-child(1) {
+  background: var(--header-bg);
+}
+
+.played-split-table table.sortable-table tbody td {
+  font-weight: 400;
+}
+
+.played-split-table table.sortable-table tbody tr:last-child td {
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .played-split-table table.sortable-table :is(th, td):nth-child(1) {
+    box-shadow: 1px 0 0 var(--border);
+  }
+}
+
+@media (max-width: 560px) {
+  .played-split-table table.sortable-table :is(th, td):nth-child(1) {
+    width: 92px;
+    min-width: 92px;
+    max-width: 92px;
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+}
+
+
 /* 保存画像: 選手が並ぶ画面のチームの略称を、チームの色で塗る（TeamChip。画面では文字のまま。文字の色は色の明るさに合わせて白か黒） */
 .export-rendering .team-chip[style*="--team-color"] {
   display: inline-block;

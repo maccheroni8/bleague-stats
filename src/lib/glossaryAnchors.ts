@@ -14,6 +14,7 @@ export const GLOSSARY_ANCHORS = {
   lineupSearch: "lineup-search",
   lineupRanking: "lineup-ranking",
   onOff: "on-off",
+  playedSplit: "played-split",
   gameLineups: "game-lineups",
   assists: "assists",
   records: "records",
