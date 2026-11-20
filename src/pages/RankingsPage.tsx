@@ -6,6 +6,7 @@ import { TeamGameRecordRanking } from "../components/TeamGameRecordRanking";
 import { TeamAttendanceRanking, ATTENDANCE_SCOPE_PARAM } from "../components/TeamAttendanceRanking";
 import { TeamSeasonRecordRanking } from "../components/TeamSeasonRecordRanking";
 import { PlayerCareerRecordRanking, TeamCareerRecordRanking } from "../components/CareerRecordRanking";
+import { DEFAULT_ROLE_SHARE_PERCENT, ROLE_PARAM, ROLE_SHARE_PARAM, roleAxis, roleLabels } from "../lib/appearanceRole";
 import { EligibilitySlider } from "../components/EligibilitySlider";
 import { isPaint2Key, paintOf, paintRankable, paintRecord } from "../lib/teamPaint2";
 import { noGamesRanking, teamRecordText, yahooRecordByTeam } from "../lib/teamRankingRecord";
@@ -831,6 +832,9 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
   const [period, setPeriod] = useUrlState(PLAYER_SEASON_PERIOD_PARAM, "all");
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
+  // スタメン出場時／ベンチ出場時（設計書433章）
+  const [role, setRole] = useUrlState(ROLE_PARAM, "both");
+  const [rolePercent, setRolePercent] = useUrlState(ROLE_SHARE_PARAM, DEFAULT_ROLE_SHARE_PERCENT);
 
   // 集計（掲載基準・試合ログの読み込み・行・値の定義・スタッツの条件の項目）は src/lib/playerSeasonRanking.ts。前シーズン比較の前季でも同じ処理を使う（DESIGN.md 218章）
   const {
@@ -850,6 +854,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
     effPeriodActive,
     periodActive,
     filterActive,
+    roleActive,
     gameTypeActive,
     periodOption,
     needsGameLogRecompute,
@@ -879,6 +884,8 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
     displayMode,
     period,
     statConditions,
+    role,
+    rolePercent,
   }, { league });
   const positionOptions = useMemo(() => positionFilterOptions(players, positions), [players, positions]);
 
@@ -921,6 +928,8 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
       displayMode,
       period,
       statConditions: DEFAULT_STAT_CONDITIONS,
+      role,
+      rolePercent: 0,
     },
     { enabled: compareActive, skipConditionItems: true, skipEligibility: true, league },
   );
@@ -989,7 +998,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
   const filterIgnoredForItem =
     category !== "shooting" &&
     ["eff", "per"].includes(selectedItem.key) &&
-    (filterActive || gameTypeActive || periodActive);
+    (filterActive || gameTypeActive || periodActive || roleActive);
   const playerCategoryLabel =
     category === "shooting"
       ? CATEGORY_LABELS.shooting
@@ -1005,7 +1014,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
           ? ["Bリーグ（2016-17）以降の累計"]
         : filterIgnoredForItem
           ? composeLabels(gameTypeLabels("regular", null), SITUATIONAL_DEFAULT_LABEL, "試合全体", "※この項目はフィルタ対象外")
-          : composeLabels(gameTypeLabels(gameType, season), situationalFilterLabels(filter), periodLabels(periodOption));
+          : composeLabels(gameTypeLabels(gameType, season), situationalFilterLabels(filter), periodLabels(periodOption), roleLabels(role, rolePercent));
   const playerTitle = makeRankingTitle(
     "個人",
     season,
@@ -1110,6 +1119,12 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
           : `「${statJa(selectedItem.label)}」は割合・率（または試合数）の項目のため、平均/合計の切り替えの対象外です。`,
     }),
     periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, { disabledReason: playerFilterDisabledReason }),
+    roleAxis({
+      role,
+      onChange: setRole,
+      share: { value: rolePercent, onChange: setRolePercent },
+      disabledReason: playerFilterDisabledReason,
+    }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
@@ -1126,6 +1141,8 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
     setGameType("regular");
     setDisplayMode("perGame");
     setPeriod("all");
+    setRole("both");
+    setRolePercent(DEFAULT_ROLE_SHARE_PERCENT);
     setFilter({ range: { kind: "all" } });
     setCompareParam("off");
     eligibilityAxis.onChange("");

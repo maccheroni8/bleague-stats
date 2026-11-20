@@ -5,7 +5,7 @@
 // 行を全件オブジェクトにはしない（全シーズンで選手13万行）。試合ごとの条件は「試合×ホーム/アウェイ」の事実の表（GameSideFacts。約1万2千件）で先に判定し、
 // 通った行だけを playerGameAt・teamGameAt でオブジェクトにする。
 import { FIRST_LEAGUE_SEASON } from "../../shared/rookieEligibility";
-import { GAME_FLAG_PLAYOFF, GAME_FLAG_SHORT, ROW_FLAG_HOME, type IndexGames, type IndexTeam } from "../../shared/gameIndex";
+import { GAME_FLAG_PLAYOFF, GAME_FLAG_SHORT, ROW_FLAG_HOME, ROW_FLAG_STARTER, type IndexGames, type IndexTeam } from "../../shared/gameIndex";
 import { PLAYER_GAME_RECORD_STATS, type PlayerGameRecordDef, type PlayerRecordGame } from "../../shared/playerGameRecords";
 import { periodRecordKindDef, periodScore, type PeriodKey, type PeriodRecordKind } from "../../shared/teamPeriodRecords";
 import { TEAM_RECORD_STATS, teamRecordDetail, type TeamRecordValueDef } from "../../shared/teamRecords";
@@ -13,6 +13,7 @@ import type { Division, PlayerGameRecordEntry, RookieEligibilityFile, TeamGameLo
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
 import { formatMinutesFromSeconds } from "./boxscoreAggregate";
 import { classPartOf, indexRowClassMatches, isRookieFilter, positionFilterValue, type PlayerGroupFilter } from "./classificationFilter";
+import type { RoleFilter } from "./appearanceRole";
 import { formatPct, formatSigned } from "./format";
 import {
   playerGameAt,
@@ -218,6 +219,8 @@ export interface PlayerQuery {
   rookies: RookieEligibilityFile | null;
   /** 指定時、この選手IDの記録だけ（現役の絞り込み。今季の名簿の選手。DESIGN.md 222章） */
   activeIds?: ReadonlySet<string> | null;
+  /** スタメン出場時／ベンチ出場時だけ（設計書433章） */
+  role?: RoleFilter;
   /** 指定時、選手名を今の登録名にする（歴代など、複数のシーズンをまたぐ表。選手ID → 名前。DESIGN.md 222-5）。無い選手は、その試合のシーズンの名前 */
   currentNames?: ReadonlyMap<string, string> | null;
   stat: PlayerQueryStat;
@@ -239,6 +242,33 @@ export interface PlayerRowFilterInput {
   rookies: RookieEligibilityFile | null;
   /** 指定時、この選手IDの記録だけ（現役の絞り込み。今季の名簿の選手。DESIGN.md 222章） */
   activeIds?: ReadonlySet<string> | null;
+  /** スタメン出場時／ベンチ出場時だけ（設計書433章）。省略・"both" は全試合。先発かどうかが判定できない試合（その側の先発が記録に1人もいない）は除く */
+  role?: RoleFilter;
+}
+
+const starterSidesCache = new WeakMap<object, Uint8Array>();
+
+/** 試合の番号×2＋(ホーム 0／アウェイ 1) の位置に、その側の先発が記録にあるか（1／0）を並べる */
+export function starterSides(file: PlayerGameIndexView["file"]): Uint8Array {
+  const cached = starterSidesCache.get(file);
+  if (cached) return cached;
+  const { rows, games } = file;
+  const out = new Uint8Array(games.key.length * 2);
+  for (let i = 0; i < rows.game.length; i++) {
+    if ((rows.flags[i]! & ROW_FLAG_STARTER) !== 0) out[rows.game[i]! * 2 + ((rows.flags[i]! & ROW_FLAG_HOME) !== 0 ? 0 : 1)] = 1;
+  }
+  starterSidesCache.set(file, out);
+  return out;
+}
+
+/** i行目をスタメン／ベンチの条件で残すか */
+export function rowMatchesRole(view: PlayerGameIndexView, i: number, role: RoleFilter): boolean {
+  if (role === "both") return true;
+  const { rows } = view.file;
+  const flags = rows.flags[i]!;
+  const starter = (flags & ROW_FLAG_STARTER) !== 0;
+  if (!starter && starterSides(view.file)[rows.game[i]! * 2 + ((flags & ROW_FLAG_HOME) !== 0 ? 0 : 1)] !== 1) return false;
+  return starter === (role === "starter");
 }
 
 /** i行目の、その側から見た試合の事実（gameFacts の表から引く） */
@@ -260,6 +290,7 @@ export function playerRowFilter(q: PlayerRowFilterInput): (view: PlayerGameIndex
     if (!matchesGame(f, q.gameType, q.conditions)) return false;
     const p = view.file.players[view.file.rows.player[i]!]!;
     if (q.activeIds && !q.activeIds.has(p[0])) return false;
+    if (q.role && !rowMatchesRole(view, i, q.role)) return false;
     if (rookie) {
       // 2016-17は、それ以前の経歴が無くルーキーを判定できない（rookieFilter.ts の rookieSupportedSeason と同じ）
       if (view.season <= FIRST_LEAGUE_SEASON || !rookieOfIndex(q.rookies, view.season, p[0])) return false;

@@ -10,6 +10,7 @@ import { fetchLeaguePlayerGameRecordTable, fetchPlayerGameRecords } from "../lib
 import type { PlayerRecordPartGroup } from "../lib/leagueRecordParts";
 import { useLeague } from "../lib/league";
 import { ONE_ROOKIE_REASON } from "../lib/leagueAvailability";
+import { ROLE_PARAM, roleAxis, roleLabels } from "../lib/appearanceRole";
 import { classificationAxis, rookieAxis, gameTypeAxis, multiSelectAxis, periodAxis, simpleSelectAxis, statItemAxis, type FilterAxis } from "../lib/filterAxes";
 import { isRookieFilter, positionFilterOptions, selectedPositionLabels, splitSeasonsOnly, withRookie, SPLIT_CLASSIFICATION_FIRST_SEASON, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked, topFileClassKey } from "../lib/classificationFilter";
 import { hasRegistrationChanges, splitRecordedSeasons, useRegistrationChanges } from "../lib/registrationScope";
@@ -101,6 +102,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
   const [activeParam, setActive] = useUrlState(ACTIVE_PARAM, "all");
   const [periodParam, setPeriod] = useUrlState(GAME_RECORD_PERIOD_PARAM, "all");
+  const [role, setRole] = useUrlState(ROLE_PARAM, "both");
   const allTime = scope === "allTime";
   // Q別・前後半（試合全体は null）。選ぶと、その区間の値で条件・並びを決める（ピリオド別の索引。DESIGN.md 225章）
   const period = gameRecordPeriodOf(periodParam);
@@ -148,6 +150,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
       positions.length > 0 ||
       isRookieFilter(group) ||
       hasStatConditions ||
+      role !== "both" ||
       !includeSpecial ||
       activeOn ||
       topKey === null ||
@@ -187,13 +190,14 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
             statConditions,
             rookies: rookies.file,
             activeIds: activeOn ? active.ids : null,
+            role,
             currentNames: allTime ? current.names : null,
             stat,
             includeSpecial,
             period: period && periodIndex.views ? { period, views: periodIndex.views } : undefined,
           })
         : null,
-    [index.views, periodIndex.views, period, gameType, conditions, group, positions, statConditions, rookies.file, activeOn, active.ids, allTime, current.names, stat, includeSpecial],
+    [index.views, periodIndex.views, period, gameType, conditions, group, positions, statConditions, rookies.file, activeOn, active.ids, allTime, current.names, stat, includeSpecial, role],
   );
 
   // 区間を選んだとき（とページを開いたとき）に、選べない「ワースト」を外す
@@ -230,6 +234,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
     group !== "all" && classificationLabels(group),
     positionLabels,
     gameTypeLabels(gameType, seasonForTitle),
+    roleLabels(role, null),
     gameRecordConditionLabels(conditions, teamName, includeSpecialDefault),
   );
   const modeLabel = mode === "worst" ? "ワースト" : "記録";
@@ -245,6 +250,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
     setActive("all");
     setGameType("regular");
     setPeriod("all");
+    setRole("both");
     setPositions(EMPTY_POSITIONS);
     setConditions(DEFAULT_GAME_RECORD_CONDITIONS);
     setStatConditions({ ...statConditions, conditions: [] });
@@ -258,6 +264,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
     ...(allTime ? [activeAxis(activeParam, setActive)] : []),
     gameTypeAxis(gameType, setGameType, seasonForTitle),
     periodAxis(periodParam, setPeriod, GAME_RECORD_PERIOD_OPTIONS, {}),
+    roleAxis({ role, onChange: setRole }),
     simpleSelectAxis({
       id: "recordMode",
       label: "記録の種類",
