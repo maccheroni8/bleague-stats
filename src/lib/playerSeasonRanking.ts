@@ -495,7 +495,7 @@ export interface PlayerRankingParams {
 export function usePlayerSeasonRanking(
   season: string,
   params: PlayerRankingParams,
-  opts: { enabled?: boolean; skipConditionItems?: boolean; league?: League } = {},
+  opts: { enabled?: boolean; skipConditionItems?: boolean; league?: League; skipEligibility?: boolean } = {},
 ) {
   const enabled = opts.enabled ?? true;
   const league: League = opts.league ?? "premier";
@@ -594,10 +594,12 @@ export function usePlayerSeasonRanking(
     const base = filterEligiblePlayers(players, teams, gamesRatio, extraRuleKey(statKey), extraThreshold, remainingByTeam).filter(
       (p) => groupOk(p) && matchesPositionFilter(p, positionSet),
     );
-    return category === "shooting" ? filterShotPctMinAttempts(base.filter((p) => !!p.shotTypes), teams, statKey) : base;
+    if (category !== "shooting") return base;
+    const withShots = base.filter((p) => !!p.shotTypes);
+    return opts.skipEligibility ? withShots : filterShotPctMinAttempts(withShots, teams, statKey);
     // groupOk は group・rookieIds・classScope.changed から決まる
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopedPlayers, teams, gamesRatio, remainingByTeam, statKey, extraThreshold, group, positions, rookieActive, rookieIds, category, registeredTarget, registeredPlayers, overtimeActive, periodFiltersApply, overtimeIds, classScope.changed]);
+  }, [scopedPlayers, teams, gamesRatio, remainingByTeam, statKey, extraThreshold, opts.skipEligibility, group, positions, rookieActive, rookieIds, category, registeredTarget, registeredPlayers, overtimeActive, periodFiltersApply, overtimeIds, classScope.changed]);
 
   // シーズンが変わったら取得済みキャッシュをリセットする
   useEffect(() => {
