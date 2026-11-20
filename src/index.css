@@ -9465,6 +9465,7 @@ table.sortable-table.tts-table th {
 .annual-save-range {
   font-size: 0.85rem;
   color: var(--text-muted, inherit);
+}
 
 /* On-Court Foreign（全チームスタッツ）の画像保存: 保存の間だけ、選んだ内容（棒グラフだけ／一覧だけ）を残す */
 .export-target-oc.oc-save-chart .table-scroll,
