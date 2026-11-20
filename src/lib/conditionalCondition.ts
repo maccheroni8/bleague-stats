@@ -166,7 +166,8 @@ export function describeCondition(condition: ConditionalCondition): string {
 }
 
 /**
- * 条件別順位表の見出し「●●の試合 順位表」。選んだ条件の名前（選択肢と同じ言い方）を「・」でつなぎ、「の試合」を付ける。
+ * 条件別順位表の見出し「●●の試合」（設計書425章: 「順位表」は付けない。試合割合など勝率以外で並べることもあるため。並び順はサブタイトルに出る）。
+ * 選んだ条件の名前（選択肢と同じ言い方）を「・」でつなぎ、「の試合」を付ける。
  * 条件なし（シーズン全体）だけのときは「順位表」。名前がすでに「試合」「ゲーム」で終わるもの（「3点差以内の試合」「直近5試合」）は
  * そのまま、「リードした」のような動詞の過去形は「の」を挟まず「試合」だけ付ける
  */
@@ -175,7 +176,7 @@ export function conditionalStandingsTitle(conditions: readonly ConditionalCondit
   if (names.length === 0) return "順位表";
   const joined = names.join("・");
   const suffix = /(試合|ゲーム)$/.test(joined) ? "" : /た$/.test(joined) ? "試合" : "の試合";
-  return `${joined}${suffix} 順位表`;
+  return `${joined}${suffix}`;
 }
 
 /** 「対東地区」「対同地区」「対他地区」 */

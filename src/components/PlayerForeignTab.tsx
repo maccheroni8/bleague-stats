@@ -126,7 +126,7 @@ export function PlayerForeignTab({
   }, [file, playerId, games, side, gameType, on4Active, on4Feasible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const total = displayMode === "total";
-  const heading = `${season}シーズン ${playerName} On-Court Foreign`;
+  const heading = `${season}シーズン ${playerName} オンザコート割合`;
   const conditions = composeLabels(
     displayModeLabels(displayMode),
     gameTypeLabels(gameType, season),

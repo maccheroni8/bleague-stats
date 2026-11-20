@@ -1118,7 +1118,11 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   // 主表の見出し。カテゴリごとに実際に効いている軸だけを条件として並べる（シューティング以降の
   // 専用ビューはシーズン通算値のみで、S・G・Vは対象外。その旨を固定ラベルで明示する）
   const statsTitle = {
-    title: `${season}シーズン 全チームスタッツ：${TEAMS_STATS_CATEGORY_LABELS[boxTab]}`,
+    // On-Court Foreign は「オンザコート割合」（設計書425章。保存画像は一覧だけのとき「（一覧）」を付ける。画面は両方を出すので付けない）
+    title:
+      boxTab === "foreignPlayers"
+        ? `${season}シーズン ${ocSavePart === "table" ? "オンザコート割合（一覧）" : "オンザコート割合"}`
+        : `${season}シーズン 全チームスタッツ：${TEAMS_STATS_CATEGORY_LABELS[boxTab]}`,
     conditions:
       boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring" || boxTab === "periods"
         ? composeLabels(
@@ -1340,7 +1344,11 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
                     key: part,
                     label: part === "chart" ? "棒グラフだけ" : "一覧だけ",
                     targetRef: exportRef,
-                    filename: buildExportFilename([statsTitle.title, part === "chart" ? "棒グラフ" : "一覧", ...statsTitle.conditions]),
+                    filename: buildExportFilename([
+                      `${season}シーズン ${part === "chart" ? "オンザコート割合" : "オンザコート割合（一覧）"}`,
+                      ...(part === "chart" ? ["棒グラフ"] : []),
+                      ...statsTitle.conditions,
+                    ]),
                     baseDate: { kind: "season", season, gameType },
                     activate: async () => {
                       setOcSavePart(part);
