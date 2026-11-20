@@ -1,0 +1,27 @@
+{
+  "_comment": "不戦勝／不戦敗の台帳（DESIGN.md 431章）。公式の日程のカードが「不戦勝／不戦敗」＋得点に変わる前でも、公式のお知らせを根拠に勝敗・得失点へ入れるための手書きの行。公式のカードが読めたときは、そちらが優先される（上書きされる）。この場所は保存キーの対象外。行を足したら npm run apply:forfeit-ledger を流す。",
+  "games": [
+    {
+      "season": "2026-27",
+      "category": "premier",
+      "scheduleKey": "506592",
+      "date": "2026-11-15",
+      "homeTeamId": "716",
+      "homeTeamName": "信州ブレイブウォリアーズ",
+      "awayTeamId": "712",
+      "awayTeamName": "茨城ロボッツ",
+      "homeScore": 20,
+      "awayScore": 0,
+      "gameType": "regular",
+      "venue": "長野県｜ホワイト",
+      "tipoffTime": "14:05",
+      "reason": "forfeit",
+      "source": {
+        "url": "https://www.bleague.jp/news_detail/id=667751",
+        "title": "りそなグループ B.LEAGUE 2026-27 B.LEAGUE PREMIER リーグ戦「信州ブレイブウォリアーズ vs 茨城ロボッツ」の当該試合の取り扱いについて",
+        "announcedOn": "2026-11-20",
+        "rule": "Bリーグ規約 第57条第1項〔敗戦とみなす場合〕: 帰責側は原則0対20の敗戦とみなす（試合は始まっておらず、中止時点の最終スコアは0-0なので20-0）。帰責のない側の年間平均得点の算定では当該試合の得点を除く。"
+      }
+    }
+  ]
+}

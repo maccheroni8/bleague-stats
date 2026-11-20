@@ -31,6 +31,7 @@
 
 import path from "node:path";
 import { createThrottledFetch, formatRequestCounts } from "./lib/throttle.ts";
+import { forfeitLedgerEntries, ledgerFill } from "./lib/forfeitLedger.ts";
 import { DATA_DIR, listStoredScheduleKeys, classifyStoredGames, readJson, seasonDirName, writeJson } from "./lib/storage.ts";
 import { seasonStartYearForDate } from "./lib/season.ts";
 import { isMainModule } from "./lib/isMain.ts";
@@ -451,7 +452,10 @@ async function resolveResultOnly(
     checkStale: boolean;
   },
 ): Promise<{ resultOnlyGames: ResultOnlyGameEntry[]; upcoming: UpcomingGameEntry[] }> {
-  const withBoxscore = await listStoredScheduleKeys(season, category);
+  // 生データがある試合（空の枠を含む）。「ボックススコアが無い試合」の判定が、取り込み途中の試合を取り違えないための範囲
+  const withData = await listStoredScheduleKeys(season, category);
+  // 本物の生データがある試合だけ。不戦勝／不戦敗は、取り込みが作った空の枠（得点なし・全員DNP）があっても結果だけの試合にする（431章）
+  const withBoxscore = (await classifyStoredGames(season, category)).real;
   const existingKeys = new Set(input.existing.map((g) => g.scheduleKey));
   // 名前→TeamID の補い（試合ページのクラブのリンクから読めなかったとき）。現在の正式名称のみ
   const fallbackTeamIdByName = new Map<string, string>(Object.entries(TEAM_NAMES).map(([id, name]) => [name, id]));
@@ -480,7 +484,7 @@ async function resolveResultOnly(
   if (input.checkStale) {
     const today = todayJst();
     for (const g of input.upcoming) {
-      if (existingKeys.has(g.scheduleKey) || withBoxscore.has(g.scheduleKey)) continue;
+      if (existingKeys.has(g.scheduleKey) || withData.has(g.scheduleKey)) continue;
       if (!isOlderThanDays(g.date, today, NO_BOXSCORE_AFTER_DAYS)) continue;
       const info = await detailOf(g.scheduleKey);
       if (!info) continue;
@@ -491,7 +495,12 @@ async function resolveResultOnly(
     }
   }
 
-  const rec = reconcileResultOnly({ existing: input.existing, built, withBoxscore });
+  // 台帳（docs/forfeit-ledger。公式のお知らせを根拠にした手書きの行）は、公式のカードから作れなかった試合にだけ足す（公式のカード＞台帳）
+  const ledger = ledgerFill(forfeitLedgerEntries(season, category), input.existing, built);
+  for (const g of ledger) {
+    console.log(`[${season}] 台帳から不戦勝／不戦敗を加えます: ScheduleKey=${g.scheduleKey} ${g.date} ${g.homeTeamName} ${g.homeScore}-${g.awayScore} ${g.awayTeamName}`);
+  }
+  const rec = reconcileResultOnly({ existing: input.existing, built: [...built, ...ledger], withBoxscore });
   for (const key of rec.added) {
     const g = rec.entries.find((e) => e.scheduleKey === key)!;
     console.log(
@@ -590,10 +599,15 @@ async function main(): Promise<void> {
       for (const key of listedWithOtherDate) forceRefresh.add(key);
     }
 
+    // 結果だけの試合（不戦勝／不戦敗の台帳を含む）にした試合は、日程のカードがまだ「試合中止」でも中止に戻さない（431章）
+    const settledResultOnly = new Set([
+      ...(existingFile?.resultOnlyGames ?? []).map((g) => g.scheduleKey),
+      ...forfeitLedgerEntries(season, category).map((g) => g.scheduleKey),
+    ]);
     const resolved = await resolveCancelled(season, category, {
       existingKeys,
       normalKeys: [...new Set([...recentKeys, ...windowKeys])],
-      cancelledKeys: [...new Set([...recent.cancelledKeys, ...windowCancelledKeys])],
+      cancelledKeys: [...new Set([...recent.cancelledKeys, ...windowCancelledKeys])].filter((k) => !settledResultOnly.has(k)),
       existingUpcoming: existingFile?.upcomingGames ?? [],
       existingCancelled: existingFile?.cancelledGames ?? [],
     });
@@ -648,10 +662,15 @@ async function main(): Promise<void> {
   // フル収集は、全日程を見直す（走査に載らなかった前回の scheduleKeys は引き継がない）。ただし生データ（games/）がある試合は、
   // 走査に載らなくても残す（走査の取りこぼしで、取り込み済みの試合が一覧から消えないように）。中止は、カードの検出と前回の cancelledGames から決める
   const withData = await listStoredScheduleKeys(season, category);
+  // 結果だけの試合（不戦勝／不戦敗の台帳を含む）にした試合は、日程のカードがまだ「試合中止」でも中止に戻さない（431章）
+  const settledResultOnly = new Set([
+    ...(existingFile?.resultOnlyGames ?? []).map((g) => g.scheduleKey),
+    ...forfeitLedgerEntries(season, category).map((g) => g.scheduleKey),
+  ]);
   const resolved = await resolveCancelled(season, category, {
     existingKeys: (existingFile?.scheduleKeys ?? []).filter((k) => withData.has(k)),
     normalKeys: scanned.keys,
-    cancelledKeys: scanned.cancelledKeys,
+    cancelledKeys: scanned.cancelledKeys.filter((k) => !settledResultOnly.has(k)),
     existingUpcoming: existingFile?.upcomingGames ?? [],
     existingCancelled: existingFile?.cancelledGames ?? [],
   });

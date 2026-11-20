@@ -336,6 +336,10 @@ export function GameDetailPage({ season }: { season: string }) {
     [season, league],
   );
   const cancelledEntry = scheduleKey ? scheduleFile?.cancelledGames?.find((g) => g.scheduleKey === scheduleKey) : undefined;
+  // 不戦勝／不戦敗の試合（schedule.json の resultOnlyGames の forfeit。試合の記録は無く、勝敗と得点だけがある。DESIGN.md 228・431章）
+  const forfeitEntry = scheduleKey
+    ? scheduleFile?.resultOnlyGames?.find((g) => g.scheduleKey === scheduleKey && g.reason === "forfeit")
+    : undefined;
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
   // スポーツナビの記録は B.PREMIER だけ取っている（B.ONE には無い。DESIGN.md 297章）
   const { supported: yahooPremierSupported } = useYahooPbpCoverage(season);
@@ -387,6 +391,25 @@ export function GameDetailPage({ season }: { season: string }) {
           <span className="cancelled-badge">中止</span> {cancelledEntry.date.replaceAll("-", "/")}
         </p>
         <p>この試合は中止になりました。</p>
+      </div>
+    );
+  }
+  if (forfeitEntry) {
+    const homeWon = forfeitEntry.homeScore > forfeitEntry.awayScore;
+    const winner = homeWon ? { name: forfeitEntry.homeTeamName, score: forfeitEntry.homeScore } : { name: forfeitEntry.awayTeamName, score: forfeitEntry.awayScore };
+    const loser = homeWon ? { name: forfeitEntry.awayTeamName, score: forfeitEntry.awayScore } : { name: forfeitEntry.homeTeamName, score: forfeitEntry.homeScore };
+    return (
+      <div className="game-cancelled">
+        <h2>
+          {forfeitEntry.homeTeamName} vs {forfeitEntry.awayTeamName}
+        </h2>
+        <p>
+          <span className="cancelled-badge">不戦勝</span> {forfeitEntry.date.replaceAll("-", "/")}
+        </p>
+        <p>
+          {winner.name}：不戦勝 {winner.score}-{loser.score}　／　{loser.name}：不戦敗 {loser.score}-{winner.score}
+        </p>
+        <p>この試合は行われず、勝敗と得点だけが記録されています。選手・チームのスタッツはありません。</p>
       </div>
     );
   }

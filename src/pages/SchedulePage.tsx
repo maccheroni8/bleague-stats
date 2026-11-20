@@ -947,7 +947,20 @@ function ScheduleRowView({ row, teamColors, emphasize }: { row: ScheduleRow; tea
               <ScoreText row={row} emphasize={emphasize} />
             </span>
           )}
-          {row.resultOnly === "forfeit" && <span className="cancelled-badge">不戦勝</span>}
+          {row.resultOnly === "forfeit" && (
+            <span
+              className="cancelled-badge"
+              title={
+                row.homeScore !== undefined && row.awayScore !== undefined
+                  ? row.homeScore > row.awayScore
+                    ? `${row.homeTeamName}の不戦勝（${row.homeScore}-${row.awayScore}）・${row.awayTeamName}の不戦敗（${row.awayScore}-${row.homeScore}）`
+                    : `${row.awayTeamName}の不戦勝（${row.awayScore}-${row.homeScore}）・${row.homeTeamName}の不戦敗（${row.homeScore}-${row.awayScore}）`
+                  : undefined
+              }
+            >
+              不戦勝
+            </span>
+          )}
           {row.status === "live" && <span className="live-badge">進行中</span>}
           {row.status === "cancelled" && <span className="cancelled-badge">中止</span>}
           {row.status === "upcoming" &&

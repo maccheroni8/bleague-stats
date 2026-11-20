@@ -12,6 +12,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "scrape:schedule": "node --experimental-strip-types scripts/scrape-schedule.ts",
+    "apply:forfeit-ledger": "node --experimental-strip-types scripts/apply-forfeit-ledger.ts",
+    "validate:forfeit-ledger": "node --experimental-strip-types scripts/validate-forfeit-ledger.ts",
     "scrape:boxscore": "node --experimental-strip-types scripts/scrape-boxscore.ts",
     "scrape:roster": "node --experimental-strip-types scripts/scrape-roster.ts",
     "scrape:player-awards": "node --experimental-strip-types scripts/scrape-player-awards.ts",

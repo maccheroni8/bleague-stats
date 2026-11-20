@@ -6222,7 +6222,7 @@ function ScheduleLeadCells({ row, shortDate = false }: { row: TeamScheduleRow; /
               {row.teamScore}-{row.opponentScore}
             </span>
           )}
-          {row.resultOnly === "forfeit" && <span className="cancelled-badge">不戦</span>}
+          {row.resultOnly === "forfeit" && <span className="cancelled-badge">{(row.teamScore ?? 0) > (row.opponentScore ?? 0) ? "不戦勝" : "不戦敗"}</span>}
           {row.status === "live" && <span className="live-badge">進行中</span>}
           {row.status === "upcoming" &&
             (row.tipoffTime ? (
