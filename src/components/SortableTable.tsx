@@ -19,6 +19,8 @@ export interface Column<T> {
   higherIsBetter?: boolean;
   /** 「平均」で表示しているとき、試合数で割った値になる列（カウント系。ランキングが割った試合数を添えるのに使う。割合・率の列は付けない） */
   scalesWithGames?: boolean;
+  /** この行のこの列のマスに付ける追加のクラス（上位3位の色 `rank-tier-top` など） */
+  cellClass?: (row: T) => string | undefined;
 }
 
 interface SortableTableProps<T> {
@@ -155,7 +157,7 @@ export function SortableTable<T>({
                   <td
                     key={col.key}
                     data-col={col.key}
-                    className={`${col.align === "left" ? "align-left" : "align-right"}${isFirst && accent ? " row-accent-cell" : ""}${external ? " has-external-link" : ""}`}
+                    className={`${col.align === "left" ? "align-left" : "align-right"}${isFirst && accent ? " row-accent-cell" : ""}${external ? " has-external-link" : ""}${col.cellClass?.(row) ? ` ${col.cellClass(row)}` : ""}`}
                     style={isFirst && accent ? { borderLeftColor: accent } : undefined}
                   >
                     {linkTo ? (

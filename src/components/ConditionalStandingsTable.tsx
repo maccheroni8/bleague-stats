@@ -11,6 +11,7 @@ import { simpleSelectAxis, teamMultiAxis, type FilterAxis, type FilterAxisOption
 import { ConditionTitle } from "./ConditionTitle";
 import { sortOrderLabel } from "./SortMark";
 import { SavableBlock } from "./SavableBlock";
+import { topThreeIndexes, type BetterDirection } from "../lib/topThreeTiers";
 import { SaveColumnChoice, SaveColumnHide, useSaveHiddenColumns } from "./SaveColumnChoice";
 import { buildExportFilename, clubSelectionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { formatPct, formatSigned, formatWinPct } from "../lib/format";
@@ -152,6 +153,8 @@ interface ConditionalRow {
   oppPts: number;
   pointDiff: number;
   streakLabel: string;
+  /** 今の連勝（正）・連敗（負）の数。連勝/連敗の上位3位の色に使う */
+  streakValue: number;
   /** 試合割合＝その条件の試合数 ÷ そのクラブのレギュラーシーズンの対象試合数（347章）。対象試合が0のときは0 */
   gameShare: number;
   remaining: number | null;
@@ -309,6 +312,10 @@ export function ConditionalStandingsTable({
         oppPts,
         pointDiff: pts - oppPts,
         streakLabel: formatTeamStreak(currentStreak(filtered)),
+        streakValue: (() => {
+          const s = currentStreak(filtered);
+          return s ? (s.type === "win" ? s.count : -s.count) : 0;
+        })(),
         gameShare: safeDiv(filtered.length, sorted.length),
         remaining,
       };
@@ -360,6 +367,13 @@ export function ConditionalStandingsTable({
     return { total, counted };
   }, [condition, gameLogsByTeam, opponentRecords, teams, selectedTeamIds]);
 
+  // 各項目の上位3位（良い数値）のマスの色。表に出ているクラブの中で、当てはまる試合があるクラブだけを比べる。
+  // 良し悪しの無い項目（試合数・試合割合・残り試合数）と順位には付けない。負・失点は少ないほうが良い。連勝/連敗は連勝中の長いほう
+  const tierRows = rows.filter((r) => r.gamesPlayed > 0);
+  const topClass = (valueOf: (r: ConditionalRow) => number | undefined, better: BetterDirection) => {
+    const top = new Set([...topThreeIndexes(tierRows, valueOf, better)].map((i) => tierRows[i]!.team.teamId));
+    return (r: ConditionalRow) => (top.has(r.team.teamId) && r.gamesPlayed > 0 ? "rank-tier-top" : undefined);
+  };
   const columns: Column<ConditionalRow>[] = [
     {
       key: "rank",
@@ -380,18 +394,26 @@ export function ConditionalStandingsTable({
       ),
     },
     { key: "g", label: "試合数", sortValue: (r) => r.gamesPlayed, format: (r) => String(r.gamesPlayed) },
-    { key: "wins", label: "勝", sortValue: (r) => r.wins, format: (r) => String(r.wins) },
-    { key: "losses", label: "負", sortValue: (r) => r.losses, format: (r) => String(r.losses), higherIsBetter: false },
+    { key: "wins", label: "勝", sortValue: (r) => r.wins, format: (r) => String(r.wins), cellClass: topClass((r) => r.wins, "high") },
+    { key: "losses", label: "負", sortValue: (r) => r.losses, format: (r) => String(r.losses), higherIsBetter: false, cellClass: topClass((r) => r.losses, "low") },
     {
       key: "winPct",
       label: "勝率",
       sortValue: (r) => (r.gamesPlayed === 0 ? -1 : r.winPct),
       format: (r) => (r.gamesPlayed === 0 ? "-" : formatWinPct(r.winPct)),
+      cellClass: topClass((r) => r.winPct, "high"),
     },
-    { key: "pts", label: "得点", sortValue: (r) => r.pts, format: (r) => String(r.pts) },
-    { key: "oppPts", label: "失点", sortValue: (r) => r.oppPts, format: (r) => String(r.oppPts), higherIsBetter: false },
-    { key: "pointDiff", label: "得失点差", sortValue: (r) => r.pointDiff, format: (r) => formatSigned(r.pointDiff, 0) },
-    { key: "streak", label: "連勝/連敗", sortValue: (r) => r.wins - r.losses, format: (r) => r.streakLabel },
+    { key: "pts", label: "得点", sortValue: (r) => r.pts, format: (r) => String(r.pts), cellClass: topClass((r) => r.pts, "high") },
+    { key: "oppPts", label: "失点", sortValue: (r) => r.oppPts, format: (r) => String(r.oppPts), higherIsBetter: false, cellClass: topClass((r) => r.oppPts, "low") },
+    { key: "pointDiff", label: "得失点差", sortValue: (r) => r.pointDiff, format: (r) => formatSigned(r.pointDiff, 0), cellClass: topClass((r) => r.pointDiff, "high") },
+    {
+      key: "streak",
+      label: "連勝/連敗",
+      sortValue: (r) => r.wins - r.losses,
+      format: (r) => r.streakLabel,
+      // 連勝中のクラブだけが対象（連敗・なしは色なし）
+      cellClass: topClass((r) => (r.streakValue > 0 ? r.streakValue : undefined), "high"),
+    },
     {
       key: "gameShare",
       label: "試合割合",

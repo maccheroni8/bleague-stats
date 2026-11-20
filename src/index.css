@@ -8295,6 +8295,11 @@ table.sortable-table.lineup-search-table tbody th {
   background: var(--rank-bottom-bg);
 }
 
+/* 条件別順位表: 各項目の上位3位（良い数値）のマスの色。チーム詳細と同じ色（--rank-top-bg） */
+.sortable-table td.rank-tier-top {
+  background: var(--rank-top-bg);
+}
+
 .tab-bar-with-toggle > .compare-rank-toggle {
   margin-left: auto;
 }
