@@ -11,6 +11,7 @@ import { simpleSelectAxis, teamMultiAxis, type FilterAxis, type FilterAxisOption
 import { ConditionTitle } from "./ConditionTitle";
 import { sortOrderLabel } from "./SortMark";
 import { SavableBlock } from "./SavableBlock";
+import { SaveColumnChoice, SaveColumnHide, useSaveHiddenColumns } from "./SaveColumnChoice";
 import { buildExportFilename, clubSelectionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { formatPct, formatSigned, formatWinPct } from "../lib/format";
 import { safeDiv } from "../../shared/formulas";
@@ -199,6 +200,8 @@ export function ConditionalStandingsTable({
   const [condition, setCondition] = useState<ConditionalCondition>({ kind: "all" });
   /** 表の今の並び（保存画像のサブタイトルに出す） */
   const [sortText, setSortText] = useState("");
+  /** 画像保存で載せない列（キー） */
+  const [saveHiddenCols, setSaveHiddenCols] = useSaveHiddenColumns();
   const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string> | null>(null);
 
   // シーズンが変わったら条件・チーム絞り込みをリセットする（前シーズンの選択を引き継がない）
@@ -448,10 +451,18 @@ export function ConditionalStandingsTable({
       )}
 
       <SavableBlock
+        extraControls={
+          <SaveColumnChoice
+            choices={columns.filter((c) => c.key !== "team").map((c) => ({ key: c.key, label: c.label }))}
+            hidden={saveHiddenCols}
+            onChange={setSaveHiddenCols}
+          />
+        }
         filename={buildExportFilename([`${season}シーズン`, conditionalStandingsTitle([condition]), ...savedConditions])}
         baseDate={{ kind: "season", season, gameType: "regular" }}
         className="export-target-standings"
       >
+        <SaveColumnHide hidden={saveHiddenCols} />
         {/* 見出しは条件（単一軸）のみ。シーズン・対象試合・チーム絞り込みは条件行で補う（Batch 5、DESIGN.md 99章） */}
         <ConditionTitle
           title={conditionalStandingsTitle([condition])}

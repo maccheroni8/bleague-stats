@@ -28,6 +28,7 @@ import { teamMultiAxis } from "../lib/filterAxes";
 import { playoffZonePreset } from "../lib/playoffZone";
 import { playoffLineSortValue, playoffLineStatus, playoffLineText, playoffWinLine, type PlayoffWinLine } from "../lib/playoffWinLine";
 import { ConditionalStandingsTable } from "../components/ConditionalStandingsTable";
+import { SaveColumnChoice, SaveColumnHide } from "../components/SaveColumnChoice";
 import { ForeignCountStandings } from "../components/ForeignCountStandings";
 import { ConditionLine, ConditionTitle, ExportScopeLine } from "../components/ConditionTitle";
 import { ExportImageButton } from "../components/ExportImageButton";
@@ -443,12 +444,17 @@ const divisionStandingsColumns: Column<StandingsRow>[] = [
   },
 ];
 
+/** 列の見出し（「36勝（仮想PO進出ライン）まで」） */
+function playoffLineLabel(line: PlayoffWinLine): string {
+  return `${line.wins}勝（仮想PO進出ライン）まで`;
+}
+
 /** プレーオフ進出ラインまでの見通しの列（ラインを設定したシーズン・リーグだけ。右端の「対戦相手の強さ」の右に足す） */
 function withPlayoffLineColumn(columns: Column<StandingsRow>[], line: PlayoffWinLine | null): Column<StandingsRow>[] {
   if (!line) return columns;
   const col: Column<StandingsRow> = {
     key: "playoffLine",
-    label: `${line.wins}勝まで`,
+    label: playoffLineLabel(line),
     sortValue: (t) => playoffLineSortValue(playoffLineStatus(t.wins, t.losses, line)),
     // スマホ幅では「あと25勝」と「（残り21敗まで可）」を2行にする（1行だと列が広すぎて、固定の列の下に隠れて全体が見えない）
     render: (t) => {
@@ -669,13 +675,8 @@ const SAVE_COLUMN_CHOICES: { key: string; label: string }[] = [
   ...divisionStandingsColumns.filter((c) => c.key !== "teamName").map((c) => ({ key: c.key, label: c.label })),
 ];
 
-/** 保存画像の中でだけ、選ばなかった列を隠す（画面の表は変わらない。複製側に付く .export-rendering の中だけで効く） */
-function SaveColumnHide({ hidden }: { hidden: string[] }) {
-  if (hidden.length === 0) return null;
-  const keys = hidden.flatMap((k) => (k === "rank" ? ["rank", "wildcardRank"] : [k]));
-  const css = keys.map((k) => `.export-rendering [data-col="${k}"]{display:none}`).join("\n");
-  return <style>{css}</style>;
-}
+/** ワイルドカード順位表の「WC順位」は、「全体順位」の選択に従う */
+const SAVE_COLUMN_ALIAS = { rank: ["wildcardRank"] };
 
 type TrendTabProps = {
   season: string;
@@ -1250,26 +1251,11 @@ export function StandingsPage({ season }: { season: string }) {
                 </button>
               )}
             </span>
-                <span className="export-option-group" role="group" aria-label="載せる列">
-                  <span className="export-option-label">載せる列</span>
-                  <button type="button" className={saveHiddenCols.length === 0 ? "active" : ""} onClick={() => setSaveHiddenCols([])}>
-                    すべて
-                  </button>
-                  {[...SAVE_COLUMN_CHOICES, ...(winLine ? [{ key: "playoffLine", label: `${winLine.wins}勝まで` }] : [])].map((c) => {
-                    const on = !saveHiddenCols.includes(c.key);
-                    return (
-                      <button
-                        key={c.key}
-                        type="button"
-                        className={on ? "active" : ""}
-                        aria-pressed={on}
-                        onClick={() => setSaveHiddenCols((prev) => (prev.includes(c.key) ? prev.filter((k) => k !== c.key) : [...prev, c.key]))}
-                      >
-                        {c.label}
-                      </button>
-                    );
-                  })}
-                </span>
+                <SaveColumnChoice
+                  choices={[...SAVE_COLUMN_CHOICES, ...(winLine ? [{ key: "playoffLine", label: playoffLineLabel(winLine) }] : [])]}
+                  hidden={saveHiddenCols}
+                  onChange={setSaveHiddenCols}
+                />
                 </>
               }
             />
@@ -1281,7 +1267,7 @@ export function StandingsPage({ season }: { season: string }) {
             className="export-target-standings"
             baseDate={{ kind: "season", season, gameType: "regular" }}
           >
-              <SaveColumnHide hidden={saveHiddenCols} />
+              <SaveColumnHide hidden={saveHiddenCols} alias={SAVE_COLUMN_ALIAS} />
           <ExportScopeLine scope={seasonLabel} />
           <div className="standings-stack">
             {divisionStandingsGroups.length > 0
@@ -1349,7 +1335,7 @@ export function StandingsPage({ season }: { season: string }) {
                   className="export-target-standings"
                   baseDate={{ kind: "season", season, gameType: "regular" }}
                 >
-                    <SaveColumnHide hidden={saveHiddenCols} />
+                    <SaveColumnHide hidden={saveHiddenCols} alias={SAVE_COLUMN_ALIAS} />
                   <ConditionTitle
                     section
                     exportScope={seasonLabel}
@@ -1412,7 +1398,7 @@ export function StandingsPage({ season }: { season: string }) {
                   className="export-target-standings"
                   baseDate={{ kind: "season", season, gameType: "regular" }}
                 >
-                    <SaveColumnHide hidden={saveHiddenCols} />
+                    <SaveColumnHide hidden={saveHiddenCols} alias={SAVE_COLUMN_ALIAS} />
                   <ConditionTitle
                     exportScope={seasonLabel}
                     title="全体順位表"
