@@ -563,6 +563,8 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   // 並べ替えで規定上ありえない人数の区分を飛ばすため、シーズンごとのオンザコートの規定を読む
   const { data: foreignRules } = useJsonData(() => (boxTab === "foreignPlayers" ? fetchSeasonRules() : Promise.resolve(null)), [boxTab]);
   // 対象の試合（すべての試合／on4 が可能だった試合だけ。DESIGN.md 352章）。同時出場の上限が4人の B.PREMIER のシーズンだけ選べる
+  // On-Court Foreign の画像保存で、保存の間だけ「棒グラフだけ」「一覧だけ」に切り替える
+  const [ocSavePart, setOcSavePart] = useState<"chart" | "table" | null>(null);
   const [storedForeignGames, setForeignGames] = usePageState<"all" | "on4">("teams:foreignGames", "all");
   const foreignMax = foreignRules ? seasonRuleFor(foreignRules, season, league)?.maxForeignOnCourt : undefined;
   const on4Ok = on4Supported(league, foreignMax);
@@ -1331,23 +1333,38 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
             trailing={
               foreignRows ? (
                 <ExportImageButton
-                  targetRef={exportRef}
-                  filename={buildExportFilename([statsTitle.title, ...statsTitle.conditions])}
-                  baseDate={{ kind: "season", season, gameType }}
+                  choicesLabel="保存する内容"
+                  defaultChoiceKey="chart"
+                  restoreAfterSave={() => setOcSavePart(null)}
+                  choices={(["chart", "table"] as const).map((part) => ({
+                    key: part,
+                    label: part === "chart" ? "棒グラフだけ" : "一覧だけ",
+                    targetRef: exportRef,
+                    filename: buildExportFilename([statsTitle.title, part === "chart" ? "棒グラフ" : "一覧", ...statsTitle.conditions]),
+                    baseDate: { kind: "season", season, gameType },
+                    activate: async () => {
+                      setOcSavePart(part);
+                      const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+                      await wait(100);
+                      await Promise.race([new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))), wait(400)]);
+                    },
+                  }))}
                 />
               ) : undefined
             }
           />
           {foreignRows ? (
             <>
-              <ExportTarget ref={exportRef} className="export-target-oc" baseDate={{ kind: "season", season, gameType }}>
+              <ExportTarget ref={exportRef} className={`export-target-oc${ocSavePart ? ` oc-save-${ocSavePart}` : ""}`} baseDate={{ kind: "season", season, gameType }}>
                 <ConditionTitle title={statsTitle.title} conditions={statsTitle.conditions} />
-                <ForeignPlayerCourtTimeChart
-                  teams={foreignRows.map((r) => r.team)}
-                  order={foreignOrder}
-                  maxOnCourt={foreignMax}
-                  shareOf={(t) => foreignShareById.get(t.teamId) ?? foreignShareFromSeconds(undefined, 0)}
-                />
+                <div className="oc-save-chart-part">
+                  <ForeignPlayerCourtTimeChart
+                    teams={foreignRows.map((r) => r.team)}
+                    order={foreignOrder}
+                    maxOnCourt={foreignMax}
+                    shareOf={(t) => foreignShareById.get(t.teamId) ?? foreignShareFromSeconds(undefined, 0)}
+                  />
+                </div>
                 <div className="table-scroll">
                   <SortableTable
                     rowNumbers

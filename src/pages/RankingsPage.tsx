@@ -222,11 +222,11 @@ function CompareNotes({
     <>
       {empty && (
         <p className="empty-message">
-          {kind === "player" ? "今季・前季の両方で掲載基準を満たし、値のある選手がいません。" : "今季・前季の両方で値のあるチームがありません。"}
+          {kind === "player" ? "今季の掲載基準を満たし、前季にも値のある選手がいません。" : "今季・前季の両方で値のあるチームがありません。"}
         </p>
       )}
       <p className="rule-change-footnote">
-        ※ 前季は{prevSeason}シーズンです。{kind === "player" ? "今季・前季の両方で掲載基準を満たす選手" : "今季・前季の両方にあるチーム"}だけを表示しています。差は、表示している値どうしの差です（％の項目は％どうしの差、MINは時間の差）。
+        ※ 前季は{prevSeason}シーズンです。{kind === "player" ? "今季の掲載基準を満たす選手のうち、前季にも出場した選手" : "今季・前季の両方にあるチーム"}だけを表示しています。差は、表示している値どうしの差です（％の項目は％どうしの差、MINは時間の差）。
       </p>
       {narrowed && (
         <p className="rule-change-footnote">
@@ -909,9 +909,10 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
     {
       category,
       statKey,
-      gamesRatio,
-      achievable,
-      extraThreshold,
+      // 掲載基準（出場率・達成可能・追加の基準）は今季だけに当てはめる。前季は、基準を満たしていなくても値を出す
+      gamesRatio: 0,
+      achievable: false,
+      extraThreshold: 0,
       group: classPartOf(selectedClassification),
       rookieIds: null,
       positions,
@@ -921,7 +922,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
       period,
       statConditions: DEFAULT_STAT_CONDITIONS,
     },
-    { enabled: compareActive, skipConditionItems: true, league },
+    { enabled: compareActive, skipConditionItems: true, skipEligibility: true, league },
   );
   // ファウルの列は、2026-27以降のシーズンではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF。そのシーズンに無い項目・条件は外す（DESIGN.md 16-8章）
   useFoulConditionCleanup(season, statConditions, setStatConditions);
@@ -1203,7 +1204,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
       <div className="filter-block">
         <p className="page-subtitle">
           対象{comparison ? comparison.rows.length : conditionActive ? shownRows.length : eligible.length}名中、上位{PLAYER_RANK_TOP_N}名を表示
-          {comparison && `（今季・前季（${prevSeason}）とも掲載基準を満たす選手）`}
+          {comparison && `（今季の掲載基準を満たし、前季（${prevSeason}）にも値のある選手）`}
           {conditionActive && "（スタッツの条件で絞り込んだ中での順位）"}
         </p>
         {(needsGameLogRecompute || periodActive) && ["eff", "per"].includes(selectedItem.key) && (
