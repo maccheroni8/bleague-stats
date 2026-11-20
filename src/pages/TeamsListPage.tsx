@@ -109,6 +109,7 @@ import {
 import { usePageState } from "../lib/pageStateCache";
 import { ExportImageButton } from "../components/ExportImageButton";
 import { ExportTarget } from "../components/ExportTarget";
+import { buildOpponentSeasonWinRates, matchesOpponentSeasonWinRate } from "../lib/opponentSeasonWinRate";
 import { logsHaveOn4, on4Supported, onlyOn4Games } from "../lib/on4Core";
 import { buildExportFilename } from "../lib/conditionLabels";
 import { addGameFlow } from "../lib/gameFlowTotals";
@@ -424,6 +425,9 @@ function turnoverTotal(data: TeamForcedTurnovers): number {
 }
 
 const ON4_ONLY_LABEL = "on4が可能だった試合だけ";
+// On-Court Foreign の「対戦相手の強さ」（相手の最新勝率が6割以上の試合だけ）。チーム詳細のシチュエーション別成績「対戦相手の強さ」と同じ出し方
+const OC_OPPONENT_PARAM = enumParam<"all" | "ge60">("ocopp", ["all", "ge60"], "all");
+const OC_OPPONENT_LABEL = "対勝率6割以上（最新勝率）";
 const ON4_NO_DATA_REASON = "このシーズンのデータには、on4が可能だった試合の判定がまだ入っていません。";
 const ON4_UNAVAILABLE_REASON = "on4（外国籍・帰化・アジア特別枠が同時に4人）が可能なのは、B.PREMIER の2026-27シーズンだけです。";
 
@@ -571,6 +575,10 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   // 試合ログに on4 の判定が無い古いデータでは、切り替えは効かない（すべての試合のまま）
   const on4Logs = useMemo(() => !!gameLogsByTeam && [...gameLogsByTeam.values()].some((logs) => logsHaveOn4(logs)), [gameLogsByTeam]);
   const on4Active = boxTab === "foreignPlayers" && on4Ok && on4Logs && storedForeignGames === "on4";
+  // 相手の最新勝率が6割以上の試合だけ（teams.json の勝敗。結果だけの試合を含む最新の成績）
+  const [ocOpponent, setOcOpponent] = useUrlState(OC_OPPONENT_PARAM, "all");
+  const ocOpponentActive = boxTab === "foreignPlayers" && ocOpponent === "ge60";
+  const ocOpponentRates = useMemo(() => buildOpponentSeasonWinRates(teams), [teams]);
   const exportRef = useRef<HTMLDivElement>(null);
 
   // 選んだ条件（シチュエーション別のフィルタ・試合区分）に当てはまる、チームごとの試合ログ。表の集計と Periods の区間別の得点が同じ試合を使う
@@ -960,7 +968,8 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
     let leagueGames = 0;
     for (const team of teams) {
       const teamLogs = scopedLogsByTeam.get(team.teamId) ?? [];
-      const logs = on4Active ? onlyOn4Games(teamLogs) : teamLogs;
+      const on4Logs2 = on4Active ? onlyOn4Games(teamLogs) : teamLogs;
+      const logs = ocOpponentActive ? on4Logs2.filter((g) => matchesOpponentSeasonWinRate(g.opponentTeamId, "atLeast60", ocOpponentRates)) : on4Logs2;
       const sum = sumForeignCourt(periodSource, logs, foreignPeriod, foreignSide);
       if (!sum || sum.games === 0 || sum.seconds.every((v) => v === 0)) continue;
       list.push({ team, games: sum.games, share: foreignShareFromSeconds(sum.seconds, sum.games) });
@@ -975,7 +984,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
       });
     }
     return list;
-  }, [boxTab, teams, gameLogsByTeam, foreignPeriod, periodSource, foreignLogsSupported, scopedLogsByTeam, foreignSide, on4Active]);
+  }, [boxTab, teams, gameLogsByTeam, foreignPeriod, periodSource, foreignLogsSupported, scopedLogsByTeam, foreignSide, on4Active, ocOpponentActive, ocOpponentRates]);
   const foreignShareById = useMemo(() => new Map((foreignRows ?? []).map((r) => [r.team.teamId, r.share])), [foreignRows]);
   // 表の人数の列は規定の上限まで。上限を超える人数でも、時間のあるチームがあれば出す
   const foreignCounts = FOREIGN_COUNTS.filter(
@@ -1111,6 +1120,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
     setDisplayMode("perGame");
     setFilter({ range: { kind: "all" } });
     setPeriod("all");
+    setOcOpponent("all");
     setClassFilter("all");
     setStatConditions({ ...statConditions, conditions: [] });
   };
@@ -1152,6 +1162,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
                     situationalFilterLabels(filter),
                     periodLabels(periodOption),
                     on4Active ? ON4_ONLY_LABEL : [],
+                    ocOpponentActive ? OC_OPPONENT_LABEL : [],
                     "在コート時間ベース",
                   )
                 : composeLabels(SEASON_TOTAL_ONLY_LABELS, "在コート時間ベース")
@@ -1332,6 +1343,17 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
                 defaultValue: "all",
                 onChange: (v) => setForeignGames(v as "all" | "on4"),
                 disabledReason: !foreignRules ? undefined : !on4Ok ? ON4_UNAVAILABLE_REASON : !on4Logs && gameLogsByTeam ? ON4_NO_DATA_REASON : undefined,
+              }),
+              simpleSelectAxis({
+                id: "foreignOpponent",
+                label: "対戦相手の強さ",
+                options: [
+                  { value: "all", label: "すべての相手" },
+                  { value: "ge60", label: OC_OPPONENT_LABEL },
+                ],
+                value: ocOpponent,
+                defaultValue: "all",
+                onChange: (v) => setOcOpponent(v as "all" | "ge60"),
               }),
             ]}
             trailing={

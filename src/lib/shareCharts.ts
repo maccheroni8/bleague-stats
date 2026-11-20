@@ -21,6 +21,8 @@ export interface ForeignShare {
   pct: number[];
   /** 平均人数（Σ 人数×割合） */
   average: number;
+  /** 合計に数えた試合数（リーグ平均の行は1チームあたりの平均で、小数になる）。0は不明 */
+  games: number;
 }
 
 /** チームの区分ごとの在コート秒数（teams.json の foreignPlayerCourtSeconds）から割合・1試合平均・平均人数を出す */
@@ -39,7 +41,13 @@ export function foreignShareFromSeconds(raw: readonly number[] | undefined, game
   const games = gamesPlayed > 0 ? gamesPlayed : 0;
   const secondsPerGame = seconds.map((s) => (games > 0 ? Math.round(s / games) : 0));
   const average = pct.reduce((sum, p, count) => sum + (count * p) / 100, 0);
-  return { seconds, secondsPerGame, totalSeconds, pct, average };
+  return { seconds, secondsPerGame, totalSeconds, pct, average, games };
+}
+
+/** 「（18試合）」。リーグ平均の行は「（1チーム平均18.3試合）」。試合数が不明（0）のときは付けない */
+function gamesNote(games: number): string {
+  if (!(games > 0)) return "";
+  return Number.isInteger(games) ? `（${games}試合）` : `（1チーム平均${games.toFixed(1)}試合）`;
 }
 
 export function foreignDetails(share: ForeignShare): { details: string[]; tooltipDetails: string[]; footer: string } {
@@ -48,7 +56,7 @@ export function foreignDetails(share: ForeignShare): { details: string[]; toolti
     tooltipDetails: share.seconds.map(
       (s, i) => `（平均${formatMinutesFromSeconds(share.secondsPerGame[i]!)}／合計${formatMinutesFromSeconds(s)}）`,
     ),
-    footer: `捕捉できた合計出場時間: ${formatMinutesFromSeconds(share.totalSeconds)}`,
+    footer: `捕捉できた合計出場時間: ${formatMinutesFromSeconds(share.totalSeconds)}${gamesNote(share.games)}`,
   };
 }
 
