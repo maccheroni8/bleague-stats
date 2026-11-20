@@ -11,7 +11,7 @@ import { simpleSelectAxis, teamMultiAxis, type FilterAxis, type FilterAxisOption
 import { ConditionTitle } from "./ConditionTitle";
 import { sortOrderLabel } from "./SortMark";
 import { SavableBlock } from "./SavableBlock";
-import { topThreeIndexes, type BetterDirection } from "../lib/topThreeTiers";
+import { topThreeRanks, type BetterDirection } from "../lib/topThreeTiers";
 import { SaveColumnChoice, SaveColumnHide, useSaveHiddenColumns } from "./SaveColumnChoice";
 import { buildExportFilename, clubSelectionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { formatPct, formatSigned, formatWinPct } from "../lib/format";
@@ -368,11 +368,15 @@ export function ConditionalStandingsTable({
   }, [condition, gameLogsByTeam, opponentRecords, teams, selectedTeamIds]);
 
   // 各項目の上位3位（良い数値）のマスの色。表に出ているクラブの中で、当てはまる試合があるクラブだけを比べる。
-  // 良し悪しの無い項目（試合数・試合割合・残り試合数）と順位には付けない。負・失点は少ないほうが良い。連勝/連敗は連勝中の長いほう
+  // 色の濃さは順位で変える（1位＝いちばん濃い）。良し悪しの無い項目（試合数・試合割合・残り試合数）と順位には付けない。負・失点は少ないほうが良い。連勝/連敗は連勝中の長いほう
   const tierRows = rows.filter((r) => r.gamesPlayed > 0);
   const topClass = (valueOf: (r: ConditionalRow) => number | undefined, better: BetterDirection) => {
-    const top = new Set([...topThreeIndexes(tierRows, valueOf, better)].map((i) => tierRows[i]!.team.teamId));
-    return (r: ConditionalRow) => (top.has(r.team.teamId) && r.gamesPlayed > 0 ? "rank-tier-top" : undefined);
+    const top = new Map([...topThreeRanks(tierRows, valueOf, better)].map(([i, rank]) => [tierRows[i]!.team.teamId, rank] as const));
+    // 1位がいちばん濃く、2位・3位と薄くなる（rank-tier-1〜3）
+    return (r: ConditionalRow) => {
+      const rank = r.gamesPlayed > 0 ? top.get(r.team.teamId) : undefined;
+      return rank ? `rank-tier-top rank-tier-${rank}` : undefined;
+    };
   };
   const columns: Column<ConditionalRow>[] = [
     {

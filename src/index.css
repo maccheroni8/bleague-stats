@@ -8300,6 +8300,15 @@ table.sortable-table.lineup-search-table tbody th {
   background: var(--rank-top-bg);
 }
 
+/* 1位〜3位で濃さを変える（1位＝いちばん濃い）。同じ緑（--rank-top-bg）を重ねる／薄めて作る */
+.sortable-table td.rank-tier-1 {
+  background-image: linear-gradient(var(--rank-top-bg), var(--rank-top-bg));
+}
+
+.sortable-table td.rank-tier-3 {
+  background: color-mix(in srgb, var(--rank-top-bg) 55%, transparent);
+}
+
 .tab-bar-with-toggle > .compare-rank-toggle {
   margin-left: auto;
 }
