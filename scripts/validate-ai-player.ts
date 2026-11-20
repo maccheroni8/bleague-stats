@@ -46,6 +46,14 @@ async function one(season: string, league: 'premier' | 'one', p: PlayerSummary, 
     const better = eligible.filter(x => x.perGame.pts > mine.perGame.pts && text(x) !== text(mine)).length;
     check(`${tag} PTS 順位`, line.includes(`${better + 1}位／${eligible.length}人中`) && rank === better + 1, `${line} vs ${better + 1}/${eligible.length}`);
   }
+  // 出場有無の章（5-2）：試合数の表の G（出場した＋しなかった）＝在籍期間のチームの試合数、出場した試合＝本人の出場試合数
+  const playedPart = out.markdown.split('## 5-2.')[1]?.split('\n## 6.')[0] ?? '';
+  check(`${tag} 出場有無の章がある`, playedPart.length > 0 || input.cur.logs.length === 0);
+  if (playedPart) {
+    const gRows = playedPart.split('\n').filter(l => l.startsWith('|G|'));
+    const played = input.cur.logs.filter(g => g.gameType === 'regular' && g.min > 0).length;
+    check(`${tag} 出場有無の「出場した試合」の G の合計＝本人の出場試合数`, gRows.reduce((a, l) => a + Number(l.split('|')[2]), 0) === played || /出せません|該当する試合がありません/.test(playedPart), `${gRows.join(' / ')} vs ${played}`);
+  }
   check(`${tag} チェックなしは前季を出さない`, !/前季/.test(out.markdown), /前季/.exec(out.markdown)?.input?.slice(0, 0) ?? '');
   if (full) {
     const ic = await loadPlayerExport(season, p.playerId, { league, term: 'recent5', opp: 'all', compare: true });

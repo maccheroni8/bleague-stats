@@ -9,6 +9,7 @@ import { OPPONENT_KIND_LABELS, TERM_KIND_LABELS } from './aiExportScope';
 import { playerScope, ownTeamMap, type PlayerMdInput, type PlayerMdSeason, type PlayerScope } from './aiPlayerScope';
 import { buildRankLines, RANK_CATEGORY_LABEL, RANK_ELIGIBILITY_TEXT, type RankLine } from './aiPlayerRank';
 import { ctxForLogs, mdTable, statsRows, UsedLabels, CATS, CAT_NAME, record, diffText, prevCtxOf, prevLogsOf } from './aiPlayerCommon';
+import { sectionPlayed } from './aiPlayerPlayed';
 import { sectionShooting, sectionPeriods, sectionTeamImpact, sectionConditions, sectionCareer, sectionRankRecords } from './aiPlayerSections';
 import { ageBaseDate, ageForSeason, formatBaseDateLabel } from './age';
 import { positionText, heightText, weightText } from './profileMark';
@@ -46,6 +47,7 @@ export function buildPlayerExport(i: PlayerMdInput): PlayerMdOutput {
   out.push(...sectionRank(i, p, notes));
   out.push(...sectionShooting(i, scope, used));
   out.push(...sectionPeriods(i, scope, used));
+  out.push(...sectionPlayed(i, used));
   out.push(...sectionTeamImpact(i, scope, used));
   out.push(...sectionConditions(i, scope, used));
   out.push(...sectionGameLog(i, scope));
@@ -210,5 +212,6 @@ function sectionGameLog(i: PlayerMdInput, scope: PlayerScope): string[] {
 function sectionDefinitions(used: UsedLabels): string[] {
   const out = ['## 10. 定義', '', '- この書き出しの中で使った指標の説明（サイトの用語集と同じ文）。', ''];
   for (const l of [...used.set].sort()) { const d = statDescription(l); if (d) out.push(`- **${l}**：${d}`); }
+  for (const n of used.notes) out.push(`- ${n}`);
   return [...out, ''];
 }
