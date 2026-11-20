@@ -18,7 +18,7 @@ export const CATS: SeasonBoxTabKey[] = ['traditional', 'advanced', 'misc', 'scor
 export const CAT_NAME: Record<string, string> = { traditional: 'Traditional', advanced: 'Advanced', misc: 'Misc', scoring: 'Scoring' };
 
 /** 使った指標の名前を集める（最後の「定義」の章用） */
-export class UsedLabels { readonly set = new Set<string>(); add(l: string): string { this.set.add(l); return l; } }
+export class UsedLabels { readonly set = new Set<string>(); readonly notes: string[] = []; add(l: string): string { this.set.add(l); return l; } }
 
 /** 試合ログ（出場した試合）から表の1行分の ctx。移籍した選手は「複数チーム」の合計行。区間（q1…・clutch）を指定できる */
 export function ctxForLogs(season: PlayerMdSeason, playerId: string, logs: PlayerGameLog[], period: Parameters<typeof buildTeamSplitRowsFromPeriodSource>[7] = 'all', source: SeasonPeriodSource | null = null): SeasonBoxscoreCtx | null {
