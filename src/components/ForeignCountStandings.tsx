@@ -16,6 +16,7 @@ import {
 } from "../lib/foreignCountStandings";
 import { standingsStatCells, type StandingsTeam } from "../lib/standingsTeams";
 import { listParam, useUrlState } from "../lib/urlState";
+import { topThreeRanks, type BetterDirection } from "../lib/topThreeTiers";
 import type { Division, TeamColors, TeamGameLog } from "../../shared/types";
 
 interface Row {
@@ -60,6 +61,29 @@ function sortRows(rows: Row[], key: SortKey, dir: "asc" | "desc"): Row[] {
     const c = typeof va === "string" ? va.localeCompare(vb as string, "ja") : (va as number) - (vb as number);
     return c * sign || a.team.rank - b.team.rank;
   });
+}
+
+type TierMap = Map<string, 1 | 2 | 3>;
+
+/** 勝・敗・勝率の上位3位（良い数値）。条件別順位表と同じ決まり（表の中のクラブで、その条件の試合があるクラブだけを比べる。敗は少ないほうが良い） */
+function tierMapOf(rows: Row[], valueOf: (r: Row) => number | undefined, better: BetterDirection): TierMap {
+  const base = rows.filter((r) => valueOf(r) !== undefined);
+  return new Map([...topThreeRanks(base, valueOf, better)].map(([i, rank]) => [base[i]!.team.teamId, rank] as const));
+}
+
+function tierClass(map: TierMap | undefined, teamId: string): string | undefined {
+  const rank = map?.get(teamId);
+  return rank ? `rank-tier-top rank-tier-${rank}` : undefined;
+}
+
+/** 「9勝4敗」の勝と敗をそれぞれ色の対象にする（勝＝多いほう、敗＝少ないほうが上位） */
+function RecordCell({ wins, losses, winTier, lossTier }: { wins: number; losses: number; winTier?: string; lossTier?: string }) {
+  return (
+    <>
+      <span className={winTier ? `rank-tier-chip ${winTier}` : undefined}>{wins}勝</span>
+      <span className={lossTier ? `rank-tier-chip ${lossTier}` : undefined}>{losses}敗</span>
+    </>
+  );
 }
 
 function cellText(r: ForeignCountRecord | undefined, col: (typeof SUB_COLUMNS)[number]): string {
@@ -172,6 +196,19 @@ export function ForeignCountStandings({
         {groups.map((g, gi) => {
           const key = g.division ?? "all";
           const rows = sortRows(rowsByGroup[gi]!, sort.key, sort.dir);
+          // 上位3位の色（試合数には付けない）。シーズン全体は試合をしたクラブ、まとまりはそのまとまりの試合があるクラブだけを比べる
+          const tiers = new Map<string, TierMap>();
+          const seasonPlayed = (r: Row) => !r.team.unplayed && r.team.wins + r.team.losses > 0;
+          tiers.set("s:wins", tierMapOf(rows, (r) => (seasonPlayed(r) ? r.team.wins : undefined), "high"));
+          tiers.set("s:losses", tierMapOf(rows, (r) => (seasonPlayed(r) ? r.team.losses : undefined), "low"));
+          tiers.set("s:winPct", tierMapOf(rows, (r) => (seasonPlayed(r) ? r.team.winPct : undefined), "high"));
+          for (const fg of shown) {
+            const rec = (r: Row) => r.records.get(fg.key);
+            const has = (r: Row) => (rec(r)?.games ?? 0) > 0;
+            tiers.set(`${fg.key}:wins`, tierMapOf(rows, (r) => (has(r) ? rec(r)!.wins : undefined), "high"));
+            tiers.set(`${fg.key}:losses`, tierMapOf(rows, (r) => (has(r) ? rec(r)!.losses : undefined), "low"));
+            tiers.set(`${fg.key}:winPct`, tierMapOf(rows, (r) => (has(r) ? rec(r)!.wins / rec(r)!.games : undefined), "high"));
+          }
           return (
             <ExportTarget
               key={key}
@@ -238,14 +275,38 @@ export function ForeignCountStandings({
                             </span>
                           </td>
                           <td className="align-right fc-season">{cells.games}</td>
-                          <td className="align-right fc-season">{cells.record}</td>
-                          <td className="align-right fc-season">{cells.winPct}</td>
+                          <td className="align-right fc-season">
+                            {seasonPlayed(r) ? (
+                              <RecordCell
+                                wins={r.team.wins}
+                                losses={r.team.losses}
+                                winTier={tierClass(tiers.get("s:wins"), r.team.teamId)}
+                                lossTier={tierClass(tiers.get("s:losses"), r.team.teamId)}
+                              />
+                            ) : (
+                              cells.record
+                            )}
+                          </td>
+                          <td className={`align-right fc-season ${tierClass(tiers.get("s:winPct"), r.team.teamId) ?? ""}`}>{cells.winPct}</td>
                           {shown.flatMap((fg) =>
-                            SUB_COLUMNS.map((c) => (
-                              <td key={`${fg.key}-${c}`} className={`align-right fc-g${FOREIGN_COUNT_GROUPS.indexOf(fg)}`}>
-                                {cellText(r.records.get(fg.key), c)}
-                              </td>
-                            )),
+                            SUB_COLUMNS.map((c) => {
+                              const rec = r.records.get(fg.key);
+                              const id = r.team.teamId;
+                              const base = `align-right fc-g${FOREIGN_COUNT_GROUPS.indexOf(fg)}`;
+                              if (c === "record" && rec && rec.games > 0) {
+                                return (
+                                  <td key={`${fg.key}-${c}`} className={base}>
+                                    <RecordCell wins={rec.wins} losses={rec.losses} winTier={tierClass(tiers.get(`${fg.key}:wins`), id)} lossTier={tierClass(tiers.get(`${fg.key}:losses`), id)} />
+                                  </td>
+                                );
+                              }
+                              const tier = c === "winPct" ? tierClass(tiers.get(`${fg.key}:winPct`), id) : undefined;
+                              return (
+                                <td key={`${fg.key}-${c}`} className={tier ? `${base} ${tier}` : base}>
+                                  {cellText(rec, c)}
+                                </td>
+                              );
+                            }),
                           )}
                         </tr>
                       );

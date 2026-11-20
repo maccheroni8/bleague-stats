@@ -13,6 +13,7 @@
   --media-bg: #ffffff;
   /* チーム詳細の順位の色（上位3位は緑系・下位3位は赤系。控えめな薄い色） */
   --rank-top-bg: rgba(46, 158, 91, 0.2);
+  --rank-top-bg-soft: rgba(46, 158, 91, 0.11);
   --rank-bottom-bg: rgba(214, 69, 80, 0.17);
 }
 
@@ -27,6 +28,7 @@
     --row-hover: #1f2226;
     --header-bg: #1c1e22;
     --rank-top-bg: rgba(66, 190, 120, 0.26);
+  --rank-top-bg-soft: rgba(66, 190, 120, 0.143);
     --rank-bottom-bg: rgba(240, 98, 110, 0.24);
   }
 }
@@ -41,6 +43,7 @@
   --row-hover: #1f2226;
   --header-bg: #1c1e22;
   --rank-top-bg: rgba(66, 190, 120, 0.26);
+  --rank-top-bg-soft: rgba(66, 190, 120, 0.143);
   --rank-bottom-bg: rgba(240, 98, 110, 0.24);
 }
 
@@ -8309,6 +8312,25 @@ table.sortable-table.lineup-search-table tbody th {
   background: color-mix(in srgb, var(--rank-top-bg) 55%, transparent);
 }
 
+/* 外国籍人数別: 「9勝4敗」の勝・敗それぞれの色（マスの中の短い帯。濃さは条件別順位表と同じ） */
+.foreign-count-table .rank-tier-chip {
+  display: inline-block;
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
+.foreign-count-table .rank-tier-chip.rank-tier-top {
+  background: var(--rank-top-bg);
+}
+
+.foreign-count-table .rank-tier-chip.rank-tier-1 {
+  background-image: linear-gradient(var(--rank-top-bg), var(--rank-top-bg));
+}
+
+.foreign-count-table .rank-tier-chip.rank-tier-3 {
+  background: color-mix(in srgb, var(--rank-top-bg) 55%, transparent);
+}
+
 .tab-bar-with-toggle > .compare-rank-toggle {
   margin-left: auto;
 }
@@ -9643,6 +9665,19 @@ table.sortable-table.tts-table th {
 .foreign-count-table :is(th, td).fc-season { background: color-mix(in srgb, var(--fg) 7%, var(--bg)); }
 .foreign-count-table th.fc-head { text-align: center; cursor: default; }
 .foreign-count-table thead th { cursor: pointer; }
+/* 上位3位の色は、まとまりごとの背景色の上に重ねる（背景色は残し、色の層だけ足す。濃さは 1位＞2位＞3位） */
+.foreign-count-table td.rank-tier-top.rank-tier-1 {
+  background-image: linear-gradient(var(--rank-top-bg), var(--rank-top-bg)), linear-gradient(var(--rank-top-bg), var(--rank-top-bg));
+}
+
+.foreign-count-table td.rank-tier-top.rank-tier-2 {
+  background-image: linear-gradient(var(--rank-top-bg), var(--rank-top-bg));
+}
+
+.foreign-count-table td.rank-tier-top.rank-tier-3 {
+  background-image: linear-gradient(var(--rank-top-bg-soft), var(--rank-top-bg-soft));
+}
+
 .fc-group-choice { flex-wrap: wrap; align-items: center; gap: 6px; }
 .fc-choice { border-color: var(--fc); }
 .fc-choice.active { background: color-mix(in srgb, var(--fc) 28%, var(--bg)); color: var(--fg); }
