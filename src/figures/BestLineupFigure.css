@@ -1,10 +1,10 @@
-/* 図解「歴代最強ラインナップ」（DESIGN.md 370章）。1行＝1組。PC: 順位・クラブとシーズン（下に時間・試合数・POSS）・選手の写真と名前・3指標。
+/* 図解「歴代ベストラインナップ」（DESIGN.md 370章）。1行＝1組。PC: 順位・クラブとシーズン（下に時間・試合数・POSS）・選手の写真と名前・3指標。
    スマホ: 上に順位とクラブ、その下に写真を1列、その下に3指標。人数が少ない組も同じ形（写真の枠の数だけが変わる） */
 .best-lineup-export { margin-top:8px; }
 .best-lineup-export .condition-title, .best-lineup-export > :first-child { margin-bottom:10px; }
 .best-lineup-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
-.best-lineup-card { display:grid; grid-template-columns:36px 210px 1fr auto; align-items:center; gap:12px; padding:8px 12px; border:1px solid var(--border); border-left:4px solid transparent; border-radius:8px; background:var(--bg); }
-.best-lineup-card.is-highlighted { border-left-color:var(--hl-color); background:color-mix(in srgb, var(--hl-color) 10%, var(--bg)); }
+.best-lineup-card { display:grid; grid-template-columns:36px 210px 1fr auto; align-items:center; gap:12px; padding:8px 12px 8px 15px; border:1px solid var(--border); border-radius:8px; background:var(--bg); }
+.best-lineup-card.is-highlighted { border-left:4px solid var(--hl-color); padding-left:12px; background:color-mix(in srgb, var(--hl-color) 10%, var(--bg)); }
 .best-lineup-card.is-highlighted .best-lineup-photo { outline:2px solid var(--hl-color); outline-offset:1px; }
 /* ダークは白を混ぜて明るくする（黒に近いクラブの色でも見えるように。ほかの表のチームカラーの線と同じ） */
 :root[data-theme="dark"] .best-lineup-card.is-highlighted { --hl-color-shown:color-mix(in srgb, var(--hl-color) 62%, #ffffff); border-left-color:var(--hl-color-shown); background:color-mix(in srgb, var(--hl-color-shown) 12%, var(--bg)); }
@@ -28,7 +28,8 @@
 .best-lineup-outside { margin-top:14px; padding-top:10px; border-top:1px dashed var(--border); display:flex; flex-direction:column; gap:8px; }
 .best-lineup-outside-title { margin:0 0 4px; font-size:13px; font-weight:700; }
 @media(max-width:560px) {
-  .best-lineup-card { grid-template-columns:28px 1fr; grid-template-areas:"rank club" "players players" "metrics metrics"; gap:6px 8px; padding:8px; }
+  .best-lineup-card { grid-template-columns:28px 1fr; grid-template-areas:"rank club" "players players" "metrics metrics"; gap:6px 8px; padding:8px 8px 8px 11px; }
+  .best-lineup-card.is-highlighted { padding-left:8px; }
   .best-lineup-rank { grid-area:rank; font-size:17px; }
   .best-lineup-club { grid-area:club; }
   .best-lineup-players { grid-area:players; column-gap:4px; }

@@ -1,4 +1,4 @@
-// 図解「歴代最強ラインナップ」（DESIGN.md 370章）の計算。導出データ（shared/bestLineups.ts の形。scripts/aggregate-best-lineups.ts が作る）を、
+// 図解「歴代ベストラインナップ」（DESIGN.md 370章）の計算。導出データ（shared/bestLineups.ts の形。scripts/aggregate-best-lineups.ts が作る）を、
 // 組（1シーズン×1クラブ×同じ組み合わせ）にまとめ、試合区分・OC・下限で絞って並べる。率は読むときに計算する（src/lib/lineupRatings.ts の ratingsFromPossessions。
 // チーム詳細の5人組の表と同じ式）。通信・画面の部品を含まない（検証スクリプトからも使う）。集計のコードから読まれない場所（保存キーの対象外）。
 import {

@@ -1,4 +1,4 @@
-// 図解「歴代最強ラインナップ」（DESIGN.md 370章）の検証。導出データ（data/best-lineups-{2,3,4,5}.json。scripts/aggregate-best-lineups.ts）と、
+// 図解「歴代ベストラインナップ」（DESIGN.md 370章）の検証。導出データ（data/best-lineups-{2,3,4,5}.json。scripts/aggregate-best-lineups.ts）と、
 // 画面の計算（src/lib/bestLineups.ts）を、既存の画面の計算と、独立した数え直しに突き合わせる:
 //  1. 5人組: チーム詳細の5人組の表（src/lib/lineupsByCondition.ts）の値（時間・試合数・得点・失点・攻守のポゼッション）と、全クラブシーズン×試合区分3つで一致し、下限を満たす組がすべて入っている
 //  2. 2人・3人: ランキングの「2人／3人の組み合わせ」の計算（src/lib/lineupRanking.ts の buildLineupRows。試合区分ごと）と一致（ランキングが外す前後半5分の特別な試合のあるチームは除く）

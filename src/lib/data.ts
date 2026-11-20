@@ -515,7 +515,7 @@ export function fetchLeaguePlayerRankings(): Promise<LeaguePlayerRankingsFile> {
   return fetchJson<LeaguePlayerRankingsFile>(`${dataBase}/league-player-rankings.json`);
 }
 
-/** 図解「歴代最強ラインナップ」の人数ごとの組（data/best-lineups-{人数}.json。scripts/aggregate-best-lineups.ts。DESIGN.md 370章） */
+/** 図解「歴代ベストラインナップ」の人数ごとの組（data/best-lineups-{人数}.json。scripts/aggregate-best-lineups.ts。DESIGN.md 370章） */
 export function fetchBestLineups(size: BestLineupSize): Promise<BestLineupsFile> {
   return fetchJson<BestLineupsFile>(`${dataBase}/${bestLineupFileName(size).replace(/\.gz$/, "")}`);
 }

@@ -1,4 +1,4 @@
-// data/best-lineups-{2,3,4,5}.json.gz（図解「歴代最強ラインナップ」。DESIGN.md 370章）を作る。全シーズンをまたぐ導出データで、デプロイのたびに作り直す。
+// data/best-lineups-{2,3,4,5}.json.gz（図解「歴代ベストラインナップ」。DESIGN.md 370章）を作る。全シーズンをまたぐ導出データで、デプロイのたびに作り直す。
 //
 // 対象: B.PREMIER（旧B1）の 2016-17 以降（全シーズンで実際のポゼッションを数えている。DESIGN.md 372章）。今季は途中経過。B.ONE・旧B2は入れない。
 // 材料: チームの出場区間（data/{season}/team-stints/）。数え方はチーム詳細の5人組の表（src/lib/lineupsByCondition.ts）・ランキングの2人／3人の組み合わせ

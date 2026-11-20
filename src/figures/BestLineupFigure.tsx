@@ -1,4 +1,4 @@
-// 図解（チーム）「歴代最強ラインナップ」（figure=best-lineup。DESIGN.md 370章）。B.PREMIER（旧B1）2016-17〜今季の、1シーズン×1クラブ×同じ組み合わせ（2〜5人）を
+// 図解（チーム）「歴代ベストラインナップ」（figure=best-lineup。DESIGN.md 370章）。B.PREMIER（旧B1）2016-17〜今季の、1シーズン×1クラブ×同じ組み合わせ（2〜5人）を
 // NetRtg・ORtg・DRtg・出場時間の順に並べる。材料は人数ごとの導出データ（data/best-lineups-{人数}.json。選んだ人数の分だけ読む）。計算は src/lib/bestLineups.ts。
 import { useMemo, useRef, type CSSProperties } from 'react';
 import { fetchBestLineups } from '../lib/data';
@@ -142,17 +142,17 @@ export default function BestLineupFigure({ season, category }: FigureProps) {
   ];
   const teamLabel = teamId === null ? null : teamShortName(teamId, clubs.find(c => c.teamId === teamId)?.teamName ?? teamId);
   const conditions = [range, ...(teamLabel ? [teamLabel] : []), `${size}人`, gameLabels[gameType], minLabel, ...(oc === null ? [] : [`OC${oc}`]), sortLabel(sort), ...(teamId === null ? hl.labels : [])];
-  const title = '最強ラインナップ';
+  const title = 'ベストラインナップ';
   const baseDate = rangeSeason === null ? { kind: 'allTime' as const, gameType } : isCurrent ? { kind: 'season' as const, season: rangeSeason, gameType } : undefined;
   const reset = () => { setRange(null); setTeam(null); setSize('5'); setSort('net'); setGameType('regular'); setTop('10'); setMin(null); setGames(null); setCombine('both'); setOc(null); hl.setIds([]); };
 
-  if (category !== 'premier') return <section aria-label="最強ラインナップ"><p className="empty-message">この図は B.PREMIER（旧B1）だけです。</p></section>;
+  if (category !== 'premier') return <section aria-label="ベストラインナップ"><p className="empty-message">この図は B.PREMIER（旧B1）だけです。</p></section>;
   const card = (r: RankedBestLineup) => <LineupCard key={r.row.group.key} item={r} size={size} sort={sort} highlighted={hlIds.includes(r.row.group.teamId)} color={colorOf(r.row.group.teamId)} playerLabel={playerLabel} />;
-  return <section aria-label="最強ラインナップ">
+  return <section aria-label="ベストラインナップ">
     <FilterBar axes={axes} stateKey="figures:best-lineup" onClearAll={reset} />
     {request.loading ? <p role="status">読み込み中…</p> : request.error || !request.data ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : <>
       <p className="figure-count">対象 {ranked.length}組</p>
-      <FigureExportButton targetRef={target} filename={`最強ラインナップ_${conditions.join('_')}`} baseDate={baseDate} />
+      <FigureExportButton targetRef={target} filename={`ベストラインナップ_${conditions.join('_')}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="best-lineup-export" baseDate={baseDate}>
         <ConditionTitle title={title} exportScope={rangeSeason === null ? '歴代' : `${rangeSeason}シーズン`} conditions={conditions} />
         {shown.length === 0 ? <p className="empty-message">この条件に当てはまる組はありません。</p> : <ol className={`best-lineup-list best-lineup-size-${size}`}>{shown.map(card)}</ol>}

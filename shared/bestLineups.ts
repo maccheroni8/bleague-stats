@@ -1,4 +1,4 @@
-// 図解「歴代最強ラインナップ」（DESIGN.md 370章）の導出データの形。作るのは scripts/aggregate-best-lineups.ts、読むのは src/lib/bestLineups.ts。
+// 図解「歴代ベストラインナップ」（DESIGN.md 370章）の導出データの形。作るのは scripts/aggregate-best-lineups.ts、読むのは src/lib/bestLineups.ts。
 // 人数（2〜5人）ごとに1ファイル（data/best-lineups-{人数}.json.gz）。1行＝1シーズン×1クラブ×同じ組み合わせ×組の OC（その組の外国籍・帰化・アジア特別枠の人数）。
 // シーズンの途中で登録区分が変わった選手がいる組は、OC ごとに別の行になる（読む側が組ごとに足して「すべて」の値にする）。
 // 値は生の合計（時間・試合数・得点・失点・攻守のポゼッション）だけで、率は読むときに計算する。
