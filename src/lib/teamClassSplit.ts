@@ -17,7 +17,7 @@ import { classTokens } from "./classificationFilter";
 import { PLAYER_INDEX_STAT_COLUMNS, ROW_FLAG_HOME, type PlayerGameIndexFile } from "../../shared/gameIndex";
 import { CLUTCH_ATOM_INDEX, PERIOD_ATOMS, PLAYER_PERIOD_STAT_COLUMNS, type PlayerPeriodIndexFile } from "../../shared/periodIndex";
 import { PERIOD_ATOM_INDEXES, type GameRecordPeriod } from "./periodIndex";
-import type { TeamGameLog } from "../../shared/types";
+import type { PlayerGameLog, TeamGameLog } from "../../shared/types";
 import type { Column } from "../components/SortableTable";
 import { paintOf, summarizePaint, withPaint, type PaintInput, type PaintPair } from "./teamPaint2";
 import { EMPTY_TOTALS, type AllTeamsRow, type TeamTotals } from "./teamStatsColumns";
@@ -121,10 +121,11 @@ export const CLASS_SPLIT_GAME_COLUMNS = [
   "assisted2m",
   "assisted3m",
   "assistedFtm",
+  "plusMinus",
 ] as const satisfies readonly (typeof PLAYER_INDEX_STAT_COLUMNS)[number][];
 
 /** ピリオド別の索引から足す列 */
-const PERIOD_COLS = ["paint2m", "paint2a", "mid2m", "mid2a", "disqualifyingFouls"] as const satisfies readonly (typeof PLAYER_PERIOD_STAT_COLUMNS)[number][];
+const PERIOD_COLS = ["paint2m", "paint2a", "mid2m", "mid2a", "disqualifyingFouls", "offensiveFoulsCommitted", "chargesDrawn"] as const satisfies readonly (typeof PLAYER_PERIOD_STAT_COLUMNS)[number][];
 
 /** 区間ごと（1Q〜4Q・延長）に足す列。試合全体の列とペイント内外・DQFOUL（Q別と登録区分を一緒に選ぶときに使う） */
 const ATOM_COLS: readonly (typeof PLAYER_PERIOD_STAT_COLUMNS)[number][] = [...CLASS_SPLIT_GAME_COLUMNS, ...PERIOD_COLS];
@@ -149,10 +150,6 @@ export const CLASS_SPLIT_UNAVAILABLE: ReadonlySet<keyof TeamTotals> = new Set<ke
   "internationalPoints",
   "oppJapanesePoints",
   "oppInternationalPoints",
-  "offFoul",
-  "charge",
-  "oppOffFoul",
-  "oppCharge",
 ]);
 
 /** 選手の値を足しても、チームの値にならない項目（チーム分を除く）。画面の注記に使う */
@@ -169,7 +166,6 @@ export const CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS: ReadonlySet<string> = new Set(
   "drtg",
   "netrtg",
   "orbpct",
-  "plusminus",
   "tf1",
   "tf2",
   "flag",
@@ -189,8 +185,6 @@ export const CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS: ReadonlySet<string> = new Set(
   // ランキングに足した項目（BSR・EFF は相手の値、OFF FOUL 以降は試合ごとの記録や得点の割合で、区分の選手の合計では出せない。405章）
   "bsr",
   "eff",
-  "offfoul",
-  "charge",
   "livetov",
   "livetovpct",
   "foreignPts3",
@@ -357,6 +351,10 @@ export interface ClassSideValues {
   paint2a: number;
   mid2m: number;
   mid2a: number;
+  /** その区分の選手の +/- の合計（試合全体の索引の値。区間を選んだときは区間の値） */
+  plusMinus: number;
+  offFoul: number;
+  charge: number;
 }
 
 /** チームの行（試合の番号×2＋〔ホーム 0／アウェイ 1〕）の、指定した区分（"none" は区分なし）の値 */
@@ -399,6 +397,9 @@ export function classSideValues(source: ClassSplitSource, teamRow: number, cls: 
     paint2a: p("paint2a"),
     mid2m: p("mid2m"),
     mid2a: p("mid2a"),
+    plusMinus: g("plusMinus"),
+    offFoul: p("offensiveFoulsCommitted"),
+    charge: p("chargesDrawn"),
   };
 }
 
@@ -443,6 +444,9 @@ const OWN_KEYS = [
   "paint2a",
   "mid2m",
   "mid2a",
+  "plusMinus",
+  "offFoul",
+  "charge",
 ] as const satisfies readonly (keyof ClassSideValues)[];
 
 /** own 側の項目名 → TeamTotals の opp 側の項目名（oppPts・oppFgm …） */
@@ -460,6 +464,7 @@ export function sumClassTotals(
   logs: readonly TeamGameLog[],
   cls: TeamClassSelection,
   period: GameRecordPeriod | "all" = "all",
+  foul?: ClassFoulSplit | null,
 ): { games: TeamGameLog[]; totals: TeamTotals } {
   const totals: TeamTotals = { ...EMPTY_TOTALS };
   const t = totals as unknown as Record<string, number>;
@@ -483,6 +488,17 @@ export function sumClassTotals(
       t[ok] = (t[ok] ?? 0) + opp[k];
     }
     pairs.push({ own: paintInput(source, ownRow, own, atoms), opp: paintInput(source, oppRow, opp, atoms) });
+    if (foul) {
+      const c = typeof cls === "string" ? CLASS_NUMBERS[cls] : cls;
+      t.technicalFoulsCat1 = (t.technicalFoulsCat1 ?? 0) + foulSplitValue(foul, ownRow, c, 0);
+      t.technicalFoulsCat2 = (t.technicalFoulsCat2 ?? 0) + foulSplitValue(foul, ownRow, c, 1);
+      t.flagrantFouls = (t.flagrantFouls ?? 0) + foulSplitValue(foul, ownRow, c, 2);
+      t.disruptiveFouls = (t.disruptiveFouls ?? 0) + foulSplitValue(foul, ownRow, c, 3);
+      t.oppTechnicalFoulsCat1 = (t.oppTechnicalFoulsCat1 ?? 0) + foulSplitValue(foul, oppRow, c, 0);
+      t.oppTechnicalFoulsCat2 = (t.oppTechnicalFoulsCat2 ?? 0) + foulSplitValue(foul, oppRow, c, 1);
+      t.oppFlagrantFouls = (t.oppFlagrantFouls ?? 0) + foulSplitValue(foul, oppRow, c, 2);
+      t.oppDisruptiveFouls = (t.oppDisruptiveFouls ?? 0) + foulSplitValue(foul, oppRow, c, 3);
+    }
   }
   // クラッチの被ファウルは「値なし」（画面は「-」。設計書375章）
   if (period === "clutch") {
@@ -490,6 +506,46 @@ export function sumClassTotals(
     totals.oppFd = Number.NaN;
   }
   return { games, totals: withPaint(totals, summarizePaint(pairs)) };
+}
+
+/** テクニカル カテゴリ1・2・フレグラント・ディスラプティブ（2026-27以降。選手の索引に無いので、選手の試合ログから足す） */
+export const CLASS_FOUL_SPLIT_COLUMNS = ["technicalFoulsCat1", "technicalFoulsCat2", "flagrantFouls", "disruptiveFouls"] as const;
+
+/** チームの試合×区分ごとの TF1・TF2・FLAG・DISR の合計。位置は ((チームの行×区分の数)＋区分)×4＋列 */
+export interface ClassFoulSplit {
+  season: string;
+  data: Float64Array;
+}
+
+/**
+ * 選手の試合ログ（選手ごと）を、索引の行の区分（rows.cls・無ければ選手の辞書）でチームの試合×区分に足す。
+ * 索引の行は（試合の番号・選手ID）で引く。索引に無い行は区分なしに入れる
+ */
+export function buildClassFoulSplit(
+  index: PlayerGameIndexFile,
+  logsByPlayer: ReadonlyMap<string, readonly PlayerGameLog[]>,
+): ClassFoulSplit {
+  const { rows, games, players } = index;
+  const gameNo = new Map(games.key.map((k, i) => [k, i]));
+  const clsByRow = new Map<string, number>();
+  for (let i = 0; i < rows.player.length; i++) clsByRow.set(`${rows.game[i]}|${players[rows.player[i]!]![0]}`, rowClassNumber(index, i));
+  const data = new Float64Array(games.key.length * 2 * CLASS_COUNT * CLASS_FOUL_SPLIT_COLUMNS.length);
+  for (const [playerId, logs] of logsByPlayer) {
+    for (const g of logs) {
+      const no = gameNo.get(g.scheduleKey);
+      if (no === undefined) continue;
+      const cls = clsByRow.get(`${no}|${playerId}`) ?? CLASS_NONE;
+      const base = ((no * 2 + (g.isHome ? 0 : 1)) * CLASS_COUNT + cls) * CLASS_FOUL_SPLIT_COLUMNS.length;
+      for (let c = 0; c < CLASS_FOUL_SPLIT_COLUMNS.length; c++) data[base + c]! += g[CLASS_FOUL_SPLIT_COLUMNS[c]!] ?? 0;
+    }
+  }
+  return { season: index.season, data };
+}
+
+function foulSplitValue(foul: ClassFoulSplit, teamRow: number, cls: readonly number[], c: number): number {
+  let v = 0;
+  for (const k of cls) v += foul.data[(teamRow * CLASS_COUNT + k) * CLASS_FOUL_SPLIT_COLUMNS.length + c]!;
+  return v;
 }
 
 /** 試合ログの試合のうち、区分が付かない選手の得点（どちらの区分にも入らない分）。画面の注記と検証に使う */

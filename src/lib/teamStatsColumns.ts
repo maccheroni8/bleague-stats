@@ -48,6 +48,9 @@ function higherIsBetterForPerspective(ownHigherIsBetter: boolean, perspective: T
 }
 
 export interface TeamTotals {
+  /** 登録区分別のときだけ入る、その区分の選手の +/- の合計（自チーム・相手） */
+  plusMinus?: number;
+  oppPlusMinus?: number;
   pts: number;
   oppPts: number;
   fgm: number;
@@ -700,7 +703,8 @@ export function buildTraditionalColumns(mode: SeasonDisplayMode, perspective: Te
     countColumn("stocks", "STOCKS", (t) => t.stl + t.blk, (t) => t.oppStl + t.oppBlk, mode, perspective),
     countColumn("f", "F", (t) => t.pf, (t) => t.oppPf, mode, perspective, { higherIsBetter: false }),
     countColumn("fd", "FD", (t) => t.fd, (t) => t.oppFd, mode, perspective),
-    countColumn("plusminus", "+/-", (t) => t.pts - t.oppPts, (t) => t.oppPts - t.pts, mode, perspective, { signed: true }),
+    // 登録区分別のときは、その区分の選手の +/- の合計（plusMinus。opp は相手の同じ区分の選手）。それ以外はチームの得点差
+    countColumn("plusminus", "+/-", (t) => t.plusMinus ?? t.pts - t.oppPts, (t) => t.oppPlusMinus ?? t.oppPts - t.pts, mode, perspective, { signed: true }),
   ];
 }
 

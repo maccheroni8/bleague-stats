@@ -48,6 +48,7 @@ import type { PeriodRangeValue } from "./periodRange";
 import { scopedTurnovers } from "./teamTurnoverScoped";
 import { classPeriodAvailable, CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS, maskClassSplitColumns, splitClassOfFilter, sumClassTotals, withOppMinutes, type TeamClassSelection } from "./teamClassSplit";
 import { useClassSplitSource } from "./teamClassSplitLoad";
+import { useClassFoulSplit } from "./teamClassFoulLoad";
 import { splitClassificationBlocked, splitClassificationSeason } from "./classificationFilter";
 import type { TeamForcedTurnovers, TeamGameLog, TeamSummary } from "../../shared/types";
 
@@ -156,6 +157,15 @@ function maskColumns(columns: Column<AllTeamsRow>[], keys: ReadonlySet<string> |
 export function isClassUnavailableStat(key: string): boolean {
   return key === "opppts" || CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS.has(key);
 }
+
+/** 登録区分別のランキングで、選手の試合ログから区分ごとに足して出す項目（TF1・TF2・FLAG・DISR。2026-27以降の試合全体だけ） */
+export const CLASS_FOUL_SPLIT_STAT_KEYS: readonly string[] = ["tf1", "tf2", "flag", "disr"];
+
+/** ランキング（チーム・シーズン成績）で、登録区分別のときに選べない項目か（TF1 などは試合全体のときだけ選べる） */
+export function isClassUnavailableRankingStat(key: string, period: string): boolean {
+  if (CLASS_FOUL_SPLIT_STAT_KEYS.includes(key)) return period !== "all";
+  return isClassUnavailableStat(key);
+}
 export function teamDefaultStatKey(category: TeamRankingCategory): string {
   if (category === "shooting") return `${SHOT_TYPE_DISPLAY_ORDER[0]}_2pm`;
   if (category === "forcedTurnovers") return "total";
@@ -227,6 +237,10 @@ export function useTeamSeasonRanking(
   );
   // ファウルの列は、2026-27以降のシーズンではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF。そのシーズンに無い項目・条件は外す（DESIGN.md 16-8章）
   const foulSplit = foulColumnsSplit([season]);
+  // 登録区分別の TF1・TF2・FLAG・DISR は、選手の試合ログから区分ごとに足す（選んだときだけ読む）
+  const classFoulNeeded = classActive && foulSplit && period === "all" && CLASS_FOUL_SPLIT_STAT_KEYS.includes(statKey);
+  const { foul: classFoul, loading: classFoulLoading } = useClassFoulSplit(season, classFoulNeeded, league);
+  const classFoulPending = classFoulNeeded && (classFoulLoading || !classFoul);
 
   // シチュエーション別フィルタ・レギュラー/プレーオフ切替を適用した後の、チームごとの対象試合
   // （TeamGameLog[]）。Q別/前後半の選択に関わらず「どの試合が対象か」自体は変わらないため、
@@ -251,11 +265,12 @@ export function useTeamSeasonRanking(
     if (periodActive && !classActive && !periodSource) return [];
     if (foulIndexPending) return [];
     if (classActive && (!classSource || classPeriodMissing)) return [];
+    if (classFoulPending) return [];
     const all = teams.map((team) => {
       const scoped = scopedLogsByTeam.get(team.teamId) ?? [];
       // 登録区分を選んでいるときは、その区分の選手の合計（opp は相手の同じ区分の選手）。勝敗は試合の勝敗
       if (classActive && classSource) {
-        const { games, totals } = sumClassTotals(classSource, scoped, splitClass, periodActive ? (period as TeamPeriodValue) : "all");
+        const { games, totals } = sumClassTotals(classSource, scoped, splitClass, periodActive ? (period as TeamPeriodValue) : "all", classFoulNeeded ? classFoul : null);
         const wins = games.filter((g) => g.win).length;
         return { team, gamesPlayed: games.length, wins, losses: games.length - wins, totals: perspective === "opp" ? withOppMinutes(totals) : totals };
       }
@@ -276,7 +291,7 @@ export function useTeamSeasonRanking(
     });
     // 延長のランキングは、延長のあった試合が3試合以上のチームだけ（256章の決定4）。クラッチも同じ（クラッチタイムになった試合が3試合以上。設計書375章）
     return periodActive && (period === "ot" || period === "clutch") ? all.filter((r) => r.gamesPlayed >= OVERTIME_MIN_TEAM_GAMES_FOR_RANKING) : all;
-  }, [teams, gameLogsByTeam, scopedLogsByTeam, periodActive, periodSource, period, classActive, classSource, classPeriodMissing, splitClass, perspective, foulIndexActive, foulIndexPending]);
+  }, [teams, gameLogsByTeam, scopedLogsByTeam, periodActive, periodSource, period, classActive, classSource, classPeriodMissing, splitClass, perspective, foulIndexActive, foulIndexPending, classFoulPending, classFoulNeeded, classFoul]);
 
   // スタッツの条件の判定に使う行。Shooting・Forced TOV のカテゴリでは上の絞り込みが効かないため、
   // 絞り込みの無いレギュラーシーズン全体の値で判定する
@@ -422,7 +437,7 @@ export function useTeamSeasonRanking(
     foulSplit,
     paintSupported,
     // 区間の索引の読み込み（名前は以前の生データの読み込みのまま。読めなかったときは1件の失敗として出す）
-    rawGamesLoading: (periodActive && !classActive && periodLoading) || foulIndexPending,
+    rawGamesLoading: (periodActive && !classActive && periodLoading) || foulIndexPending || classFoulPending,
     rawGamesFailedCount: periodActive && !classActive && !periodLoading && !periodSource ? 1 : 0,
     retryRawGames: retryPeriodSource,
     periodDataReady,

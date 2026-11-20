@@ -1,6 +1,7 @@
 import { PageTitleRow } from "../components/HeaderActions";
 import { RankedList, type RankCompare, type RankableStat } from "../components/RankedList";
 import { teamChipColor } from "../lib/teamChipColors";
+import { RankingPresets } from "../components/RankingPresets";
 import { PlayerGameRecordRanking } from "../components/PlayerGameRecordRanking";
 import { TeamGameRecordRanking } from "../components/TeamGameRecordRanking";
 import { TeamAttendanceRanking, ATTENDANCE_SCOPE_PARAM } from "../components/TeamAttendanceRanking";
@@ -122,7 +123,7 @@ import {
   teamDefaultStatKey,
   useTeamSeasonRanking,
   MOVED_TO_MISC_KEYS,
-  isClassUnavailableStat,
+  isClassUnavailableRankingStat,
   type TeamRankingCategory,
   type TurnoverDirection,
 } from "../lib/teamSeasonRanking";
@@ -433,9 +434,8 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
   // 登録区分別では出せない項目（PACE・ORtg など）と +/- の視点は選べない。URL に書いてあれば、既定の項目・自チームに戻す
   useEffect(() => {
     if (!classActive) return;
-    if (isClassUnavailableStat(statKey)) setStatKey(defaultTeamStat);
-    if (perspective === "diff") setPerspective("own");
-  }, [classActive, statKey, perspective, defaultTeamStat, setStatKey, setPerspective]);
+    if (isClassUnavailableRankingStat(statKey, period)) setStatKey(defaultTeamStat);
+  }, [classActive, statKey, period, defaultTeamStat, setStatKey]);
 
   const selectCategory = (next: TeamRankingCategory) => {
     setCategory(next);
@@ -547,7 +547,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
   const teamScopedReason = turnoverScopedOk ? undefined : teamFilterDisabledReason;
   const teamFilterAxes: FilterAxis[] = [
     gameTypeAxis(gameType, setGameType, season, { disabledReason: teamScopedReason }),
-    perspectiveAxis(perspective, setPerspective, { disabledReason: teamFilterDisabledReason, disabledValues: classActive ? ["diff"] : undefined }),
+    perspectiveAxis(perspective, setPerspective, { disabledReason: teamFilterDisabledReason }),
     classificationAxis(classFilter, setClassFilter, {
       teamCombined: true,
       disabledReason: isBoxscore ? undefined : "登録区分別の値は Traditional〜Scoring のタブでだけ見られます。",
@@ -643,7 +643,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
                     // クラッチの被ファウルは「値なし」なので選べない（設計書375章）
                     .map((c) => (period === "clutch" && c.key === "fd" ? { ...c, label: `${c.label}（クラッチは対象外）`, disabled: true } : c))
                     // 登録区分別では出せない項目は選べない
-                    .map((c) => (classActive && isClassUnavailableStat(c.key) ? { ...c, label: `${c.label}（登録区分別は対象外）`, disabled: true } : c)),
+                    .map((c) => (classActive && isClassUnavailableRankingStat(c.key, period) ? { ...c, label: `${c.label}（登録区分別は対象外）`, disabled: true } : c)),
             statKey,
             setStatKey,
             "team",
@@ -1520,6 +1520,8 @@ export function RankingsPage({ season }: { season: string }) {
           ))}
         </div>
       )}
+
+      <RankingPresets />
 
       {/* カテゴリのタブを「ページの主タブ」ではなく従のタブとして扱うため、ルート直下に置かない（v2のCSSは > .tab-bar だけを主タブにする） */}
       <div>
