@@ -9429,3 +9429,40 @@ table.sortable-table.tts-table th {
 .export-target .name-text.name-text-line.name-text-wrap {
   white-space: normal;
 }
+
+/* 年間スケジュールの画像保存（保存の窓で選んだ期間・地区だけを、画面の外の専用の枠に置いて複製して描く） */
+.export-target.annual-save-target {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 1000px;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: -1;
+  overflow: hidden;
+}
+
+.export-rendering.annual-save-target {
+  position: static;
+  visibility: visible;
+  pointer-events: auto;
+  z-index: auto;
+  overflow: visible;
+  width: max-content;
+  max-width: none;
+}
+
+.annual-save-period {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.annual-save-period input[type="date"],
+.annual-save-period select {
+  min-height: 44px;
+}
+
+.annual-save-range {
+  font-size: 0.85rem;
+  color: var(--text-muted, inherit);
+}

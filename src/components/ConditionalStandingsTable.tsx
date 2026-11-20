@@ -69,7 +69,7 @@ import {
   applyConditionalCondition,
   buildConditionGroups,
   conditionNumberKind,
-  describeCondition,
+  conditionalStandingsTitle,
   NUMBER_CONDITION_DEFAULTS,
   type ConditionalCondition,
   type ConditionGroup,
@@ -448,13 +448,13 @@ export function ConditionalStandingsTable({
       )}
 
       <SavableBlock
-        filename={buildExportFilename([`${season}シーズン`, `${describeCondition(condition)} 順位表`, ...savedConditions])}
+        filename={buildExportFilename([`${season}シーズン`, conditionalStandingsTitle([condition]), ...savedConditions])}
         baseDate={{ kind: "season", season, gameType: "regular" }}
         className="export-target-standings"
       >
         {/* 見出しは条件（単一軸）のみ。シーズン・対象試合・チーム絞り込みは条件行で補う（Batch 5、DESIGN.md 99章） */}
         <ConditionTitle
-          title={`${describeCondition(condition)} 順位表`}
+          title={conditionalStandingsTitle([condition])}
           exportScope={`${season}シーズン`}
           conditions={[...savedConditions, ...(sortText ? [sortText] : [])]}
         />
