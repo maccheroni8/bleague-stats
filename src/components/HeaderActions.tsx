@@ -1,5 +1,6 @@
 import { createContext, useContext, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { SaveMenu } from "./SaveMenu";
 
 /**
  * ページの見出し（h1）の行の右端に置く部品（保存ボタンなど。DESIGN.md 401章）。
@@ -32,6 +33,9 @@ export function PageTitleRow({ children, subtitle }: { children: ReactNode; subt
       <div className="page-title-main">
         <h1>{children}</h1>
         {subtitle != null && <p className="page-subtitle">{subtitle}</p>}
+      </div>
+      <div className="page-title-save">
+        <SaveMenu />
       </div>
       <div
         className="page-title-actions"

@@ -18,6 +18,7 @@ import {
 import { ExportImagePreview } from "./ExportImagePreview";
 import { SaveModal, SaveModalPreview } from "./SaveModal";
 import { HeaderActions } from "./HeaderActions";
+import { useSaveMenuEntry } from "./SaveMenu";
 
 /** 保存する範囲の中から、保存画像の見出し・サブタイトルの文字を読む（窓の見本用。保存画像から外れる部分〔export-hide〕は除く） */
 export function readExportHeadingPreview(target: HTMLElement | null): { scope?: string; name?: string; subtitle?: string } {
@@ -293,6 +294,17 @@ export function ExportImageButton({
     : null;
 
   const saveDisabled = busy || !!disabledReason;
+  const saveEntry = useSaveMenuEntry({
+    label: "画像",
+    order: 0,
+    busyLabel: busy ? (phase ? BUSY_LABELS[phase] : "出力中…") : null,
+    onSelect: () => {
+      setNotice(null);
+      setNoticeIsError(false);
+      setChoiceKey(null);
+      setOpen(true);
+    },
+  });
   const notices = notice && (
     <p ref={noticeRef} className={`export-notice${noticeIsError ? " export-notice-error" : ""}`} role={noticeIsError ? "alert" : "status"}>
       {notice}
@@ -301,18 +313,7 @@ export function ExportImageButton({
   return (
     <HeaderActions>
     <div className="export-controls">
-      <button
-        className="export-image-button"
-        onClick={() => {
-          setNotice(null);
-          setNoticeIsError(false);
-          setChoiceKey(null);
-          setOpen(true);
-        }}
-        aria-haspopup="dialog"
-      >
-        {busy ? (phase ? BUSY_LABELS[phase] : "出力中…") : "画像"}
-      </button>
+      {saveEntry}
       {pending && <ExportImagePreview files={pending.map((p) => p.file)} notice={previewNotice} onShare={handleSharePending} onClose={handleClosePreview} />}
       <SaveModal open={open} title="画像として保存" onClose={() => setOpen(false)}>
         <SaveModalPreview {...heading} />

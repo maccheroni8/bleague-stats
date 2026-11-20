@@ -9472,3 +9472,75 @@ table.sortable-table.tts-table th {
 .export-target-oc.oc-save-table .oc-save-chart-part {
   display: none;
 }
+
+/* --- 「保存」ボタンとメニュー（DESIGN.md 426章）。ボタンは見出しの行の右端、メニューはボタンのすぐ下に右そろえで開く --- */
+.save-menu {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.save-menu .save-menu-button,
+.save-menu-button.export-image-button {
+  margin-bottom: 0;
+  min-height: 44px;
+  min-width: 64px;
+  white-space: nowrap;
+}
+
+.save-menu-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 60;
+  min-width: 140px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.save-menu-item {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.save-menu-item:hover:not(:disabled),
+.save-menu-item:focus-visible {
+  background: var(--row-hover);
+}
+
+.save-menu-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.page-title-save {
+  margin-left: auto;
+}
+
+.page-title-save:empty {
+  display: none;
+}
+
+.page-title-save + .page-title-actions {
+  margin-left: 0;
+}
+
+.page-title-actions .savable-bar,
+.page-title-actions .export-controls {
+  display: contents;
+}

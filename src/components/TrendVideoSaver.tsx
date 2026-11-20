@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSaveMenuEntry } from "./SaveMenu";
 import { SaveModal, SaveModalPreview } from "./SaveModal";
 import { baseDateFooterText } from "../lib/exportFormat";
 import { exportHeadingLines } from "../lib/exportHeading";
@@ -82,6 +83,16 @@ export function TrendVideoSaver({
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const chart = charts.find((c) => c.key === chartKey) ?? charts[0];
+  const saveEntry = useSaveMenuEntry(
+    chart
+      ? {
+          label: "動画",
+          order: 1,
+          busyLabel: progress !== null ? `動画を作成中… ${Math.round((progress ?? 0) * 100)}%` : null,
+          onSelect: () => setOpen(true),
+        }
+      : null,
+  );
   if (!chart) return null;
 
   const make = async () => {
@@ -144,9 +155,7 @@ export function TrendVideoSaver({
 
   return (
     <>
-      <button type="button" className="export-image-button" onClick={() => setOpen(true)} aria-haspopup="dialog">
-        {making ? `動画を作成中… ${Math.round((progress ?? 0) * 100)}%` : "動画"}
-      </button>
+      {saveEntry}
       <SaveModal open={open} title="動画として保存" onClose={() => setOpen(false)}>
         <SaveModalPreview scope={heading.scope} name={heading.name} subtitle={chart.subtitleAt(undefined)} />
         <div className="save-modal-options">

@@ -1,4 +1,5 @@
 import { reconstructedPeriodPlusMinus } from "../lib/playerSeasonBoxscore";
+import { SaveMenu } from "../components/SaveMenu";
 import { Fragment, useState, type CSSProperties } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
@@ -544,6 +545,7 @@ export function GameDetailPage({ season }: { season: string }) {
           ← チーム一覧に戻る
         </Link>
         <div className="game-detail-top-buttons">
+          <SaveMenu />
           <GameMdButton
             ready={!yahooLoading}
             input={{

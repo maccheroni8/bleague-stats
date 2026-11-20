@@ -1,3 +1,4 @@
+import { useSaveMenuEntry } from './SaveMenu';
 import { Component, lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
 import type { League } from '../lib/league';
 const AI_EXPORT_BUTTON_LABEL = 'md';
@@ -35,8 +36,9 @@ export function AiExportButton({ season, teamId, league }: { season: string; tea
     if (failed) { setFailed(false); setAttempt(n => n + 1); }
     setOpen(true);
   };
+  const saveEntry = useSaveMenuEntry({ label: 'md', order: 2, title: 'AI向けにデータを書き出す', onSelect: press });
   return <>
-    <button type="button" className="export-image-button ai-export-button" aria-label="AI向けにデータを書き出す" title="AI向けにデータを書き出す" onClick={press}>{AI_EXPORT_BUTTON_LABEL}</button>
+    {saveEntry}
     {open && !failed && <DialogLoadBoundary key={attempt} onFail={() => setFailed(true)}>
       <Suspense fallback={<p role="status">書き出し画面を準備しています…</p>}>
         <Dialog key={`${league}/${season}/${teamId}`} season={season} teamId={teamId} league={league} close={() => setOpen(false)} />

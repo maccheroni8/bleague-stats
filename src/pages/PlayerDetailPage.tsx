@@ -1,4 +1,5 @@
 import { seasonBoxColumnsWithFtrPpp } from "../lib/pppColumn";
+import { SaveMenu } from "../components/SaveMenu";
 import { foreignSituationalGroups } from "../lib/situationalRecords";
 import { AiPlayerExportButton } from "../components/AiPlayerExportButton";
 import { DIVISION_LABELS, opponentDivisionChoices } from "../lib/divisionGroups";
@@ -2475,6 +2476,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           ← 個人一覧に戻る
         </Link>
         <AiPlayerExportButton season={season} playerId={player.playerId} league={league} />
+        <SaveMenu />
       </div>
       <div className="player-detail-title" style={accentColor ? { borderTopColor: accentColor } : undefined}>
         <h1>

@@ -1,4 +1,5 @@
 // 試合詳細の「md」ボタン（AI向けの書き出し）。書き出し画面の部品は、押したときに初めて読み込む（選手詳細・チーム詳細の md と同じ置き方）
+import { useSaveMenuEntry } from './SaveMenu';
 import { Component, lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
 import type { GameMdInput } from '../lib/gameMd';
 
@@ -34,8 +35,9 @@ export function GameMdButton({ input, ready }: { input: GameMdInput; ready: bool
     if (failed) { setFailed(false); setAttempt(n => n + 1); }
     setOpen(true);
   };
+  const saveEntry = useSaveMenuEntry({ label: 'md', order: 2, title: ready ? 'AI向けに試合のデータを書き出す' : '記録を読み込み中です', disabled: !ready, onSelect: press });
   return <>
-    <button type="button" className="export-image-button ai-export-button" aria-label="AI向けに試合のデータを書き出す" title={ready ? 'AI向けに試合のデータを書き出す' : '記録を読み込み中です'} disabled={!ready} onClick={press}>{AI_EXPORT_BUTTON_LABEL}</button>
+    {saveEntry}
     {open && !failed && <DialogLoadBoundary key={attempt} onFail={() => setFailed(true)}>
       <Suspense fallback={<p role="status">書き出し画面を準備しています…</p>}>
         <Dialog input={input} close={() => setOpen(false)} />

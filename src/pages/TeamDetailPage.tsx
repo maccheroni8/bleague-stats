@@ -1,4 +1,5 @@
 import { seasonBoxColumnsWithFtrPpp } from "../lib/pppColumn";
+import { SaveMenu } from "../components/SaveMenu";
 import { AiExportButton } from "../components/AiExportButton";
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
@@ -4179,6 +4180,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           ← チーム一覧に戻る
         </Link>
         <AiExportButton season={season} teamId={team.teamId} league={league} />
+        <SaveMenu />
       </div>
 
       <div className="team-detail-header" style={accentColor ? { borderTopColor: accentColor } : undefined}>
