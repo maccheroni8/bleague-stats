@@ -93,7 +93,8 @@ export function StandingsTrendPlaybackLayer({
     return playback.subscribe(apply);
   }, [playback, playbackOffset, xs, tracks, teams, tieOffsetStep]);
 
-  // 止まっているときと同じ重なり順（順位が良いチームほど手前）にするため、逆順に描く
+  // 全チームの線を先に描き、ロゴは最後にまとめて描く（どのロゴも線より手前）。
+  // 重なりの順は止まっているときと同じ（順位が良いチームほど手前）にするため、逆順に描く
   const order = teams.map((t, i) => ({ t, i })).reverse();
   return (
     <g className="standings-trend-playback">
@@ -102,31 +103,39 @@ export function StandingsTrendPlaybackLayer({
           <rect ref={clipRectRef} x={0} y={0} width={0} height={height || 0} />
         </clipPath>
       </defs>
-      {order.map(({ t, i }) => {
+      {order.map(({ t, i }) => (
+        <path
+          key={`line-${t.teamId}`}
+          d={tracks[i]!.d}
+          fill="none"
+          stroke={colorByTeamId.get(t.teamId) ?? "var(--fg)"}
+          strokeWidth={2}
+          clipPath={`url(#${clipId})`}
+        />
+      ))}
+      {order.map(({ t }) => {
         const color = colorByTeamId.get(t.teamId) ?? "var(--fg)";
         return (
-          <g key={t.teamId}>
-            <path d={tracks[i]!.d} fill="none" stroke={color} strokeWidth={2} clipPath={`url(#${clipId})`} />
-            <g
-              display="none"
-              ref={(el) => {
-                if (el) logoRefs.current.set(t.teamId, el);
-                else logoRefs.current.delete(t.teamId);
-              }}
-            >
-              {failedLogos.has(t.teamId) ? (
-                <circle cx={0} cy={0} r={4} fill={color} />
-              ) : (
-                <image
-                  href={teamLogoUrl(t.teamId)}
-                  x={-logoSize / 2}
-                  y={-logoSize / 2}
-                  width={logoSize}
-                  height={logoSize}
-                  onError={() => onLogoError(t.teamId)}
-                />
-              )}
-            </g>
+          <g
+            key={`logo-${t.teamId}`}
+            display="none"
+            ref={(el) => {
+              if (el) logoRefs.current.set(t.teamId, el);
+              else logoRefs.current.delete(t.teamId);
+            }}
+          >
+            {failedLogos.has(t.teamId) ? (
+              <circle cx={0} cy={0} r={4} fill={color} />
+            ) : (
+              <image
+                href={teamLogoUrl(t.teamId)}
+                x={-logoSize / 2}
+                y={-logoSize / 2}
+                width={logoSize}
+                height={logoSize}
+                onError={() => onLogoError(t.teamId)}
+              />
+            )}
           </g>
         );
       })}

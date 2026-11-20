@@ -60,7 +60,7 @@ import { DIVISION_LABELS, divisionPresets, groupByDivision } from "../lib/divisi
 import { formatGamesBehind, standingsStatCells, withUnplayedTeams, type StandingsTeam } from "../lib/standingsTeams";
 import { PageTitleRow } from "../components/HeaderActions";
 import { findFebruaryBiweekGap } from "../lib/situational";
-import { toGamesAxis } from "../lib/trendGamesAxis";
+import { gamesRange, toGamesAxis } from "../lib/trendGamesAxis";
 import type {
   Division,
   HeadToHeadTeamRow,
@@ -717,10 +717,17 @@ type TrendTabProps = {
  * 勝ち星推移・勝率推移・貯金推移の中身。再生ボタン・地区別のグラフ・ワイルドカードのグラフの構成は3つで共通で、
  * 違うのはデータと（勝率だけ）縦軸の固定
  */
+/** 試合数の横軸の行の、最初の試合数 */
+function firstGames(rows: Record<string, number | string>[]): number {
+  const v = rows[0]?.date;
+  return typeof v === "number" ? v : 0;
+}
+
 function MetricTrendTab(props: TrendTabProps) {
   const { name, fixedYAxis } = props;
   const games = props.xAxis === "games";
-  // 横軸が試合数のときは、日ごとの行をチームごとの試合数の行に組み替える（再生・動画は日付の横軸だけ）
+  // 横軸が試合数のときは、日ごとの行をチームごとの試合数の行に組み替える。再生の時計は「試合数−最小の試合数」の番号で進む
+  const gamesBase = gamesRange(props.history).lo;
   const data = useMemo(() => (games ? toGamesAxis(props.history, props.data) : props.data), [games, props.history, props.data]);
   const wildcardData = useMemo(
     () => (games ? toGamesAxis(props.wildcardHistory, props.wildcardData) : props.wildcardData),
@@ -728,7 +735,7 @@ function MetricTrendTab(props: TrendTabProps) {
   );
   const common = {
     teamColors: props.teamColors,
-    playback: games ? undefined : props.playback,
+    playback: props.playback,
     fixedYAxis,
     zeroLine: props.zeroLine,
     xAxisKind: props.xAxis,
@@ -736,7 +743,7 @@ function MetricTrendTab(props: TrendTabProps) {
   return (
     <div>
       <div className="mode-toggle">
-        <button type="button" className={props.isAnimating ? "active" : ""} onClick={props.onPlay} disabled={props.isAnimating || games} title={games ? "横軸が日付のときだけ再生できます" : undefined}>
+        <button type="button" className={props.isAnimating ? "active" : ""} onClick={props.onPlay} disabled={props.isAnimating}>
           {props.isAnimating ? "再生中..." : "▶ アニメーション再生"}
         </button>
         <span className="export-option-group" role="group" aria-label="横軸">
@@ -749,14 +756,15 @@ function MetricTrendTab(props: TrendTabProps) {
           </button>
         </span>
       </div>
-      <TrendSaveFrame videoCharts={props.videoCharts} videoDisabledReason={games ? "横軸が日付のときだけ動画にできます" : undefined} name={name} season={props.season} seasonLabel={props.seasonLabel} isAnimating={props.isAnimating} rangeOptions={props.rangeOptions} range={props.range} onRangeChange={props.onRangeChange}>
+      <TrendSaveFrame videoCharts={props.videoCharts} name={name} season={props.season} seasonLabel={props.seasonLabel} isAnimating={props.isAnimating} rangeOptions={props.rangeOptions} range={props.range} onRangeChange={props.onRangeChange}>
       {props.divisionGroups.length === 0 ? (
         <StandingsLineChart
           title={name}
           data={data}
           teams={props.teams}
           height={560}
-          playingConditions={props.conditionsAt}
+          playingConditions={games ? undefined : props.conditionsAt}
+          playbackOffset={games ? firstGames(data) - gamesBase : 0}
           conditions={props.conditions}
           {...common}
         />
@@ -769,7 +777,8 @@ function MetricTrendTab(props: TrendTabProps) {
                 data={data}
                 teams={g.teams}
                 height={520}
-                playingConditions={props.conditionsAt}
+                playingConditions={games ? undefined : props.conditionsAt}
+                playbackOffset={games ? firstGames(data) - gamesBase : 0}
                 conditions={props.conditions}
                 {...common}
               />
@@ -782,11 +791,11 @@ function MetricTrendTab(props: TrendTabProps) {
               data={wildcardData}
               teams={props.wildcardTeams}
               height={520}
-              playbackOffset={props.wildcardPlaybackOffset}
-              playingConditions={props.wildcardConditionsAt}
+              playingConditions={games ? undefined : props.wildcardConditionsAt}
               connectGaps={false}
               conditions={props.wildcardConditions}
               {...common}
+              playbackOffset={games ? firstGames(wildcardData) - gamesBase : props.wildcardPlaybackOffset}
             />
             </div>
           )}
@@ -835,7 +844,10 @@ export function StandingsPage({ season }: { season: string }) {
     isAnimating,
     play: playAnimation,
     playback: trendPlayback,
-  } = useTrendPlayback(history?.length ?? 0, `${league}:${season}`);
+  } = useTrendPlayback(
+    history ? (trendXAxis === "games" ? gamesRange(history).hi - gamesRange(history).lo + 1 : history.length) : 0,
+    `${league}:${season}:${trendXAxis}`,
+  );
   const playback = isAnimating ? trendPlayback : undefined;
 
   // 星取り表以外のタブ（勝敗表・推移4種）の「保存する範囲」: all＝全地区まとめて、地区の値、wildcard（推移のみ）
@@ -1135,6 +1147,8 @@ export function StandingsPage({ season }: { season: string }) {
     fixed?: FixedYAxis,
     zeroLine?: boolean,
   ): TrendVideoChart[] => {
+    const gamesMode = trendXAxis === "games" && kind === "metric";
+    const toRows = (rows: Record<string, number | string>[], snaps: StandingsSnapshot[]) => (gamesMode ? toGamesAxis(snaps, rows) : rows);
     const make = (
       key: string,
       label: string,
@@ -1158,13 +1172,14 @@ export function StandingsPage({ season }: { season: string }) {
           : fixed
             ? { min: fixed.domain[0], max: fixed.domain[1], ticks: fixed.ticks, format: fixed.format, reversed: false, referenceLine: fixed.referenceLine }
             : { ...autoAxis(rows, list.map((t) => t.teamId), (v) => String(v)), ...(zeroLine ? { referenceLine: 0 } : {}) },
-      subtitleAt: (index) => conditionsAt(index === undefined ? undefined : offset + index).join("／"),
+      subtitleAt: (index) => conditionsAt(gamesMode || index === undefined ? undefined : offset + index).join("／"),
+      xLabel: gamesMode ? (v) => `${v}試合` : undefined,
     });
-    if (divisionGroups.length === 0) return [make("all", "全体", name, allData, teams, teams.length, 0, true, trendConditionsAt)];
+    if (divisionGroups.length === 0) return [make("all", "全体", name, toRows(allData, history), teams, teams.length, 0, true, trendConditionsAt)];
     return [
-      ...divisionGroups.map((g) => make(g.division, DIVISION_LABELS[g.division], `${DIVISION_LABELS[g.division]}${name}`, divData, g.teams, g.teams.length, 0, true, trendConditionsAt)),
+      ...divisionGroups.map((g) => make(g.division, DIVISION_LABELS[g.division], `${DIVISION_LABELS[g.division]}${name}`, toRows(divData, history), g.teams, g.teams.length, 0, true, trendConditionsAt)),
       ...(wildcardTeams.length > 0
-        ? [make("wildcard", "ワイルドカード", `ワイルドカード${name}`, wcData, wildcardTeams, wildcardRankDomainMax, wildcardPlaybackOffset, false, wildcardTrendConditionsAt)]
+        ? [make("wildcard", "ワイルドカード", `ワイルドカード${name}`, toRows(wcData, wildcardHistory), wildcardTeams, wildcardRankDomainMax, wildcardPlaybackOffset, false, wildcardTrendConditionsAt)]
         : []),
     ];
   };

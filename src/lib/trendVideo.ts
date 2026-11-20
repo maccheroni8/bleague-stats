@@ -50,6 +50,8 @@ export interface TrendVideoSpec {
   teams: TrendVideoTeam[];
   axis: TrendVideoAxis;
   connectGaps: boolean;
+  /** 横軸の目盛りの書き方。無ければ行の date のまま */
+  xLabel?: (v: number | string) => string;
   /** フッター左（「データの基準日：2026/05/03時点」）。無ければ出さない */
   footerLeft?: string;
   footerRight: string;
@@ -193,7 +195,7 @@ export function prepareTrendVideo(spec: TrendVideoSpec, measure: CanvasRendering
     // 横軸の日付
     ctx.textAlign = "center";
     ctx.fillStyle = "#333333";
-    for (let i = 0; i < n; i += labelStep) ctx.fillText(String(spec.rows[i]!.date), xs[i]!, L.bottom + 18);
+    for (let i = 0; i < n; i += labelStep) ctx.fillText(spec.xLabel ? spec.xLabel(spec.rows[i]!.date!) : String(spec.rows[i]!.date), xs[i]!, L.bottom + 18);
 
     // 凡例
     ctx.textAlign = "left";

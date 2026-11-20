@@ -31,3 +31,17 @@ export function toGamesAxis(history: StandingsSnapshot[], rows: TrendRow[]): Tre
   for (let g = lo; g <= hi; g++) result.push(byGames.get(g) ?? { date: g });
   return result;
 }
+
+/** 日ごとの記録の中での、試合数（勝＋敗）の最小・最大。再生の時計の長さ（最大−最小+1）と、チャートごとの開始位置の基準に使う */
+export function gamesRange(history: StandingsSnapshot[]): { lo: number; hi: number } {
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const h of history) {
+    for (const t of h.teams) {
+      const g = t.wins + t.losses;
+      if (g < lo) lo = g;
+      if (g > hi) hi = g;
+    }
+  }
+  return lo <= hi ? { lo, hi } : { lo: 0, hi: 0 };
+}

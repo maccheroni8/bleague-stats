@@ -219,8 +219,6 @@ export function StandingsLineChart({
               チームほど後から描画され、他のチームより手前（視覚的に上）に表示される */}
           {[...teams].reverse().map((t) => {
             const color = colorByTeamId.get(t.teamId) ?? "var(--fg)";
-            const lastIndex = lastValidIndexByTeam.get(t.teamId);
-            const tieOffset = tieOffsetByTeam.get(t.teamId) ?? 0;
             return (
               <Line
                 key={t.teamId}
@@ -228,35 +226,7 @@ export function StandingsLineChart({
                 dataKey={t.teamId}
                 name={teamShortName(t.teamId, t.teamName)}
                 stroke={color}
-                dot={playback ? false : (props: any) => {
-                  const { cx, cy, index } = props;
-                  if (index !== lastIndex || cx === undefined || cy === undefined) {
-                    return <circle key={`${t.teamId}-dot-${index}`} cx={cx} cy={cy} r={0} fill="none" />;
-                  }
-                  const dotX = cx - tieOffset * TIE_OFFSET_STEP;
-                  if (failedLogos.has(t.teamId)) {
-                    return (
-                      <circle
-                        key={`${t.teamId}-dot-${index}`}
-                        cx={dotX}
-                        cy={cy}
-                        r={4}
-                        fill={color}
-                      />
-                    );
-                  }
-                  return (
-                    <image
-                      key={`${t.teamId}-logo`}
-                      href={logoSource(t.teamId)}
-                      x={dotX - LOGO_SIZE / 2}
-                      y={cy - LOGO_SIZE / 2}
-                      width={LOGO_SIZE}
-                      height={LOGO_SIZE}
-                      onError={() => markLogoFailed(t.teamId)}
-                    />
-                  );
-                }}
+                dot={false}
                 // 再生中は再生用の層が描くので、こちらの線は見せない（位置の計算には使うので外さない）
                 strokeOpacity={playback ? 0 : 1}
                 activeDot={!playback}
@@ -266,6 +236,22 @@ export function StandingsLineChart({
               />
             );
           })}
+          {/* 静止画のロゴは、全チームの線を描いたあとにまとめて描く（どのロゴも線より手前） */}
+          {!playback && (
+            <Customized
+              component={
+                <StandingsLogoLayer
+                  teams={teams}
+                  lastValidIndexByTeam={lastValidIndexByTeam}
+                  tieOffsetByTeam={tieOffsetByTeam}
+                  colorByTeamId={colorByTeamId}
+                  logoSource={logoSource}
+                  failedLogos={failedLogos}
+                  onLogoError={markLogoFailed}
+                />
+              }
+            />
+          )}
           {playback && (
             <Customized
               component={
@@ -286,6 +272,59 @@ export function StandingsLineChart({
         </LineChart>
       </ResponsiveContainer>
     </div>
+  );
+}
+
+/** 静止画のロゴ。全チームの線のあとに描くので、どの線にも隠れない。位置は各チームの最後の値の点 */
+function StandingsLogoLayer({
+  teams,
+  lastValidIndexByTeam,
+  tieOffsetByTeam,
+  colorByTeamId,
+  logoSource,
+  failedLogos,
+  onLogoError,
+  formattedGraphicalItems,
+}: {
+  teams: ChartTeam[];
+  lastValidIndexByTeam: Map<string, number>;
+  tieOffsetByTeam: Map<string, number>;
+  colorByTeamId: Map<string, string>;
+  logoSource: (teamId: string) => string;
+  failedLogos: Set<string>;
+  onLogoError: (teamId: string) => void;
+  formattedGraphicalItems?: any[];
+}) {
+  const pointsByTeam = new Map<string, { x: number; y: number }[]>();
+  for (const item of formattedGraphicalItems ?? []) {
+    const key = item?.item?.props?.dataKey;
+    const points = item?.props?.points;
+    if (typeof key === "string" && Array.isArray(points)) pointsByTeam.set(key, points);
+  }
+  // 順位が良いチームほど手前（逆順に描く）
+  return (
+    <g className="standings-logo-layer">
+      {[...teams].reverse().map((t) => {
+        const index = lastValidIndexByTeam.get(t.teamId);
+        const p = index === undefined ? undefined : pointsByTeam.get(t.teamId)?.[index];
+        if (!p || p.x === undefined || p.y === undefined || !Number.isFinite(p.x) || !Number.isFinite(p.y)) return null;
+        const x = p.x - (tieOffsetByTeam.get(t.teamId) ?? 0) * TIE_OFFSET_STEP;
+        if (failedLogos.has(t.teamId)) {
+          return <circle key={`${t.teamId}-dot`} cx={x} cy={p.y} r={4} fill={colorByTeamId.get(t.teamId) ?? "var(--fg)"} />;
+        }
+        return (
+          <image
+            key={`${t.teamId}-logo`}
+            href={logoSource(t.teamId)}
+            x={x - LOGO_SIZE / 2}
+            y={p.y - LOGO_SIZE / 2}
+            width={LOGO_SIZE}
+            height={LOGO_SIZE}
+            onError={() => onLogoError(t.teamId)}
+          />
+        );
+      })}
+    </g>
   );
 }
 

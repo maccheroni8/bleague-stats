@@ -167,16 +167,26 @@ export function xAtProgress(xs: readonly number[], progress: number): number | n
  * 戻り値は ties[チームの番号][日付の番号]。値が無い日は 0。
  */
 export function tieStagesByIndex(valuesByTeam: readonly (readonly (number | null | undefined)[])[]): number[][] {
+  // 各チームの「値がある最後の番号」。その点は、同じ番号で最後になるチーム同士だけで段を数える
+  // （まだ進んでいるチームが同じ値で通り過ぎていても、止まったチームのロゴの位置は静止画と同じにするため）
+  const finalIndex = valuesByTeam.map((values) => {
+    for (let i = values.length - 1; i >= 0; i--) {
+      const v = values[i];
+      if (v !== null && v !== undefined && Number.isFinite(v)) return i;
+    }
+    return -1;
+  });
   const length = valuesByTeam.reduce((m, v) => Math.max(m, v.length), 0);
   const result = valuesByTeam.map(() => new Array<number>(length).fill(0));
   for (let i = 0; i < length; i++) {
-    const seen = new Map<number, number>();
+    const seen = new Map<string, number>();
     valuesByTeam.forEach((values, teamIndex) => {
       const v = values[i];
       if (v === null || v === undefined || !Number.isFinite(v)) return;
-      const stage = seen.get(v) ?? 0;
+      const key = `${v}:${finalIndex[teamIndex] === i ? "f" : "n"}`;
+      const stage = seen.get(key) ?? 0;
       result[teamIndex]![i] = stage;
-      seen.set(v, stage + 1);
+      seen.set(key, stage + 1);
     });
   }
   return result;

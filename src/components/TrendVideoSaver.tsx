@@ -33,6 +33,8 @@ export interface TrendVideoChart {
   connectGaps: boolean;
   /** サブタイトル。index はそのグラフの最初の日が0。最後の形のときは undefined */
   subtitleAt: (index: number | undefined) => string;
+  /** 横軸の目盛りの書き方（試合数のとき「5試合」）。無ければ行の date のまま */
+  xLabel?: (v: number | string) => string;
 }
 
 type SpeedChoice = "standard" | "30" | "15";
@@ -117,6 +119,7 @@ export function TrendVideoSaver({
           teams: chart.teams,
           axis: chart.axis,
           connectGaps: chart.connectGaps,
+          xLabel: chart.xLabel,
           footerLeft: baseDateFooterText(baseDate) || undefined,
           footerRight: EXPORT_ACCOUNT_NAME,
           logos,
