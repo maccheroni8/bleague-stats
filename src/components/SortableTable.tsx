@@ -122,6 +122,7 @@ export function SortableTable<T>({
           {columns.map((col) => (
             <th
               key={col.key}
+              data-col={col.key}
               className={col.align === "left" ? "align-left" : "align-right"}
               title={statDescription(col.label, statScope)}
               onClick={() => handleHeaderClick(col.key)}
@@ -153,6 +154,7 @@ export function SortableTable<T>({
                 return (
                   <td
                     key={col.key}
+                    data-col={col.key}
                     className={`${col.align === "left" ? "align-left" : "align-right"}${isFirst && accent ? " row-accent-cell" : ""}${external ? " has-external-link" : ""}`}
                     style={isFirst && accent ? { borderLeftColor: accent } : undefined}
                   >
@@ -174,7 +176,7 @@ export function SortableTable<T>({
           <tr key={`pinned-${rowKey(row)}`} className="pinned-row">
             {rowNumbers && <td className="align-right row-number-cell" />}
             {columns.map((col) => (
-              <td key={col.key} className={col.align === "left" ? "align-left" : "align-right"}>
+              <td key={col.key} data-col={col.key} className={col.align === "left" ? "align-left" : "align-right"}>
                 {col.render ? col.render(row) : (col.format?.(row) ?? String(col.sortValue(row)))}
               </td>
             ))}

@@ -44,6 +44,10 @@ interface StandingsLineChartProps {
   conditions?: string[];
   /** 縦軸を固定の範囲・目盛り・書き方にする（勝率推移: .000〜1.000）。未指定なら従来どおり自動 */
   fixedYAxis?: FixedYAxis;
+  /** trueなら縦軸の0に実線の基準線を引く（貯金推移。0が貯金なしの線） */
+  zeroLine?: boolean;
+  /** 横軸の種類。"games" のときは data の date が試合数（1, 2, 3…）になっている */
+  xAxisKind?: "date" | "games";
 }
 
 /** 縦軸を固定したいグラフ用の指定（設計書389章） */
@@ -86,6 +90,8 @@ export function StandingsLineChart({
   rankDomainMax,
   conditions,
   fixedYAxis,
+  zeroLine = false,
+  xAxisKind = "date",
 }: StandingsLineChartProps) {
   const rankMax = Math.max(rankDomainMax ?? teams.length, 1);
   // アニメーション再生中はdataが徐々に伸びていくため、折れ線の末端（=最新地点）の位置は
@@ -159,7 +165,13 @@ export function StandingsLineChart({
             外（＝見切れる位置）にはみ出してしまう */}
         <LineChart data={data} margin={{ top: LOGO_SIZE / 2 + 8, right: 24, bottom: 8, left: 0 }}>
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-          <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} minTickGap={24} />
+          <XAxis
+            dataKey="date"
+            tick={{ fontSize: 11 }}
+            tickLine={false}
+            minTickGap={24}
+            tickFormatter={xAxisKind === "games" ? (v: number | string) => `${v}試合` : undefined}
+          />
           <YAxis
             reversed={reversed}
             allowDecimals={!reversed}
@@ -181,11 +193,13 @@ export function StandingsLineChart({
           {fixedYAxis?.referenceLine !== undefined && (
             <ReferenceLine y={fixedYAxis.referenceLine} stroke="var(--fg)" strokeOpacity={0.3} strokeWidth={1} />
           )}
+          {zeroLine && <ReferenceLine y={0} stroke="var(--fg)" strokeOpacity={0.7} strokeWidth={1.5} strokeDasharray="0" />}
           {/* 再生中は、まだ出ていない日の値が出ないようにツールチップを止める */}
           {!playback && (
             <Tooltip
               contentStyle={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--fg)" }}
               labelStyle={{ color: "var(--fg)" }}
+              labelFormatter={xAxisKind === "games" ? (v: unknown) => `${String(v)}試合目` : undefined}
               formatter={fixedYAxis ? (v: unknown) => (typeof v === "number" ? fixedYAxis.format(v) : String(v)) : undefined}
             />
           )}
