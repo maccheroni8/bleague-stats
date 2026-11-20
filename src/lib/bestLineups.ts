@@ -188,7 +188,7 @@ export function ocChoices(groups: readonly BestLineupGroup[], size: BestLineupSi
 
 /**
  * ポゼッションの下限のスライダー（下端は導出データの下限〔BEST_LINEUP_FILE_MIN_POSS〕。それより下の組はファイルに無いので選べない。
- * 最大は人数ごと、刻みは10。DESIGN.md 371・422章）
+ * 最大は人数ごと、刻みは10。DESIGN.md 371・424章）
  */
 export const BEST_LINEUP_SLIDER: Record<BestLineupSize, { min: number; max: number; step: number }> = {
   5: { min: BEST_LINEUP_FILE_MIN_POSS, max: 600, step: 10 },
