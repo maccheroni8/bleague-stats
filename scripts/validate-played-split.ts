@@ -1,10 +1,11 @@
 // 個人詳細の「出場有無」（出場した試合・出場しなかった試合。src/lib/playedSplit.ts）の検証スクリプト（検証専用。CIには入れず、手で実行する）。
 //
 // 確かめること（`npm run build:data` のあとに実行する）:
-//  1. 全シーズン・全選手・各チームの表で、「出場した試合」＋「出場しなかった試合」の試合数・勝ち・得点の合計が、そのチームの所属期間の試合ログ
+//  1. 全シーズン・全選手・各チームの表で、「出場した試合」＋「出場しなかった試合」の試合数・勝ち・得点の合計が、そのチームの在籍期間の試合ログ
 //     （試合区分で絞ったもの）と一致する。両方に入る試合・どちらにも入らない試合が無い
 //  2. 「出場した試合」の試合数が、本人の出場した試合（出場時間 > 0・そのチームの試合）の数と一致する
-//  3. 所属期間の外の試合が入っていない。シーズンの途中で移籍した選手は、チームごとに表が分かれ、各チームの試合だけが入る
+//  3. 在籍期間の外の試合が入っていない。シーズンの途中で移籍した選手は、チームごとに表が分かれ、各チームの試合だけが入る
+//  4. 1チームだけの選手は、そのチームの全試合（試合区分で絞ったもの）が「出場した＋しなかった」に入る（ベンチ外を含む）
 //  4. 差の表記（diffText）の例
 //
 // 使い方: npm run validate:played-split。1つでも食い違いがあれば終了コード1
@@ -14,7 +15,7 @@ import path from "node:path";
 import type { SeasonGameTypeFilter } from "../shared/gameType.ts";
 import { filterByGameType } from "../shared/gameType.ts";
 import type { GameSummary, PlayerGameLog, TeamGameLog } from "../shared/types.ts";
-import { buildPlayedSplit, diffText, formatWinPct, formatWinPctDiff } from "../src/lib/playedSplit.ts";
+import { buildPlayedSplit, diffText, inTenure, formatWinPct, formatWinPctDiff } from "../src/lib/playedSplit.ts";
 import { buildGameTeamsByScheduleKey, resolveOwnTeam } from "../src/lib/situational.ts";
 
 const DATA = path.resolve("data");
@@ -92,7 +93,7 @@ for (const { label, dir } of bases) {
         const where = `${label} 選手${playerId} ${b.teamName} ${gameType}`;
         if (seenTeams.has(b.teamId)) fail(`${where}: チームの表が重複`);
         seenTeams.add(b.teamId);
-        const all = filterByGameType(teamLogsByTeamId.get(b.teamId)!, gameType).filter((g) => g.date >= b.tenure.first && g.date <= b.tenure.last);
+        const all = filterByGameType(teamLogsByTeamId.get(b.teamId)!, gameType).filter((g) => inTenure(g.date, b.tenure));
         const p = b.played;
         const n = b.notPlayed;
         if (n.gamesPlayed > 0) withNotPlayed++;
@@ -111,7 +112,10 @@ for (const { label, dir } of bases) {
           fail(`${where}: 出場試合 ${playedRows.length} ≠ ${p.gamesPlayed}（チームの試合ログに無い ${missing}）`);
         }
         // 3. 所属期間の外
-        if (n.logs.some((g) => g.date < b.tenure.first || g.date > b.tenure.last)) fail(`${where}: 所属期間の外の試合`);
+        if (n.logs.some((g) => !inTenure(g.date, b.tenure))) fail(`${where}: 在籍期間の外の試合`);
+        // 4. 1チームだけの選手は、そのチームの全試合（試合区分で絞ったもの）が出場した＋しなかった試合に入る
+        if (teamIds.length === 1 && p.gamesPlayed + n.gamesPlayed !== filterByGameType(teamLogsByTeamId.get(b.teamId)!, gameType).length)
+          fail(`${where}: 1チームの選手なのにチームの全試合と合わない`);
       }
       // 移籍した選手: 出場した試合を持つチームごとに表がある
       const playedTeams = new Set(

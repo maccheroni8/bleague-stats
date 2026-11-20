@@ -19,8 +19,8 @@ export interface PlayedSplitBlock {
   played: OpponentSplitRow;
   notPlayed: OpponentSplitRow;
   diff: OpponentSplitRow;
-  /** 所属期間（本人の試合ログが、そのチームの試合として載った最初の日と最後の日） */
-  tenure: { first: string; last: string };
+  /** 在籍期間（日付の区間。シーズンの初め・終わりまでは null） */
+  tenure: TenureRange[];
 }
 
 export interface PlayedSplitInput {
@@ -33,26 +33,53 @@ export interface PlayedSplitInput {
   teamLogsByTeamId: ReadonlyMap<string, readonly TeamGameLog[]>;
 }
 
-/** 本人の試合ログに載ったチーム（所属期間つき）。最初の試合日の古いチームから */
-export function tenuresByTeam(
-  logs: readonly PlayerGameLog[],
-  ownTeamOf: PlayedSplitInput["ownTeamOf"],
-): { teamId: string; teamName: string; first: string; last: string }[] {
-  const map = new Map<string, { teamId: string; teamName: string; first: string; last: string }>();
+/** 在籍期間の1区間（日付は YYYY-MM-DD。from は含み、toExclusive は含まない。null は片側が無制限） */
+export interface TenureRange {
+  from: string | null;
+  toExclusive: string | null;
+}
+
+export interface TeamTenure {
+  teamId: string;
+  teamName: string;
+  ranges: TenureRange[];
+}
+
+/**
+ * 本人の試合ログに載ったチームと、そのチームでの在籍期間。最初の出場日の古いチームから。
+ * 在籍期間の決め方（DESIGN.md 428章）: 本人の試合ログを日付順に並べ、同じチームが続く並びを1区間とする。
+ * 最初の区間は「シーズンの初め」から、最後の区間は「シーズンの終わり」まで。区間の境目は「次のチームでの最初の出場日」
+ * （それより前の試合は、まだ次のチームに出ていないので前のチームとして扱う）。1チームだけなら、そのチームのシーズンの全試合。
+ * 名簿の側には日付つきの移籍・契約のデータが無い（集計から読める所には無い）ので、日付は本人の試合ログだけで決める。
+ */
+export function tenuresByTeam(logs: readonly PlayerGameLog[], ownTeamOf: PlayedSplitInput["ownTeamOf"]): TeamTenure[] {
+  const rows: { date: string; teamId: string; teamName: string }[] = [];
   for (const g of logs) {
     const own = ownTeamOf(g);
-    if (!own) continue;
-    const t = map.get(own.teamId);
-    if (!t) map.set(own.teamId, { teamId: own.teamId, teamName: own.teamName, first: g.date, last: g.date });
-    else {
-      if (g.date < t.first) t.first = g.date;
-      if (g.date > t.last) {
-        t.last = g.date;
-        t.teamName = own.teamName;
-      }
-    }
+    if (own) rows.push({ date: g.date, teamId: own.teamId, teamName: own.teamName });
   }
-  return [...map.values()].sort((a, b) => a.first.localeCompare(b.first) || a.teamId.localeCompare(b.teamId));
+  rows.sort((a, b) => a.date.localeCompare(b.date));
+  // 同じチームが続く並びを1区間にする
+  const runs: { teamId: string; teamName: string; first: string }[] = [];
+  for (const r of rows) {
+    const last = runs[runs.length - 1];
+    if (last && last.teamId === r.teamId) last.teamName = r.teamName;
+    else runs.push({ teamId: r.teamId, teamName: r.teamName, first: r.date });
+  }
+  const map = new Map<string, TeamTenure>();
+  runs.forEach((run, i) => {
+    let t = map.get(run.teamId);
+    if (!t) {
+      t = { teamId: run.teamId, teamName: run.teamName, ranges: [] };
+      map.set(run.teamId, t);
+    } else t.teamName = run.teamName;
+    t.ranges.push({ from: i === 0 ? null : run.first, toExclusive: i === runs.length - 1 ? null : runs[i + 1]!.first });
+  });
+  return [...map.values()];
+}
+
+export function inTenure(date: string, ranges: readonly TenureRange[]): boolean {
+  return ranges.some((r) => (r.from === null || date >= r.from) && (r.toExclusive === null || date < r.toExclusive));
 }
 
 export function buildPlayedSplit(input: PlayedSplitInput): PlayedSplitBlock[] {
@@ -62,8 +89,8 @@ export function buildPlayedSplit(input: PlayedSplitInput): PlayedSplitBlock[] {
     const teamLogs = teamLogsByTeamId.get(tenure.teamId);
     if (!teamLogs) continue;
     const playedKeys = new Set(logs.filter((g) => g.min > 0 && ownTeamOf(g)?.teamId === tenure.teamId).map((g) => g.scheduleKey));
-    const inTenure = filterByGameType([...teamLogs], gameType).filter((g) => g.date >= tenure.first && g.date <= tenure.last);
-    const sorted = [...inTenure].sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey));
+    const inRange = filterByGameType([...teamLogs], gameType).filter((g) => inTenure(g.date, tenure.ranges));
+    const sorted = [...inRange].sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey));
     if (sorted.length === 0) continue;
     const playedLogs = sorted.filter((g) => playedKeys.has(g.scheduleKey));
     const notPlayedLogs = sorted.filter((g) => !playedKeys.has(g.scheduleKey));
@@ -73,7 +100,7 @@ export function buildPlayedSplit(input: PlayedSplitInput): PlayedSplitBlock[] {
       played: makeRow(tenure.teamId, "played", PLAYED_LABEL, null, playedLogs),
       notPlayed: makeRow(tenure.teamId, "notPlayed", NOT_PLAYED_LABEL, null, notPlayedLogs),
       diff: makeRow(tenure.teamId, "diff", DIFF_LABEL, null, []),
-      tenure: { first: tenure.first, last: tenure.last },
+      tenure: tenure.ranges,
     });
   }
   return blocks;
