@@ -273,15 +273,15 @@ function toGameLogColumns(tabKey: BoxscoreTabKey, foulSplit: boolean): Column<Ga
   return [...fixed, ...statColumns];
 }
 
-type DetailTab = "stats" | "quarter" | "foreign" | "gamelog" | "opponentSplit" | "playedSplit" | "career" | "highs" | "compare";
+type DetailTab = "stats" | "quarter" | "playedSplit" | "foreign" | "gamelog" | "opponentSplit" | "career" | "highs" | "compare";
 
 const TAB_LABELS: Record<DetailTab, string> = {
   stats: "スタッツ",
   quarter: "Q別",
+  playedSplit: "出場有無",
   foreign: "On-Court Foreign",
   gamelog: "試合ログ",
   opponentSplit: "対戦相手別",
-  playedSplit: "出場有無",
   career: "通算成績",
   highs: "キャリアハイ",
   compare: "比較",
