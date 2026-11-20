@@ -1684,7 +1684,7 @@ const SITUATIONAL_RECORD_STATUS_LABELS: Record<"lead" | "tie" | "behind", string
 interface SituationalRecordRow {
   key: string;
   label: string;
-  /** rawGameが必要な区分（延長・Q別リード状況）は、未取得の試合に対してはこの関数を呼ばない
+  /** rawGameが必要な区分（Q別・延長リード状況）は、未取得の試合に対してはこの関数を呼ばない
    * （呼び出し側でrawGames.has(scheduleKey)の試合だけに絞り込んでから呼ぶ） */
   predicate: (g: TeamGameLog, rawGame: StoredGame | undefined) => boolean;
 }
@@ -4428,7 +4428,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             onClick={() => setSituationalRecordRawExpanded((v) => !v)}
           >
             {situationalRecordRawExpanded ? "▼ " : "▶ "}
-            延長・Q別リード状況
+            Q別・延長リード状況
           </h3>
           {situationalRecordRawExpanded && <ConditionLine conditions={situationalRecordConditions} />}
           {!situationalRecordRawExpanded ? null : statsRawGamesLoading || !situationalRecordRawGamesReady ? (

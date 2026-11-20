@@ -337,9 +337,9 @@ function categoryLabel(cat: BoxscoreTabKey): string {
   return BOXSCORE_TABS.find((t) => t.key === cat)?.label ?? cat;
 }
 
-/** 見出しの下の条件の行・ファイル名に入れるタブ名。カテゴリ名そのもの（Traditional 等）は他の画面で省く決まりなので、「タブ」を添えて区別する（4枚まとめて保存したとき、どの1枚か分かるように） */
+/** 見出しの下の条件の行・ファイル名に入れるタブ名。カテゴリ名（Traditional 等）をそのまま出す（4枚まとめて保存したとき、どの1枚か分かるように。1120の指示で「タブ」の語は付けない） */
 function tabConditionLabel(cat: BoxscoreTabKey): string {
-  return `${categoryLabel(cat)}タブ`;
+  return categoryLabel(cat);
 }
 
 interface ViewCommonProps {

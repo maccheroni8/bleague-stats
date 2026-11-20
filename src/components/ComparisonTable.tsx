@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import { LABEL_SEPARATOR } from "../lib/conditionLabels";
 import { TeamChip } from "./TeamChip";
 import { NameText } from "./NameText";
 import { SeasonLink as Link } from "./SeasonLink";
@@ -154,7 +155,16 @@ export function ComparisonTable<T>({
                     </span>
                   )}
                   <span className="compare-season-tag">{season}</span>
-                  {sub && <span className="compare-season-tag compare-condition-tag">{sub}</span>}
+                  {sub && (
+                    <span className="compare-season-tag compare-condition-tag">
+                      {/* 条件は「／」ごとに1行（途中で不自然に折り返さない） */}
+                      {sub.split(LABEL_SEPARATOR).map((line, li) => (
+                        <span key={li} className="compare-condition-line">
+                          {line}
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </th>
               );
             })}

@@ -4721,6 +4721,11 @@ table.compare-table th .compare-condition-tag {
   white-space: normal;
 }
 
+/* 条件の補足は「／」ごとに1行 */
+table.compare-table th .compare-condition-line {
+  display: block;
+}
+
 /* フィルタバー（FilterBar.tsx、DESIGN.md 105章）。ラベル付きドロップダウンを並べ、低頻度の軸は
    「詳細フィルタ」に折りたたみ、既定値から変更した軸だけをチップで出す。色は既存の変数のみ使う */
 .filter-bar {
