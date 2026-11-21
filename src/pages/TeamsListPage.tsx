@@ -61,6 +61,10 @@ import { TeamLogo } from "../components/TeamLogo";
 import { SeasonLink } from "../components/SeasonLink";
 import { FilterBar } from "../components/FilterBar";
 import { ConditionTitle } from "../components/ConditionTitle";
+import type { BaseDateSpec } from "../lib/dataBaseDate";
+import { SavableBlock } from "../components/SavableBlock";
+import { sortOrderLabel } from "../components/SortMark";
+import { withTierColors } from "../lib/teamTierColors";
 import { ResultOnlyNote } from "../components/ResultOnlyNote";
 import { LeagueSeasonRecords } from "../components/LeagueSeasonRecords";
 import { RecordValue } from "../components/RecordValue";
@@ -579,6 +583,12 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   // 対象の試合（すべての試合／on4 が可能だった試合だけ。DESIGN.md 352章）。同時出場の上限が4人の B.PREMIER のシーズンだけ選べる
   // On-Court Foreign の画像保存で、保存の間だけ「棒グラフだけ」「一覧だけ」に切り替える
   const [ocSavePart, setOcSavePart] = useState<"chart" | "table" | null>(null);
+  // 表の並び順（保存画像のサブタイトルに出す。どのタブの並びかも持ち、タブを替えたら古い並びは出さない）
+  const [sortInfo, setSortInfo] = useState<{ tab: string; text: string }>({ tab: "", text: "" });
+  const onTableSort = useCallback(
+    (tab: string) => (s: { label: string; dir: "asc" | "desc" }) => setSortInfo((prev) => { const text = sortOrderLabel(s.label, s.dir === "desc"); return prev.tab === tab && prev.text === text ? prev : { tab, text }; }),
+    [],
+  );
   const [storedForeignGames, setForeignGames] = usePageState<"all" | "on4">("teams:foreignGames", "all");
   const foreignMax = foreignRules ? seasonRuleFor(foreignRules, season, league)?.maxForeignOnCourt : undefined;
   const on4Ok = on4Supported(league, foreignMax);
@@ -1179,6 +1189,9 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
               : composeLabels(gameTypeLabels(gameType, season), situationalFilterLabels(filter), periodLabels(periodOption)),
   };
 
+  const savedConditions = [...statsTitle.conditions, ...(sortInfo.tab === boxTab && sortInfo.text ? [sortInfo.text] : [])];
+  const tierRows = passingTeamIds ? rows.filter((r) => passes(r.team.teamId)) : rows;
+
   return (
     <div>
       <p className="page-subtitle">全{teams.length}チーム</p>
@@ -1271,10 +1284,17 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
       </div>
 
       {/* On-Court Foreign は、見出しも保存画像の範囲の中に入れる（下の ExportTarget） */}
+      <StatsSaveWrap
+        enabled={boxTab !== "foreignPlayers" && boxTab !== "scoringComposition"}
+        filename={buildExportFilename([`${season}シーズン`, "全チームスタッツ", TEAMS_STATS_CATEGORY_LABELS[boxTab] ?? "", ...savedConditions])}
+        baseDate={{ kind: "season", season, gameType }}
+        unavailableReason={gameLogsLoading || !gameLogsByTeam ? "データを読み込み中です。表が出てから保存してください。" : undefined}
+      >
       {!(boxTab === "foreignPlayers" && foreignRows) && (
         <ConditionTitle
           title={statsTitle.title}
-          conditions={statsTitle.conditions}
+          exportScope={`${season}シーズン`}
+          conditions={savedConditions}
           statConditions={conditionTab ? statConditionsTitle(statConditions, conditionItems) : undefined}
         />
       )}
@@ -1289,6 +1309,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
               <SortableTable
                 rowNumbers
                 statScope="team"
+                onSortChange={onTableSort(boxTab)}
                 columns={shootingColumns}
                 rows={shootingRows}
                 rowKey={(r) => r.team.teamId}
@@ -1310,6 +1331,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
               <SortableTable
                 rowNumbers
                 statScope="team"
+                onSortChange={onTableSort(boxTab)}
                 columns={turnoverColumns}
                 rows={turnoverRows}
                 rowKey={(r) => r.team.teamId}
@@ -1574,6 +1596,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
               rowNumbers
               statScope="team"
               key={boxTab}
+              onSortChange={onTableSort(boxTab)}
               columns={streakColumns}
               rows={streakRows}
               rowKey={(r) => r.team.teamId}
@@ -1593,7 +1616,8 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
               rowNumbers
               statScope="team"
               key={`${boxTab}-${teamPerspective}`}
-              columns={periodColumns}
+              onSortChange={onTableSort(boxTab)}
+              columns={withTierColors(periodColumns, periodRows, teamPerspective as TeamPerspective)}
               rows={periodRows}
               rowKey={(r) => r.team.teamId}
               defaultSortKey="full"
@@ -1629,8 +1653,9 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
               rowNumbers
               statScope="team"
               key={`${boxTab}-${teamPerspective}`}
-              columns={columns}
-              rows={passingTeamIds ? rows.filter((r) => passes(r.team.teamId)) : rows}
+              onSortChange={onTableSort(boxTab)}
+              columns={withTierColors(columns, tierRows, teamPerspective as TeamPerspective)}
+              rows={tierRows}
               rowKey={(r) => r.team.teamId}
               defaultSortKey={DEFAULT_SORT_KEY[boxTab]}
               linkTo={(r) => `/teams/${r.team.teamId}`}
@@ -1664,7 +1689,30 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
           <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="全チームスタッツ" scope="各チームの試合ログから、選んだ条件で集計し直した値です。" />
         </>
       )}
+      </StatsSaveWrap>
     </div>
+  );
+}
+
+/** 全チームスタッツの表のタブの「保存」ボタン＋画像にする範囲（見出し・表・注記）。グラフのタブ・On-Court Foreign は自前の保存か保存なしなので包まない（設計書448章） */
+function StatsSaveWrap({
+  enabled,
+  filename,
+  baseDate,
+  unavailableReason,
+  children,
+}: {
+  enabled: boolean;
+  filename: string;
+  baseDate: BaseDateSpec;
+  unavailableReason?: string;
+  children: ReactNode;
+}) {
+  if (!enabled) return <>{children}</>;
+  return (
+    <SavableBlock filename={filename} baseDate={baseDate} className="export-target-standings" unavailableReason={unavailableReason}>
+      {children}
+    </SavableBlock>
   );
 }
 

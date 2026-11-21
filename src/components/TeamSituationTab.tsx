@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { FilterBar } from "./FilterBar";
 import { ConditionTitle } from "./ConditionTitle";
 import { GlossaryNote } from "./GlossaryNote";
@@ -6,6 +6,8 @@ import { ResponsiveTeamName } from "./ResponsiveTeamName";
 import { RuleChangeFootnote } from "./RuleChangeFootnote";
 import { SavableBlock } from "./SavableBlock";
 import { SortableTable, type Column } from "./SortableTable";
+import { sortOrderLabel } from "./SortMark";
+import { withTierColors } from "../lib/teamTierColors";
 import { TeamLogo } from "./TeamLogo";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { buildExportFilename, composeLabels, displayModeLabels, gameTypeLabels, periodLabels, perspectiveLabels, situationalFilterLabels } from "../lib/conditionLabels";
@@ -144,6 +146,16 @@ export function TeamSituationTab({ season, league }: { season: string; league: L
   const [period, setPeriod] = useUrlState(TEAM_SEASON_PERIOD_PARAM, "all");
   useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType, league });
 
+  // 表の並び順（保存画像のサブタイトルに出す。タブを替えたら古い並びは出さない）
+  const [sortInfo, setSortInfo] = useState<{ tab: string; text: string }>({ tab: "", text: "" });
+  const onTableSort = useCallback(
+    (tab: string) => (s: { label: string; dir: "asc" | "desc" }) =>
+      setSortInfo((prev) => {
+        const text = sortOrderLabel(s.label, s.dir === "desc");
+        return prev.tab === tab && prev.text === text ? prev : { tab, text };
+      }),
+    [],
+  );
   const periodOption = seasonPeriodOption(period);
   const periodTab = boxTab !== "periods";
   const periodActive = periodTab && period !== "all";
@@ -282,6 +294,7 @@ export function TeamSituationTab({ season, league }: { season: string; league: L
     perspectiveLabels(teamPerspective),
     situationalFilterLabels(filter),
     periodTab ? periodLabels(periodOption) : [],
+    sortInfo.tab === boxTab && sortInfo.text ? sortInfo.text : [],
   );
   const title = `${season}シーズン ${sitName}　チームスタッツ`;
   const loading = periodActive && periodLoading;
@@ -320,8 +333,9 @@ export function TeamSituationTab({ season, league }: { season: string; league: L
                 rowNumbers
                 statScope="team"
                 key={`${boxTab}-${teamPerspective}`}
-                columns={periodColumns}
+                columns={withTierColors(periodColumns, periodRows, teamPerspective as TeamPerspective)}
                 rows={periodRows}
+                onSortChange={onTableSort(boxTab)}
                 rowKey={(r) => r.team.teamId}
                 defaultSortKey="g"
                 linkTo={(r) => `/teams/${r.team.teamId}`}
@@ -331,8 +345,9 @@ export function TeamSituationTab({ season, league }: { season: string; league: L
                 rowNumbers
                 statScope="team"
                 key={`${boxTab}-${teamPerspective}`}
-                columns={columns}
+                columns={withTierColors(columns, rows, teamPerspective as TeamPerspective)}
                 rows={rows}
+                onSortChange={onTableSort(boxTab)}
                 rowKey={(r) => r.team.teamId}
                 defaultSortKey={DEFAULT_SORT_KEY[boxTab]}
                 linkTo={(r) => `/teams/${r.team.teamId}`}

@@ -35,6 +35,8 @@ export interface TeamRankResult {
   rank: number;
   total: number;
   tier: "top" | "bottom" | null;
+  /** いちばん悪い方から数えた順位（同じ値は同じ順位）。全チームスタッツの下位3位の濃さに使う */
+  bottomRank: number;
 }
 
 /**
@@ -70,7 +72,7 @@ export function teamRanksOf(
     const rank = fromTop[i]!;
     const bottomRank = fromBottom[total - 1 - i]!;
     const tier = rankOnly || total <= TEAM_RANK_TIER_SIZE * 2 ? null : rank <= TEAM_RANK_TIER_SIZE ? "top" : bottomRank <= TEAM_RANK_TIER_SIZE ? "bottom" : null;
-    out.set(r.team.teamId, { rank, total, tier });
+    out.set(r.team.teamId, { rank, total, tier, bottomRank });
   });
   return out;
 }

@@ -15,6 +15,12 @@
   --rank-top-bg: rgba(46, 158, 91, 0.2);
   --rank-top-bg-soft: rgba(46, 158, 91, 0.11);
   --rank-bottom-bg: rgba(214, 69, 80, 0.17);
+  --tier-top-1: rgba(46, 158, 91, 0.36);
+  --tier-top-2: rgba(46, 158, 91, 0.2);
+  --tier-top-3: rgba(46, 158, 91, 0.11);
+  --tier-bot-1: rgba(214, 69, 80, 0.311);
+  --tier-bot-2: rgba(214, 69, 80, 0.17);
+  --tier-bot-3: rgba(214, 69, 80, 0.094);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -30,6 +36,13 @@
     --rank-top-bg: rgba(66, 190, 120, 0.26);
   --rank-top-bg-soft: rgba(66, 190, 120, 0.143);
     --rank-bottom-bg: rgba(240, 98, 110, 0.24);
+  /* 全チームスタッツの上位3・下位3: 1位＝いちばん濃い。同じ色の濃さ違いを1つの色で持つ（color-mix・重ね塗りを使わない） */
+  --tier-top-1: rgba(66, 190, 120, 0.453);
+  --tier-top-2: rgba(66, 190, 120, 0.26);
+  --tier-top-3: rgba(66, 190, 120, 0.143);
+  --tier-bot-1: rgba(240, 98, 110, 0.422);
+  --tier-bot-2: rgba(240, 98, 110, 0.24);
+  --tier-bot-3: rgba(240, 98, 110, 0.132);
   }
 }
 
@@ -45,6 +58,13 @@
   --rank-top-bg: rgba(66, 190, 120, 0.26);
   --rank-top-bg-soft: rgba(66, 190, 120, 0.143);
   --rank-bottom-bg: rgba(240, 98, 110, 0.24);
+  /* 全チームスタッツの上位3・下位3: 1位＝いちばん濃い。同じ色の濃さ違いを1つの色で持つ（color-mix・重ね塗りを使わない） */
+  --tier-top-1: rgba(66, 190, 120, 0.453);
+  --tier-top-2: rgba(66, 190, 120, 0.26);
+  --tier-top-3: rgba(66, 190, 120, 0.143);
+  --tier-bot-1: rgba(240, 98, 110, 0.422);
+  --tier-bot-2: rgba(240, 98, 110, 0.24);
+  --tier-bot-3: rgba(240, 98, 110, 0.132);
 }
 
 :root[data-theme="light"] {
@@ -8311,6 +8331,13 @@ table.sortable-table.lineup-search-table tbody th {
 .sortable-table td.rank-tier-3 {
   background: color-mix(in srgb, var(--rank-top-bg) 55%, transparent);
 }
+
+.sortable-table td.tier-top-1 { background-color: var(--tier-top-1); }
+.sortable-table td.tier-top-2 { background-color: var(--tier-top-2); }
+.sortable-table td.tier-top-3 { background-color: var(--tier-top-3); }
+.sortable-table td.tier-bot-1 { background-color: var(--tier-bot-1); }
+.sortable-table td.tier-bot-2 { background-color: var(--tier-bot-2); }
+.sortable-table td.tier-bot-3 { background-color: var(--tier-bot-3); }
 
 .tab-bar-with-toggle > .compare-rank-toggle {
   margin-left: auto;
