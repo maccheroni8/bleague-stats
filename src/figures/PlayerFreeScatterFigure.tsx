@@ -142,13 +142,13 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
     { key: 'y', label: yBase, sortValue: s => s.y, render: s => yCol.text(s.p) },
     { key: 'x', label: xBase, sortValue: s => s.x, render: s => xCol.text(s.p) },
   ];
-  return <section aria-label={`${yName} × ${xName}`}>
+  return <section aria-label={`${yBase} × ${xBase}`}>
     <FilterBar axes={axes} stateKey="figures:player-free-scatter" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setVenue('all'); setInvX(false); setInvY(false); setYId(DEFAULT_PLAYER_FREE_Y); setXId(DEFAULT_PLAYER_FREE_X); setMode('perGame'); pf.reset(); setMinRatio(DEFAULT_RATIO); ach.reset(); hl.setIds([]); setHover(null); }} />
     {splitClassificationBlocked(figureClassGroup(classification), season) ? <p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p> : request.loading ? <p role="status">選手の試合データを読み込み中…</p> : request.error ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : !items.length ? <p>この条件に該当する選手はいません。</p> : <>
       <p className="figure-count">{items.length}人を表示</p>
       <FigureExportButton targetRef={target} filename={`選手_${yName}_${xName}_${conditions.join('_')}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="ratings-export scorers-export axis-scatter-export" baseDate={baseDate}>
-        <ConditionTitle title={`${yName} × ${xName}`} exportScope={`${season}シーズン`} conditions={conditions} />
+        <ConditionTitle title={`${yBase} × ${xBase}`} exportScope={`${season}シーズン`} conditions={conditions} />
         <AxisScatter points={items} xDomain={xDomain} yDomain={yDomain} xLabel={xName} yLabel={yName}
           xTick={v => freeTickText(v, xKind, xDomain)} yTick={v => freeTickText(v, yKind, yDomain)}
           xReversed={invX} yReversed={invY} avgX={avgX} avgY={avgY} avgXText={avgX === null ? '' : avgText(avgX, xKind)} avgYText={avgY === null ? '' : avgText(avgY, yKind)}

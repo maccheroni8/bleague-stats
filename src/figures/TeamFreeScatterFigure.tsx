@@ -204,7 +204,7 @@ export default function TeamFreeScatterFigure({ season, category }: FigureProps)
     { key: 'x', label: xBase, sortValue: p => xCol.value(p) ?? Number.NaN, render: p => detailOf(xCol, p) },
   ];
   const pointRows = points.map(p => p.team);
-  return <section aria-label={`${yName} × ${xName}`}>
+  return <section aria-label={`${yBase} × ${xBase}`}>
     <FilterBar axes={axes} stateKey="figures:team-free-scatter" onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setYId(DEFAULT_FREE_Y); setXId(DEFAULT_FREE_X); setPersp(DEFAULT_PERSP); setVenue('all'); setInvX(false); setInvY(false); setMode('perGame'); setCondX(DEFAULT_COND); setCondY(DEFAULT_COND); setMinGames(0); hl.setIds([]); setHover(null); }} />
     {env && usesCond && <div className="cond-pickers">
       {yItem.id === WINPCT_COND_ITEM_ID && <CondPicker env={env} spec={cy} label="縦軸" onChange={setCondY} />}
@@ -213,7 +213,7 @@ export default function TeamFreeScatterFigure({ season, category }: FigureProps)
     {request.loading || (usesStrength && strengths.loading) || (usesWin && envLoading && !request.error) ? <p role="status">読み込み中…</p> : request.error || request.data?.missing ? <p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p> : !points.length || !model?.league ? <p className="empty-message">この条件で表示できるチームがありません。</p> : <>
       <FigureExportButton targetRef={target} filename={`${yName}_${xName}_${conditions.join('_')}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="ratings-export axis-scatter-export" baseDate={baseDate}>
-        <ConditionTitle title={`${yName} × ${xName}`} exportScope={`${season}シーズン`} conditions={conditions} />
+        <ConditionTitle title={`${yBase} × ${xBase}`} exportScope={`${season}シーズン`} conditions={conditions} />
         <AxisScatter points={points} xDomain={xDomain} yDomain={yDomain} xLabel={`${xName}${unitText(xKind, px)}`} yLabel={`${yName}${unitText(yKind, py)}`} zeroLines={px === 'diff' || py === 'diff'} xReversed={invX} yReversed={invY}
           countLines={usesCond ? [`表示 ${points.length}チーム`, ...(excluded > 0 ? [minGames > 0 ? `条件の試合数が${minGames}試合未満のチームは除く（${excluded}チーム）` : `条件の試合が無いチームは除く（${excluded}チーム）`] : [])] : undefined}
           xTick={v => freeTickText(v, xKind, xDomain)} yTick={v => freeTickText(v, yKind, yDomain)}
