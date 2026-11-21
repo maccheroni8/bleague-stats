@@ -1,5 +1,5 @@
 import { withPaint, mergePaint, PAINT2_NOTE } from "../lib/teamPaint2";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useFoulConditionCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { foulColumnsSplit } from "../lib/ruleChange";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
@@ -62,7 +62,7 @@ import { SeasonLink } from "../components/SeasonLink";
 import { FilterBar } from "../components/FilterBar";
 import { ConditionTitle } from "../components/ConditionTitle";
 import type { BaseDateSpec } from "../lib/dataBaseDate";
-import { SavableBlock } from "../components/SavableBlock";
+import { perspectiveFilePart, perspectiveTitleSuffix, type TitlePerspective } from "../lib/titlePerspective";
 import { sortOrderLabel } from "../components/SortMark";
 import { withTierColors } from "../lib/teamTierColors";
 import { ResultOnlyNote } from "../components/ResultOnlyNote";
@@ -111,7 +111,7 @@ import {
   type ForeignCourtOrder,
 } from "../components/ForeignPlayerCourtTimeChart";
 import { usePageState } from "../lib/pageStateCache";
-import { ExportImageButton } from "../components/ExportImageButton";
+import { ExportImageButton, type ExportChoice } from "../components/ExportImageButton";
 import { TeamSituationTab } from "../components/TeamSituationTab";
 import { PageTitleRow } from "../components/HeaderActions";
 import { ExportTarget } from "../components/ExportTarget";
@@ -203,6 +203,20 @@ const TEAMS_BOX_TAB_PARAM = enumParam<TeamsBoxTab>(
   { traditional: "trad", advanced: "adv", shooting: "shoot", forcedTurnovers: "tov", foreignPlayers: "oc", scoringComposition: "share", timeToShot: "tts" },
 );
 const TURNOVER_PERSPECTIVE_PARAM = enumParam<"forced" | "committed">("tov", ["forced", "committed"], "forced");
+/** まとめて保存で選べるタブ（設計書449章。この並びで1タブ1枚） */
+const SAVE_TABS: { key: TeamsBoxTab; label: string }[] = [
+  { key: "traditional", label: "Traditional" },
+  { key: "advanced", label: "Advanced" },
+  { key: "misc", label: "Misc" },
+  { key: "scoring", label: "Scoring" },
+  { key: "shooting", label: "Shooting" },
+  { key: "forcedTurnovers", label: "Forced TOV" },
+  { key: "foreignPlayers", label: "On-Court Foreign" },
+  { key: "scoringComposition", label: "Scoring %" },
+  { key: "periods", label: "Periods" },
+  { key: "timeToShot", label: "Time to Shot" },
+  { key: "streaks", label: "Streaks" },
+];
 const DEFAULT_TEAMS_FILTER: SituationalFilter = { range: { kind: "all" } };
 
 // 「チーム」ページのタブ構成。「全チームスタッツ」は元々の「一覧」（ロゴ＋シーズン成績の表）を
@@ -600,6 +614,20 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   const ocOpponentActive = boxTab === "foreignPlayers" && ocOpponent === "ge60";
   const ocOpponentRates = useMemo(() => buildOpponentSeasonWinRates(teams), [teams]);
   const exportRef = useRef<HTMLDivElement>(null);
+  // まとめて保存（設計書449章）: タブを切り替えながら1タブ1枚を保存し、終わったら元のタブに戻す
+  const boxTabRef = useRef(boxTab);
+  boxTabRef.current = boxTab;
+  const renderedSaveTab = useRef<{ tab: TeamsBoxTab; part: "chart" | "table" | null }>({ tab: boxTab, part: ocSavePart });
+  useEffect(() => {
+    renderedSaveTab.current = { tab: boxTab, part: ocSavePart };
+  });
+  const originalSaveTab = useRef<TeamsBoxTab | null>(null);
+  const saveFilenameRef = useRef("");
+  const restoreSaveTab = useCallback(() => {
+    if (originalSaveTab.current) setBoxTab(originalSaveTab.current);
+    originalSaveTab.current = null;
+    setOcSavePart(null);
+  }, [setBoxTab]);
 
   // 選んだ条件（シチュエーション別のフィルタ・試合区分）に当てはまる、チームごとの試合ログ。表の集計と Periods の区間別の得点が同じ試合を使う
   const scopedLogsByTeam = useMemo(() => {
@@ -1147,24 +1175,30 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
 
   // 主表の見出し。カテゴリごとに実際に効いている軸だけを条件として並べる（シューティング以降の
   // 専用ビューはシーズン通算値のみで、S・G・Vは対象外。その旨を固定ラベルで明示する）
+  const titlePerspective: TitlePerspective =
+    boxTab === "foreignPlayers"
+      ? foreignSide
+      : boxTab === "scoringComposition" || boxTab === "streaks"
+        ? "own"
+        : teamPerspective;
   const statsTitle = {
     // On-Court Foreign は「オンザコート割合」（設計書425章。保存画像は一覧だけのとき「（一覧）」を付ける。画面は両方を出すので付けない）
+    // 視点（相手・差）はタイトルに入れる（設計書449章。サブタイトルには入れない）
     title:
       boxTab === "foreignPlayers"
-        ? `${season}シーズン ${ocSavePart === "table" ? "オンザコート割合（一覧）" : "オンザコート割合"}`
-        : `${season}シーズン 全チームスタッツ：${TEAMS_STATS_CATEGORY_LABELS[boxTab]}`,
+        ? `${season}シーズン ${ocSavePart === "table" ? "オンザコート割合（一覧）" : "オンザコート割合"}${perspectiveTitleSuffix(titlePerspective)}`
+        : `${season}シーズン 全チームスタッツ：${TEAMS_STATS_CATEGORY_LABELS[boxTab]}${perspectiveTitleSuffix(titlePerspective)}`,
     conditions:
       boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring" || boxTab === "periods"
         ? composeLabels(
             displayModeLabels(displayMode),
             gameTypeLabels(gameType, season),
-            perspectiveLabels(teamPerspective),
             classActive ? teamClassLabels(classFilter, teamPerspective) : [],
             situationalFilterLabels(filter),
             periodTab ? periodLabels(periodOption) : [],
           )
         : boxTab === "timeToShot"
-          ? composeLabels(gameTypeLabels(gameType, season), perspectiveLabels(teamPerspective), situationalFilterLabels(filter), periodLabels(periodOption), "公式の記録の時刻から計算")
+          ? composeLabels(gameTypeLabels(gameType, season), situationalFilterLabels(filter), periodLabels(periodOption), "公式の記録の時刻から計算")
         : boxTab === "shooting"
           ? composeLabels(displayModeLabels(displayMode), SEASON_TOTAL_ONLY_LABELS)
           : boxTab === "streaks"
@@ -1178,7 +1212,6 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
                 ? composeLabels(
                     displayModeLabels(displayMode),
                     gameTypeLabels(gameType, season),
-                    foreignSide === "opp" ? perspectiveLabels("opp") : [],
                     situationalFilterLabels(filter),
                     periodLabels(periodOption),
                     on4Active ? ON4_ONLY_LABEL : [],
@@ -1190,6 +1223,49 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   };
 
   const savedConditions = [...statsTitle.conditions, ...(sortInfo.tab === boxTab && sortInfo.text ? [sortInfo.text] : [])];
+  // 保存のファイル名（視点・条件・並び順を入れる。切り替えた画面の値を保存の直前に読む）
+  const perspectiveFile = perspectiveFilePart(titlePerspective);
+  saveFilenameRef.current =
+    boxTab === "foreignPlayers"
+      ? buildExportFilename([
+          `${season}シーズン ${ocSavePart === "table" ? "オンザコート割合（一覧）" : "オンザコート割合"}`,
+          ...(ocSavePart === "table" ? [] : ["棒グラフ"]),
+          ...(perspectiveFile ? [perspectiveFile] : []),
+          ...savedConditions,
+        ])
+      : buildExportFilename([`${season}シーズン`, "全チームスタッツ", `${TEAMS_STATS_CATEGORY_LABELS[boxTab] ?? ""}タブ`, ...(perspectiveFile ? [perspectiveFile] : []), ...savedConditions]);
+  const waitForSaveTab = async (tab: TeamsBoxTab, part: "chart" | "table" | null) => {
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const started = Date.now();
+    while (Date.now() - started < 40000) {
+      const rendered = renderedSaveTab.current;
+      const target = exportRef.current;
+      if (rendered.tab === tab && rendered.part === part && target && !target.querySelector(".loading")) {
+        // 並べ替えの記録・描き直しが落ち着くまで少し待ってから、まだ読み込み中でないことを確かめる
+        await sleep(500);
+        if (exportRef.current && !exportRef.current.querySelector(".loading") && renderedSaveTab.current.tab === tab) return;
+      }
+      await sleep(150);
+    }
+    throw new Error("タブの表示が終わらなかったため、保存を止めました");
+  };
+  const saveChoices: ExportChoice[] = SAVE_TABS.flatMap((t) => {
+    const part = (p: "chart" | "table" | null): ExportChoice => ({
+      key: p === "table" ? `${t.key}:table` : t.key,
+      label: p === "table" ? "On-Court Foreign（一覧だけ）" : p === "chart" ? "On-Court Foreign" : t.label,
+      targetRef: exportRef,
+      filename: "",
+      baseDate: { kind: "season", season, gameType },
+      filenameOf: () => saveFilenameRef.current,
+      activate: async () => {
+        if (originalSaveTab.current === null) originalSaveTab.current = boxTabRef.current;
+        setOcSavePart(t.key === "foreignPlayers" ? (p === "table" ? "table" : "chart") : null);
+        if (boxTabRef.current !== t.key) setBoxTab(t.key);
+        await waitForSaveTab(t.key, t.key === "foreignPlayers" ? (p === "table" ? "table" : "chart") : null);
+      },
+    });
+    return t.key === "foreignPlayers" ? [part("chart"), part("table")] : [part(null)];
+  });
   const tierRows = passingTeamIds ? rows.filter((r) => passes(r.team.teamId)) : rows;
 
   return (
@@ -1283,13 +1359,16 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
         </div>
       </div>
 
-      {/* On-Court Foreign は、見出しも保存画像の範囲の中に入れる（下の ExportTarget） */}
-      <StatsSaveWrap
-        enabled={boxTab !== "foreignPlayers" && boxTab !== "scoringComposition"}
-        filename={buildExportFilename([`${season}シーズン`, "全チームスタッツ", TEAMS_STATS_CATEGORY_LABELS[boxTab] ?? "", ...savedConditions])}
-        baseDate={{ kind: "season", season, gameType }}
-        unavailableReason={gameLogsLoading || !gameLogsByTeam ? "データを読み込み中です。表が出てから保存してください。" : undefined}
-      >
+      {/* 保存（設計書449章）: 保存の窓でタブをチェックで選んで、まとめて保存できる。On-Court Foreign は見出しも保存画像の範囲の中に入れる（下の ExportTarget） */}
+      <ExportImageButton
+        multi
+        choicesLabel="保存するタブ"
+        choices={saveChoices}
+        defaultChoiceKey={boxTab}
+        restoreAfterSave={restoreSaveTab}
+        disabledReason={gameLogsLoading || !gameLogsByTeam ? "データを読み込み中です。表が出てから保存してください。" : undefined}
+      />
+      <StatsExportTarget enabled={boxTab !== "foreignPlayers"} exportRef={exportRef} baseDate={{ kind: "season", season, gameType }}>
       {!(boxTab === "foreignPlayers" && foreignRows) && (
         <ConditionTitle
           title={statsTitle.title}
@@ -1298,7 +1377,6 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
           statConditions={conditionTab ? statConditionsTitle(statConditions, conditionItems) : undefined}
         />
       )}
-      <ResultOnlyNote variant={boxTab === "streaks" ? "record" : "stats"} games={scheduleForNote?.resultOnlyGames} />
 
       {boxTab === "shooting" ? (
         !yahooPbpSupported ? (
@@ -1388,32 +1466,6 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
                 onChange: (v) => setOcOpponent(v as "all" | "ge60"),
               }),
             ]}
-            trailing={
-              foreignRows ? (
-                <ExportImageButton
-                  choicesLabel="保存する内容"
-                  defaultChoiceKey="chart"
-                  restoreAfterSave={() => setOcSavePart(null)}
-                  choices={(["chart", "table"] as const).map((part) => ({
-                    key: part,
-                    label: part === "chart" ? "棒グラフだけ" : "一覧だけ",
-                    targetRef: exportRef,
-                    filename: buildExportFilename([
-                      `${season}シーズン ${part === "chart" ? "オンザコート割合" : "オンザコート割合（一覧）"}`,
-                      ...(part === "chart" ? ["棒グラフ"] : []),
-                      ...statsTitle.conditions,
-                    ]),
-                    baseDate: { kind: "season", season, gameType },
-                    activate: async () => {
-                      setOcSavePart(part);
-                      const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-                      await wait(100);
-                      await Promise.race([new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))), wait(400)]);
-                    },
-                  }))}
-                />
-              ) : undefined
-            }
           />
           {foreignRows ? (
             <>
@@ -1473,6 +1525,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
         <p className="empty-message">このシーズンの区間別の値を読み込めませんでした。時間をおいて開き直すか、区間を「試合全体」にしてください。</p>
       ) : boxTab === "scoringComposition" && shareTotals ? (
         <>
+          <div className="export-hide">
           <FilterBar
             simple
             stateKey="teams:scoringOrder"
@@ -1522,6 +1575,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
               }),
             ]}
           />
+          </div>
           <h3>得点構成（総得点に占める割合）</h3>
           <ScoringCompositionChart teams={scoringTeams} mode="own" order={scoringOrder} shareOf={scoringShareOf.scoring} />
           <h3>失点構成（このチームが奪われた得点の割合）</h3>
@@ -1567,6 +1621,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
             <div className="table-scroll">
               <TtsTable
                 rowNumbers
+                tierColors
                 key={`${boxTab}-${teamPerspective}`}
                 leading={TTS_TEAM_LEADING}
                 rows={ttsRows}
@@ -1689,30 +1744,29 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
           <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="全チームスタッツ" scope="各チームの試合ログから、選んだ条件で集計し直した値です。" />
         </>
       )}
-      </StatsSaveWrap>
+      {boxTab !== "foreignPlayers" && <ResultOnlyNote variant={boxTab === "streaks" ? "record" : "stats"} games={scheduleForNote?.resultOnlyGames} />}
+      </StatsExportTarget>
     </div>
   );
 }
 
-/** 全チームスタッツの表のタブの「保存」ボタン＋画像にする範囲（見出し・表・注記）。グラフのタブ・On-Court Foreign は自前の保存か保存なしなので包まない（設計書448章） */
-function StatsSaveWrap({
+/** 全チームスタッツの画像にする範囲（見出し・表・注記）。On-Court Foreign は自前の ExportTarget を持つので包まない（設計書449章） */
+function StatsExportTarget({
   enabled,
-  filename,
+  exportRef,
   baseDate,
-  unavailableReason,
   children,
 }: {
   enabled: boolean;
-  filename: string;
+  exportRef: RefObject<HTMLDivElement>;
   baseDate: BaseDateSpec;
-  unavailableReason?: string;
   children: ReactNode;
 }) {
   if (!enabled) return <>{children}</>;
   return (
-    <SavableBlock filename={filename} baseDate={baseDate} className="export-target-standings" unavailableReason={unavailableReason}>
+    <ExportTarget ref={exportRef} className="export-target-standings" baseDate={baseDate}>
       {children}
-    </SavableBlock>
+    </ExportTarget>
   );
 }
 

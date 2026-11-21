@@ -13,5 +13,5 @@ export function formatRecordShort(wins: number, losses: number): string {
 export const RESULT_ONLY_MARK = "※";
 
 export function resultOnlyMarkTitle(resultOnlyGames: number): string {
-  return `勝敗には、スタッツ（ボックススコア）の無い試合を${resultOnlyGames}試合含みます。試合数・スタッツには入っていません`;
+  return `勝敗は結果だけの試合（不戦勝など）${resultOnlyGames}試合を含む（試合数・スタッツには入らない）`;
 }

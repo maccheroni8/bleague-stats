@@ -9695,3 +9695,30 @@ table.sortable-table.tts-table th {
 .fc-group-choice { flex-wrap: wrap; align-items: center; gap: 6px; }
 .fc-choice { border-color: var(--fc); }
 .fc-choice.active { background: color-mix(in srgb, var(--fc) 28%, var(--bg)); color: var(--fg); }
+
+/* 保存の窓: 複数のタブをチェックで選ぶ（全チームスタッツ。設計書449章） */
+.export-multi-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+
+.export-multi-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  font-size: 14px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.export-multi-item input {
+  width: 18px;
+  height: 18px;
+}
+
+.export-multi-all {
+  font-weight: 600;
+}

@@ -79,6 +79,8 @@ export interface ExportChoice {
   baseDate?: BaseDateSpec;
   /** 保存の直前に呼ぶ（画面の状態をこの対象に切り替え、描き直しが終わったら終わる。比較ページのタブ切り替え。指定した対象は、保存の終わりに restoreAfterSave を呼ぶ） */
   activate?: () => Promise<void>;
+  /** activate のあとに求めるファイル名（切り替えた画面の条件で決まる名前。指定したら filename より優先） */
+  filenameOf?: () => string;
 }
 
 /** 「まとめて保存」の選択肢（窓の中の最後のボタン。keys の対象を続けて保存する） */
@@ -101,6 +103,7 @@ export function ExportImageButton({
   allChoice,
   restoreAfterSave,
   choicesLabel = "保存する図",
+  multi,
 }: {
   targetRef?: RefObject<HTMLElement | null>;
   filename?: string;
@@ -122,10 +125,14 @@ export function ExportImageButton({
   restoreAfterSave?: () => void;
   /** 選択欄の見出し（既定は「保存する図」） */
   choicesLabel?: string;
+  /** 指定すると、choices をチェックで複数選んでまとめて保存できる（「すべて選ぶ」つき。選んだ順ではなく choices の並びで、1つの対象に1枚。開いた直後は defaultChoiceKey だけ選んでいる。設計書449章） */
+  multi?: boolean;
 }) {
   // ファイル名の先頭と基準日は、見ているリーグで決める（DESIGN.md 297章）
   const league = useLeague();
   const [choiceKey, setChoiceKey] = useState<string | null>(null);
+  /** multi のときにチェックを入れた対象（null は「いま開いている対象だけ」） */
+  const [checkedKeys, setCheckedKeys] = useState<string[] | null>(null);
   const chosenAll = !!allChoice && choiceKey === ALL_KEY;
   const chosen = choices ? (choices.find((c) => c.key === (choiceKey ?? defaultChoiceKey)) ?? choices[0]) : undefined;
   const targetRef = chosen?.targetRef ?? givenTargetRef ?? EMPTY_REF;
@@ -185,8 +192,11 @@ export function ExportImageButton({
   // （共有シートは「押した直後」にしか開けないので、表示の中の「写真に保存」で開く。共有シートの結果は待たない。DESIGN.md 242・246章）
   const handleClick = async () => {
     // 保存する対象（まとめて保存のときは、続けて保存する対象すべて）
-    const items: { targetRef: RefObject<HTMLElement | null>; filename: string; baseDate?: BaseDateSpec; activate?: () => Promise<void> }[] =
-      chosenAll && choices
+    const multiKeys = multi && choices ? (checkedKeys ?? [defaultChoiceKey ?? choices[0]?.key ?? ""]) : null;
+    const items: { targetRef: RefObject<HTMLElement | null>; filename: string; baseDate?: BaseDateSpec; activate?: () => Promise<void>; filenameOf?: () => string }[] =
+      multiKeys && choices
+        ? choices.filter((c) => multiKeys.includes(c.key)).map((c) => ({ ...c, filename: exportFilenameWithLeague(c.filename, LEAGUE_LABELS[league]) }))
+        : chosenAll && choices
         ? choices.filter((c) => allChoice!.keys.includes(c.key)).map((c) => ({ ...c, filename: exportFilenameWithLeague(c.filename, LEAGUE_LABELS[league]) }))
         : [{ targetRef, filename, baseDate, activate: chosen?.activate }];
     if (busy || items.length === 0) return;
@@ -216,7 +226,8 @@ export function ExportImageButton({
         }
         const target = item.targetRef.current;
         if (!target) throw new Error("保存する表が見つかりません");
-        const prepared = await prepareExportImage(target, item.filename, {
+        const itemFilename = item.filenameOf ? exportFilenameWithLeague(item.filenameOf(), LEAGUE_LABELS[league]) : item.filename;
+        const prepared = await prepareExportImage(target, itemFilename, {
           options: { plain: ranking ? plain : false, top10: ranking ? top10 : false, teamNames: ranking?.media === "ロゴ" },
           resolveBaseDate: item.baseDate ? () => resolveBaseDate(item.baseDate!, league) : undefined,
           env,
@@ -293,7 +304,8 @@ export function ExportImageButton({
       : { all: `上位${ranking.top}${ranking.unit}`, ten: `上位10${ranking.unit}` }
     : null;
 
-  const saveDisabled = busy || !!disabledReason;
+  const multiSelected = multi && choices ? (checkedKeys ?? [defaultChoiceKey ?? choices[0]?.key ?? ""]) : null;
+  const saveDisabled = busy || !!disabledReason || (!!multiSelected && multiSelected.length === 0);
   const saveEntry = useSaveMenuEntry({
     label: "画像",
     order: 0,
@@ -302,6 +314,7 @@ export function ExportImageButton({
       setNotice(null);
       setNoticeIsError(false);
       setChoiceKey(null);
+      setCheckedKeys(null);
       setOpen(true);
     },
   });
@@ -317,7 +330,34 @@ export function ExportImageButton({
       {pending && <ExportImagePreview files={pending.map((p) => p.file)} notice={previewNotice} onShare={handleSharePending} onClose={handleClosePreview} />}
       <SaveModal open={open} title="画像として保存" onClose={() => setOpen(false)}>
         <SaveModalPreview {...heading} />
-        {choices && (choices.length > 1 || !!allChoice) && (
+        {multi && choices && multiSelected && (
+          <div className="save-modal-options">
+            <span className="export-option-group export-multi-group" role="group" aria-label={choicesLabel}>
+              <span className="export-option-label">{choicesLabel}</span>
+              <label className="export-multi-item export-multi-all">
+                <input
+                  type="checkbox"
+                  checked={multiSelected.length === choices.length}
+                  disabled={busy}
+                  onChange={(e) => setCheckedKeys(e.target.checked ? choices.map((c) => c.key) : [])}
+                />
+                すべて選ぶ
+              </label>
+              {choices.map((c) => (
+                <label key={c.key} className="export-multi-item">
+                  <input
+                    type="checkbox"
+                    checked={multiSelected.includes(c.key)}
+                    disabled={busy}
+                    onChange={(e) => setCheckedKeys(e.target.checked ? [...multiSelected, c.key] : multiSelected.filter((k) => k !== c.key))}
+                  />
+                  {c.label}
+                </label>
+              ))}
+            </span>
+          </div>
+        )}
+        {!multi && choices && (choices.length > 1 || !!allChoice) && (
           <div className="save-modal-options">
             <span className="export-option-group" role="group" aria-label={choicesLabel}>
               <span className="export-option-label">{choicesLabel}</span>

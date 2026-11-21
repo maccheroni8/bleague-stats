@@ -8,6 +8,7 @@ import { SavableBlock } from "./SavableBlock";
 import { SortableTable, type Column } from "./SortableTable";
 import { sortOrderLabel } from "./SortMark";
 import { withTierColors } from "../lib/teamTierColors";
+import { perspectiveFilePart, perspectiveTitleSuffix } from "../lib/titlePerspective";
 import { TeamLogo } from "./TeamLogo";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { buildExportFilename, composeLabels, displayModeLabels, gameTypeLabels, periodLabels, perspectiveLabels, situationalFilterLabels } from "../lib/conditionLabels";
@@ -291,12 +292,11 @@ export function TeamSituationTab({ season, league }: { season: string; league: L
     categoryLabel,
     displayModeLabels(displayMode),
     gameTypeLabels(gameType, season),
-    perspectiveLabels(teamPerspective),
     situationalFilterLabels(filter),
     periodTab ? periodLabels(periodOption) : [],
     sortInfo.tab === boxTab && sortInfo.text ? sortInfo.text : [],
   );
-  const title = `${season}シーズン ${sitName}　チームスタッツ`;
+  const title = `${season}シーズン ${sitName}　チームスタッツ${perspectiveTitleSuffix(teamPerspective)}`;
   const loading = periodActive && periodLoading;
   const empty = rows.length > 0 && rows.every((r) => r.gamesPlayed === 0);
 
@@ -312,12 +312,11 @@ export function TeamSituationTab({ season, league }: { season: string; league: L
         ))}
       </div>
       <SavableBlock
-        filename={buildExportFilename([`${season}シーズン`, sitName, "チームスタッツ", categoryLabel, ...conditions])}
+        filename={buildExportFilename([`${season}シーズン`, sitName, "チームスタッツ", `${categoryLabel}タブ`, ...(perspectiveFilePart(teamPerspective) ? [perspectiveFilePart(teamPerspective)!] : []), ...conditions])}
         baseDate={{ kind: "season", season, gameType }}
         className="export-target-standings"
       >
         <ConditionTitle title={title} exportScope={`${season}シーズン`} conditions={conditions} />
-        <ResultOnlyNote variant="stats" games={scheduleForNote?.resultOnlyGames} />
         {loading ? (
           <p className="loading">読み込み中...</p>
         ) : periodActive && !periodSource ? (
@@ -355,6 +354,7 @@ export function TeamSituationTab({ season, league }: { season: string; league: L
             )}
           </div>
         )}
+        {!loading && !empty && <ResultOnlyNote variant="stats" games={scheduleForNote?.resultOnlyGames} />}
         {boxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
       </SavableBlock>
       <GlossaryNote anchor={GLOSSARY_ANCHORS.teamSituation} label="シチュエーション別" scope="選んだ条件に当てはまる試合だけで、各チームの試合ログから集計し直した値です。" />

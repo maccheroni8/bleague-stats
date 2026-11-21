@@ -1,5 +1,6 @@
 import type { TeamGameLog } from "../../shared/types";
 import type { ResultOnlyGameEntry } from "../../shared/resultOnlyGames";
+import { resultOnlyGamesText } from "./resultOnlyNoteText";
 import { resultOnlyLogsForTeam, resultOnlySummaries } from "../../shared/resultOnlyLogs";
 
 export { resultOnlyLogsForTeam, resultOnlySummaries };
@@ -49,6 +50,6 @@ export function resultOnlyCompareNote(
   const won = mine.filter((g) => (g.homeTeamId === teamId ? g.homeScore > g.awayScore : g.awayScore > g.homeScore)).length;
   const wins = record.wins + won;
   const losses = record.losses + (mine.length - won);
-  return `公式の勝敗（${wins}-${losses}）は、スタッツの無い試合（結果だけの試合）を${mine.length}試合含みます。この比較の試合数・勝敗には入っていません`;
+  return `公式の勝敗（${wins}-${losses}）は${resultOnlyGamesText(mine)}を含む（この比較の試合数・勝敗には入らない）`;
 }
 

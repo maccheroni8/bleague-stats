@@ -2,7 +2,8 @@
 // 順位の決め方・向き・色なしの項目はチーム詳細（407・408章）と同じ（compareRank.ts の teamRanksOf + rankDirection.ts）。
 // 1位・最下位がいちばん濃い（tier-top-1〜3・tier-bot-1〜3）。画面・通信に依存しない純粋な関数だけ（保存キーの対象外）
 import type { Column } from "../components/SortableTable";
-import { teamRanksOf } from "./compareRank";
+import { teamRanksOf, TEAM_RANK_TIER_SIZE } from "./compareRank";
+import { rankPositions } from "./seasonCompare";
 import type { AllTeamsRow, TeamPerspective } from "./teamStatsColumns";
 
 /** 視点によらず自チームの勝敗そのものを表す列（勝率）。opp でも反転しない */
@@ -33,4 +34,24 @@ export function withTierColors<R extends AllTeamsRow>(columns: readonly Column<R
     if (classes.size === 0) return col;
     return { ...col, cellClass: (r: R) => classes.get(r.team.teamId) };
   });
+}
+
+/**
+ * 値と表示の文字だけから上位3・下位3の色を出す（Time to Shot の秒の列など、列の定義を持たない表用）。
+ * 並べ方・同じ値の扱い・6つ以下は色なしは teamRanksOf と同じ。値の無いもの（NaN・「-」）は入れない
+ */
+export function tierClassesFromValues(entries: readonly { id: string; value: number; text: string }[], higherIsBetter: boolean): Map<string, string> {
+  const out = new Map<string, string>();
+  const ranked = entries.filter((e) => !Number.isNaN(e.value) && e.text !== "-");
+  if (ranked.length <= TEAM_RANK_TIER_SIZE * 2) return out;
+  const best = [...ranked].sort((a, b) => (higherIsBetter ? b.value - a.value : a.value - b.value));
+  const fromTop = rankPositions(best.map((e) => e.text));
+  const fromBottom = rankPositions([...best].reverse().map((e) => e.text));
+  best.forEach((e, i) => {
+    const rank = fromTop[i]!;
+    const bottomRank = fromBottom[best.length - 1 - i]!;
+    if (rank <= TEAM_RANK_TIER_SIZE) out.set(e.id, `tier-top-${rank}`);
+    else if (bottomRank <= TEAM_RANK_TIER_SIZE) out.set(e.id, `tier-bot-${bottomRank}`);
+  });
+  return out;
 }

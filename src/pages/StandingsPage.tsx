@@ -1241,8 +1241,6 @@ export function StandingsPage({ season }: { season: string }) {
   return (
     <div data-design="v2" className="standings-page">
       <PageTitleRow subtitle={`${season}シーズン・${latest.date}時点`}>順位表</PageTitleRow>
-      <ResultOnlyNote games={resultOnlyEntries} />
-
       {tabBar(magicAvailable)}
 
       {activeTab === "annual" && <AnnualSchedule key={season} season={season} league={league} />}
@@ -1734,6 +1732,7 @@ export function StandingsPage({ season }: { season: string }) {
       {activeTab === "gamesAboveTrend" && (
         <MetricTrendTab {...trendTabShared} videoCharts={videoCharts("貯金推移", "metric", gamesAboveData, gamesAboveData, wildcardGamesAboveData, undefined, true)} zeroLine name="貯金推移" data={gamesAboveData} wildcardData={wildcardGamesAboveData} />
       )}
+      <ResultOnlyNote games={resultOnlyEntries} />
     </div>
   );
 }

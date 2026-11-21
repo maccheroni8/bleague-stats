@@ -9,7 +9,7 @@ import { gunzipSync } from "node:zlib";
 import type { TeamGameLog } from "../shared/types";
 import { filterByGameType } from "../shared/gameType";
 import { buildTeamCategoryColumns } from "../src/lib/teamSeasonRanking";
-import { withTierColors } from "../src/lib/teamTierColors";
+import { tierClassesFromValues, withTierColors } from "../src/lib/teamTierColors";
 import { sumTeamGameLogs, type AllTeamsRow, type TeamPerspective } from "../src/lib/teamStatsColumns";
 
 type Col = ReturnType<typeof buildTeamCategoryColumns>[number];
@@ -68,5 +68,25 @@ for (const season of ["2025-26", "2021-22"]) {
   const emptyCols = withTierColors<AllTeamsRow>(buildTeamCategoryColumns("traditional", "perGame", "own", true, true, false), withEmpty, "own");
   assert(emptyCols.every((c: Col) => !c.cellClass?.(withEmpty[withEmpty.length - 1]!)), `${season}: 試合0のチームに色が付いた`);
   console.log(`${season}: OK（${rows.length}チーム）`);
+}
+// Time to Shot などの値だけの色（449章）: 小さいほど良い・同じ表示値は同じ順位・「-」と6つ以下は色なし
+{
+  const entries = Array.from({ length: 10 }, (_, i) => ({ id: `t${i}`, value: 10 + i, text: String(10 + i) }));
+  const lowGood = tierClassesFromValues(entries, false);
+  assert.equal(lowGood.get("t0"), "tier-top-1");
+  assert.equal(lowGood.get("t2"), "tier-top-3");
+  assert.equal(lowGood.get("t9"), "tier-bot-1");
+  assert.equal(lowGood.get("t7"), "tier-bot-3");
+  assert.equal(lowGood.get("t4"), undefined);
+  const highGood = tierClassesFromValues(entries, true);
+  assert.equal(highGood.get("t9"), "tier-top-1");
+  assert.equal(highGood.get("t0"), "tier-bot-1");
+  const tied = tierClassesFromValues(entries.map((e, i) => (i < 2 ? { ...e, value: 10, text: "10" } : e)), false);
+  assert.equal(tied.get("t0"), "tier-top-1");
+  assert.equal(tied.get("t1"), "tier-top-1");
+  assert.equal(tied.get("t2"), "tier-top-3");
+  const withDash = [...entries, { id: "x", value: Number.NaN, text: "-" }];
+  assert.equal(tierClassesFromValues(withDash, false).get("x"), undefined);
+  assert.equal(tierClassesFromValues(entries.slice(0, 6), false).size, 0);
 }
 console.log("team-tier-colors: OK");

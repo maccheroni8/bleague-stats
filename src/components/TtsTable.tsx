@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { SeasonLink } from "./SeasonLink";
 import { statDescription } from "../lib/statDescriptions";
 import { statJa } from "../lib/statNames";
+import { tierClassesFromValues } from "../lib/teamTierColors";
 import { formatTtsPct, formatTtsSeconds, TTS_TABLE_ITEMS, type TtsPerspective, type TtsRowValues } from "../lib/teamTts";
 
 /** 先頭側の列（チーム・シーズン・G など）。見出しは2行分の高さ（rowSpan=2）。sortValue は並べ替え用 */
@@ -27,13 +28,15 @@ interface TtsTableProps<T> {
   pinnedRows?: T[];
   /** 先頭に「#」の列を足し、今の並びで上から 1, 2, 3… の通し番号を出す（リーグ平均の行は空欄） */
   rowNumbers?: boolean;
+  /** 秒の列に、シュートまでが速い3チームを緑・遅い3チームを赤で塗る（本数・割合の列は塗らない。設計書449章）。opp は逆（相手が遅いほうが良い）、+/- は自チーム−相手なので小さい（負）ほど緑 */
+  tierColors?: boolean;
 }
 
 /**
  * Time to Shot の表（DESIGN.md 290章）。項目名の見出しの下に「秒」と「%」の2列を並べる2段の見出し（TTS は「秒」だけ）。
  * 見出しにカーソルを当てると日本語名（statJa）の説明が出る。クリックで並べ替え（項目名の見出しは「秒」の列で並べ替える）
  */
-export function TtsTable<T>({ leading, rows, rowKey, valuesOf, perspective, linkTo, defaultSortKey, defaultSortDir = "desc", pinnedRows, rowNumbers }: TtsTableProps<T>) {
+export function TtsTable<T>({ leading, rows, rowKey, valuesOf, perspective, linkTo, defaultSortKey, defaultSortDir = "desc", pinnedRows, rowNumbers, tierColors }: TtsTableProps<T>) {
   const [sortKey, setSortKey] = useState(defaultSortKey);
   const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortDir);
   const valueColumn = (key: string): { item: (typeof TTS_TABLE_ITEMS)[number]["item"]; kind: "avg" | "pct" } | null => {
@@ -69,6 +72,21 @@ export function TtsTable<T>({ leading, rows, rowKey, valuesOf, perspective, link
   const mark = (key: string) => (sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "");
   const aria = (key: string) => (sortKey === key ? (sortDir === "asc" ? ("ascending" as const) : ("descending" as const)) : undefined);
 
+  // 秒の列ごとの色（teamId ではなく行のキーで引く）
+  const tiers = useMemo(() => {
+    const map = new Map<string, Map<string, string>>();
+    if (!tierColors) return map;
+    for (const { item } of TTS_TABLE_ITEMS) {
+      const entries = rows.map((r) => {
+        const avg = valuesOf(r)?.[item]?.avg ?? null;
+        return { id: rowKey(r), value: avg === null ? Number.NaN : avg, text: formatTtsSeconds(avg, perspective) };
+      });
+      map.set(item, tierClassesFromValues(entries, perspective === "opp"));
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, tierColors, perspective, valuesOf]);
+
   const cells = (row: T, isLink: boolean, index?: number) => {
     const v = valuesOf(row);
     const to = isLink ? linkTo?.(row) : undefined;
@@ -87,7 +105,7 @@ export function TtsTable<T>({ leading, rows, rowKey, valuesOf, perspective, link
           </td>
         ))}
         {TTS_TABLE_ITEMS.flatMap(({ item, hasPct }) => [
-          <td key={`avg:${item}`} className="align-right">
+          <td key={`avg:${item}`} className={`align-right${isLink && tiers.get(item)?.get(rowKey(row)) ? ` ${tiers.get(item)!.get(rowKey(row))}` : ""}`}>
             {to ? <SeasonLink to={to} className="cell-link">{formatTtsSeconds(v?.[item].avg ?? null, perspective)}</SeasonLink> : formatTtsSeconds(v?.[item].avg ?? null, perspective)}
           </td>,
           ...(hasPct
