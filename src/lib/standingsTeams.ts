@@ -20,9 +20,10 @@ export interface StandingsStatCells {
   gamesBehind: string;
 }
 
+/** ゲーム差は小数第1位まで（0.5 刻みなので 0.5・1.0・2.5。設計書447章）。首位（差0）は「-」 */
 export function formatGamesBehind(t: Pick<StandingsTeam, "unplayed" | "divisionGamesBehind">): string {
-  if (t.unplayed) return t.divisionGamesBehind === undefined ? "-" : formatDecimal(t.divisionGamesBehind);
-  return !t.divisionGamesBehind ? "-" : formatDecimal(t.divisionGamesBehind);
+  if (t.unplayed) return t.divisionGamesBehind === undefined ? "-" : formatDecimal(t.divisionGamesBehind, 1);
+  return !t.divisionGamesBehind ? "-" : formatDecimal(t.divisionGamesBehind, 1);
 }
 
 export function standingsStatCells(t: StandingsTeam): StandingsStatCells {

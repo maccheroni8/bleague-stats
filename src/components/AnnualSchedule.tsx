@@ -147,7 +147,7 @@ export function AnnualSchedule({ season, league }: { season: string; league: Lea
                 const gb = t?.division ? t.divisionGamesBehind : t?.gamesBehind;
                 const values = [t ? t.wins + t.losses : 0, t?.wins ?? 0, t?.losses ?? 0,
                   t && t.wins + t.losses > 0 ? formatWinPct(t.winPct) : '−', team.remaining ?? '−',
-                  gb === undefined || gb === 0 ? '−' : formatDecimal(gb)];
+                  gb === undefined || gb === 0 ? '−' : formatDecimal(gb, 1)];
                 return values.map((value, i) => <td key={i} className="annual-stat" style={statStyle(i)}>{value}</td>);
               })()}
               {o.dates.map(date => <td key={date} className={date === today ? 'annual-today' : undefined}>{(index.get(`${team.teamId}:${date}`) ?? []).map(g => {
