@@ -3,15 +3,19 @@
 // 確かめること: ①手計算できる小さな例（加重平均・順位・同率・未対戦・プレーオフと未終了の除外）②全シーズンの実データで、
 // games-summary＋結果だけの試合から数えた勝敗が順位表（standings-history の最新）の勝敗と一致すること、
 // 対戦試合数の合計がクラブの試合数と一致すること、値が別の書き方（相手ごとに数えてから加重平均）の計算と一致すること。
+// ③残りの相手の強さ（443章）の小さな例（同じ相手の複数回・名寄せできない試合・結果だけの試合・勝率の無い相手・残りなし）
+// ④全シーズン・両リーグの実データで、最新勝率の元の2つ（teams.json と順位表の最新日）の勝敗が一致すること（チーム詳細と順位表で同じ最新勝率になる）、
+// 残りの相手の強さが別の書き方の計算と一致し、数えた試合数＝開催予定の試合数であること。今季は数えた残り＋消化試合が規定の試合数に届かないクラブ（日程が決まっていない試合）を出す
 //
 // 使い方: npm run validate:opponent-strength（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { gunzipSync } from "node:zlib";
-import { computeOpponentStrength } from "../src/lib/opponentStrength";
+import { buildOpponentSeasonWinRates, computeOpponentStrength, computeRemainingOpponentStrength, matchesOpponentSeasonWinRate } from "../src/lib/opponentStrength";
+import { pendingUpcomingGames } from "../shared/pendingUpcoming";
 import { resultOnlySummaries } from "../src/lib/resultOnlyGames";
-import type { GameSummary, StandingsSnapshot } from "../shared/types";
+import type { GameSummary, StandingsSnapshot, TeamSummary, UpcomingGameEntry } from "../shared/types";
 
 let failures = 0;
 function eq(label: string, actual: unknown, expected: unknown): void {
@@ -103,6 +107,77 @@ for (const season of seasons) {
     if (!got || got.games !== n || got.games !== t.wins + t.losses || !close(got.value, sum / n)) bad.push(t.teamId);
   }
   eq(`${season}: 加重平均の値・対戦試合数（＝勝＋敗）が別の計算と一致`, bad, []);
+}
+
+// --- ③残りの相手の強さの小さな例 ---
+{
+  const u = (key: string, home: string, away: string): UpcomingGameEntry => ({ scheduleKey: key, date: "2026-12-01", homeTeamName: home, awayTeamName: away });
+  const teams = [
+    { teamId: "A", wins: 5, losses: 5 },
+    { teamId: "B", wins: 7, losses: 3 },
+    { teamId: "C", wins: 4, losses: 6 },
+    { teamId: "D", wins: 0, losses: 0 },
+    { teamId: "E", wins: 3, losses: 3 },
+  ];
+  const byName = new Map([["a", "A"], ["b", "B"], ["c", "C"], ["d", "D"], ["e", "E"]]);
+  // A は B（.700）と2試合・C（.400）と1試合・D（勝率なし）と1試合・名寄せできない相手と1試合・結果だけの試合（x）が1試合残る
+  const r = computeRemainingOpponentStrength(teams, [u("1", "a", "b"), u("2", "b", "a"), u("3", "c", "a"), u("4", "a", "d"), u("5", "a", "?"), u("x", "a", "c")], byName, new Set(["x"]));
+  eq("A: (.7×2＋.4×1)÷3 ＝ .6（勝率の無い相手・名寄せできない試合・結果だけの試合は数えない）", [r.get("A")!.value.toFixed(6), r.get("A")!.games], ["0.600000", 3]);
+  eq("D: まだ試合をしていないクラブでも、相手（A .5）に勝率があれば残りの値を持つ", [r.get("D")!.value.toFixed(6), r.get("D")!.games], ["0.500000", 1]);
+  eq("E: 残り試合が無いクラブは値を持たない", r.has("E"), false);
+  eq("1試合ごとの区分: .600（F）は対6割以上・対5割以上、.500 は対5割以上、.400 は対5割未満、勝率なしはどれにも入らない",
+    ([["F", "atLeast60"], ["F", "atLeast50"], ["A", "atLeast50"], ["C", "under50"], ["D", "under50"], ["D", "atLeast50"]] as const).map(([id, tier]) =>
+      matchesOpponentSeasonWinRate(id, tier, buildOpponentSeasonWinRates([...teams, { teamId: "F", wins: 6, losses: 4 }]))),
+    [true, true, true, true, false, false]);
+}
+
+// --- ④全シーズン・両リーグの実データ（最新勝率の元の一致・残りの相手の強さ） ---
+const readAny = <T>(file: string): T | null => readGz<T>(file + ".gz") ?? (existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as T) : null);
+for (const season of seasons) {
+  for (const dir of [path.join(dataDir, season), path.join(dataDir, season, "one")]) {
+    const label = path.relative(dataDir, dir);
+    const teams = readAny<TeamSummary[]>(path.join(dir, "teams.json"));
+    const history = readAny<StandingsSnapshot[]>(path.join(dir, "standings-history.json"));
+    const summaries = readAny<GameSummary[]>(path.join(dir, "games-summary.json"));
+    const schedule = readAny<{ upcomingGames?: UpcomingGameEntry[]; resultOnlyGames?: { scheduleKey: string }[] }>(path.join(dir, "schedule.json"));
+    if (!teams || !history || history.length === 0 || !summaries) continue;
+    const latest = history[history.length - 1]!;
+    const a = buildOpponentSeasonWinRates(teams);
+    const b = buildOpponentSeasonWinRates(latest.teams);
+    const diff = [...new Set([...a.keys(), ...b.keys()])].filter((id) => a.get(id) !== b.get(id));
+    eq(`${label}: 最新勝率が teams.json（チーム詳細）と順位表の最新日（条件別順位表）で同じ（${a.size}クラブ）`, diff, []);
+
+    const pending = pendingUpcomingGames(schedule?.upcomingGames, summaries);
+    const roKeys = new Set((schedule?.resultOnlyGames ?? []).map((g) => g.scheduleKey));
+    const byName = new Map(teams.map((t) => [t.teamName, t.teamId]));
+    const remaining = computeRemainingOpponentStrength(teams, pending, byName, roKeys);
+    const bad: string[] = [];
+    for (const t of teams) {
+      let n = 0;
+      let sum = 0;
+      for (const g of pending) {
+        if (roKeys.has(g.scheduleKey)) continue;
+        const opp = g.homeTeamName === t.teamName ? g.awayTeamName : g.awayTeamName === t.teamName ? g.homeTeamName : null;
+        if (!opp) continue;
+        const p = a.get(byName.get(opp) ?? "");
+        if (p === undefined) continue;
+        n += 1;
+        sum += p;
+      }
+      const got = remaining.get(t.teamId);
+      if (n === 0 ? got !== undefined : !got || got.games !== n || !close(got.value, sum / n)) bad.push(t.teamId);
+    }
+    eq(`${label}: 残りの相手の強さが別の計算（相手ごとに1試合ずつ足す）と一致・残りなしは値なし`, bad, []);
+    const unmapped = pending.filter((g) => !byName.has(g.homeTeamName) || !byName.has(g.awayTeamName)).length;
+    eq(`${label}: 開催予定の試合はすべて名寄せできる（${pending.length}試合）`, unmapped, 0);
+    if (season === seasons[seasons.length - 1]) {
+      const short = teams
+        .map((t) => ({ name: t.teamName, n: t.wins + t.losses + (remaining.get(t.teamId)?.games ?? 0) }))
+        .filter((x) => x.n < 60)
+        .map((x) => `${x.name} ${60 - x.n}`);
+      console.log(`   ${label}: 消化試合＋数えた残りが60試合に届かないクラブ（日程が決まっていない・中止の試合）: ${short.length === 0 ? "なし" : short.join("・")}`);
+    }
+  }
 }
 
 if (failures > 0) {

@@ -148,7 +148,7 @@ export function ForeignCountStandings({
     <div className="foreign-count-standings">
       <ExportImageButton
         targetRef={saveTargetRef}
-        filename={buildExportFilename([seasonLabel, ...(groups.length > 1 || groups[0]?.division ? [divisionName(saveDivisionOf(groups, saveDivision))] : []), "外国籍人数別順位表", asOfLabel])}
+        filename={buildExportFilename([seasonLabel, ...(groups.length > 1 || groups[0]?.division ? [divisionName(saveDivisionOf(groups, saveDivision))] : []), "外国籍人数別成績", asOfLabel])}
         baseDate={{ kind: "season", season, gameType: "regular" }}
         options={
           groups.length > 1 || groups[0]?.division ? (
@@ -215,7 +215,7 @@ export function ForeignCountStandings({
               <ConditionTitle
                 exportScope={seasonLabel}
                 section
-                title={`${g.division ? `${DIVISION_LABELS[g.division]} ` : ""}外国籍人数別順位表`}
+                title={`${g.division ? `${DIVISION_LABELS[g.division]} ` : ""}外国籍人数別成績`}
                 conditions={composeLabels(seasonLabel, asOfLabel, gameTypeLabels("regular", null), shownLabel, sortLabel)}
               />
               <div className="table-scroll standings-sticky-2 foreign-count-scroll">

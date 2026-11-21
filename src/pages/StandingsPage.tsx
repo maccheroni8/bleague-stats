@@ -40,7 +40,7 @@ import { autoAxis, type TrendVideoTeam } from "../lib/trendVideo";
 import { buildExportFilename, clubSelectionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { formatDecimal, formatPct, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { pendingUpcomingGames } from "../lib/pendingUpcoming";
-import { computeOpponentStrength, type OpponentStrength } from "../lib/opponentStrength";
+import { computeOpponentStrength, computeRemainingOpponentStrength, type OpponentStrength } from "../lib/opponentStrength";
 import { resultOnlySummaries, withResultOnlyLogs } from "../lib/resultOnlyGames";
 import { ResultOnlyNote } from "../components/ResultOnlyNote";
 import { safeDiv } from "../../shared/formulas";
@@ -123,6 +123,8 @@ interface StandingsRow extends StandingsTeam {
   race: PlayoffRaceTeam | null;
   /** 対戦相手の強さ（これまでに対戦した相手の今季の勝率の加重平均とリーグ内の順位）。試合の記録が未取得・まだ試合をしていないクラブはnull */
   opponentStrength: OpponentStrength | null;
+  /** 残りの相手の強さ（開催予定の試合の相手の最新勝率の平均）。残り試合が無い・日程を読み込む前は null */
+  remainingOpponentStrength: OpponentStrength | null;
 }
 
 /**
@@ -212,11 +214,12 @@ function buildStandingsRow(
   upcomingCount: number | undefined,
   race: PlayoffRaceTeam | null,
   opponentStrength: OpponentStrength | null,
+  remainingOpponentStrength: OpponentStrength | null,
 ): StandingsRow {
   const gamesPlayed = team.wins + team.losses;
   const completionRate = upcomingCount === undefined ? null : safeDiv(gamesPlayed, gamesPlayed + upcomingCount);
   if (!logs) {
-    return { ...team, homeRecord: null, awayRecord: null, last5: null, streak: null, maxWin: null, maxLoss: null, completionRate, race, opponentStrength };
+    return { ...team, homeRecord: null, awayRecord: null, last5: null, streak: null, maxWin: null, maxLoss: null, completionRate, race, opponentStrength, remainingOpponentStrength };
   }
   const regular = regularSeasonLogs(logs);
   const streaks = seasonStreakSummary(season, regular, seasonRunning);
@@ -231,6 +234,7 @@ function buildStandingsRow(
     completionRate,
     race,
     opponentStrength,
+    remainingOpponentStrength,
   };
 }
 
@@ -441,6 +445,13 @@ const divisionStandingsColumns: Column<StandingsRow>[] = [
       ) : (
         "-"
       ),
+  },
+  {
+    key: "remainingOpponentStrength",
+    label: "残り相手勝率",
+    // 残り試合が無いクラブは「-」。どちらの向きに並べても末尾に来るよう、値の無い扱いにする
+    sortValue: (t) => t.remainingOpponentStrength?.value ?? Number.NaN,
+    format: (t) => (t.remainingOpponentStrength ? formatWinPct(t.remainingOpponentStrength.value) : "-"),
   },
 ];
 
@@ -674,6 +685,14 @@ function TrendSaveFrame({
 const SAVE_COLUMN_CHOICES: { key: string; label: string }[] = [
   ...divisionStandingsColumns.filter((c) => c.key !== "teamName").map((c) => ({ key: c.key, label: c.label })),
 ];
+
+/** 載せる列の選択肢。「36勝まで」は表と同じく「対戦相手の強さ」の右（「残り相手勝率」の左）に並べる */
+function saveColumnChoices(line: PlayoffWinLine | null): { key: string; label: string }[] {
+  if (!line) return SAVE_COLUMN_CHOICES;
+  const col = { key: "playoffLine", label: playoffLineLabel(line) };
+  const i = SAVE_COLUMN_CHOICES.findIndex((c) => c.key === "opponentStrength");
+  return i < 0 ? [...SAVE_COLUMN_CHOICES, col] : [...SAVE_COLUMN_CHOICES.slice(0, i + 1), col, ...SAVE_COLUMN_CHOICES.slice(i + 1)];
+}
 
 /** ワイルドカード順位表の「WC順位」は、「全体順位」の選択に従う */
 const SAVE_COLUMN_ALIAS = { rank: ["wildcardRank"] };
@@ -945,6 +964,16 @@ export function StandingsPage({ season }: { season: string }) {
   const standingsTeams = withUnplayedTeams(teams, playoffRace ?? null);
   // 対戦相手の強さ。結果だけの試合も含めた全試合（星取り・勝敗表と同じ gamesForGrid）で数える。試合の記録を読み込むまでは出さない
   const opponentStrengthById = gamesForGrid ? computeOpponentStrength(teams, gamesForGrid) : null;
+  // 残りの相手の強さ。まだ試合の記録が無い開催予定（中止・延期で日程が決まっていない試合は載らない）の相手の最新勝率の平均。
+  // 結果だけの試合（不戦勝など）はすでに戦った試合なので数えない。日程を読み込むまでは出さない
+  const remainingOpponentStrengthById = schedule
+    ? computeRemainingOpponentStrength(
+        teams,
+        pendingUpcoming,
+        new Map(standingsTeams.map((t) => [t.teamName, t.teamId])),
+        new Set((schedule.resultOnlyGames ?? []).map((g) => g.scheduleKey)),
+      )
+    : null;
   // 最多連勝・最多連敗の「継続中」の判定: そのシーズンがまだ終わっていない（今のシーズンで、7・8月のオフではなく、レギュラーシーズンの全試合が終わっていない）
   const seasonRunning =
     !isOffseasonMonth() && !isPastSeason(season) && !(schedule && gameSummaries && isRegularSeasonComplete({ schedule, summaries: gameSummaries }));
@@ -957,6 +986,7 @@ export function StandingsPage({ season }: { season: string }) {
       upcomingCountByTeamName ? (upcomingCountByTeamName.get(t.teamName) ?? 0) : undefined,
       raceById.get(t.teamId) ?? null,
       opponentStrengthById?.get(t.teamId) ?? null,
+      remainingOpponentStrengthById?.get(t.teamId) ?? null,
     );
   // マジックナンバー表（2026-27〜のB.PREMIERフォーマットのみ。判定を出せない場合は理由を表示）
   // 順位表スナップショットには試合をしたクラブしか載らないため、playoff-race.json側の全クラブを並べる
@@ -1267,7 +1297,7 @@ export function StandingsPage({ season }: { season: string }) {
               )}
             </span>
                 <SaveColumnChoice
-                  choices={[...SAVE_COLUMN_CHOICES, ...(winLine ? [{ key: "playoffLine", label: playoffLineLabel(winLine) }] : [])]}
+                  choices={saveColumnChoices(winLine)}
                   hidden={saveHiddenCols}
                   onChange={setSaveHiddenCols}
                 />

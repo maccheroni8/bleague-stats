@@ -19,7 +19,7 @@ import {
 import { divisionOrder } from "./divisionGroups";
 import type { League } from "./league";
 import { formatWinPct } from "./format";
-import { buildOpponentSeasonWinRates, type OpponentSeasonRecord } from "./opponentSeasonWinRate";
+import { buildOpponentSeasonWinRates, type OpponentSeasonRecord } from "./opponentStrength";
 import { withResultOnlyLogs, resultOnlySummaries } from "./resultOnlyGames";
 import {
   applySituationalRange,

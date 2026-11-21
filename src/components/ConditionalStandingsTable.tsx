@@ -63,7 +63,7 @@ import {
   type CountMode,
   type Lead,
 } from "../lib/situationalRecords";
-import { buildOpponentSeasonWinRates, matchesOpponentSeasonWinRate, type OpponentSeasonTier } from "../lib/opponentSeasonWinRate";
+import { buildOpponentSeasonWinRates, matchesOpponentSeasonWinRate, type OpponentSeasonTier } from "../lib/opponentStrength";
 import { resultOnlySummaries } from "../lib/resultOnlyGames";
 import type { ResultOnlyGameEntry } from "../../shared/resultOnlyGames";
 

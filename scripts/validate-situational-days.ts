@@ -8,7 +8,7 @@ import { isJapaneseHoliday, isWeekdayGame, isWeekendGame } from "../src/lib/japa
 import { buildRecordsBeforeGame, buildBackToBackStatus } from "../src/lib/situational";
 import { filterByGameType } from "../src/lib/playerSeasonBoxscore";
 import { DATA_DIR, readJson } from "./lib/storage.ts";
-import { buildOpponentSeasonWinRates, type OpponentSeasonRecord } from "../src/lib/opponentSeasonWinRate";
+import { buildOpponentSeasonWinRates, type OpponentSeasonRecord } from "../src/lib/opponentStrength";
 import type { DivisionHistoryFile, GameSummary, TeamGameLog, TeamSummary } from "../shared/types.ts";
 
 // filterByGameType は元の勝敗表と同じ試合区分の関数を使う。

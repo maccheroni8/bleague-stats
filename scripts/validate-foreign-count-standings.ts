@@ -71,5 +71,5 @@ if (sample) {
   check("感度", before.games !== after.games || before.wins !== after.wins);
 } else check("感度（材料なし）", false);
 
-console.log(`外国籍人数別順位表: ${teamsChecked}チームのシーズン・${ok}件OK・NG${failures}件`);
+console.log(`外国籍人数別成績: ${teamsChecked}チームのシーズン・${ok}件OK・NG${failures}件`);
 if (failures > 0) process.exit(1);

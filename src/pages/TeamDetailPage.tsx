@@ -171,7 +171,7 @@ import {
   LABEL_SEPARATOR,
 } from "../lib/conditionLabels";
 import { isWeekdayGame, isWeekendGame } from "../lib/japaneseHolidays";
-import { buildOpponentSeasonWinRates, matchesOpponentSeasonWinRate } from "../lib/opponentSeasonWinRate";
+import { buildOpponentSeasonWinRates, matchesOpponentSeasonWinRate } from "../lib/opponentStrength";
 import { leaderStatLabel, PLAYER_STAT_DEFS } from "../lib/statDefs";
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers } from "../lib/playerRankingEligibility";
 import { safeDiv } from "../../shared/formulas";

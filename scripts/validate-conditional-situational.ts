@@ -16,7 +16,7 @@ import { gunzipSync } from "node:zlib";
 import type { DivisionHistoryFile, StoredGame, TeamGameLog, TeamSummary } from "../shared/types";
 import { applyConditionalCondition, type ConditionalCondition } from "../src/components/ConditionalStandingsTable";
 import { buildSituationalRecordGroups } from "../src/pages/TeamDetailPage";
-import { buildOpponentSeasonWinRates } from "../src/lib/opponentSeasonWinRate";
+import { buildOpponentSeasonWinRates } from "../src/lib/opponentStrength";
 import { FOREIGN_MEASURES, FOREIGN_MEASURE_MAX, foreignMeasureValue, foreignSituationalGroups, type ForeignMeasure } from "../src/lib/situationalRecords";
 import { makeClassifier } from "../shared/registration";
 import { applyBoxscoreNameFills } from "../shared/boxscoreNameFills";

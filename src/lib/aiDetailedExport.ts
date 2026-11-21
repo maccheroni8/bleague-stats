@@ -33,7 +33,7 @@ import { positionText, heightText, weightText, seasonHasProfileFallback } from '
 import { registrationLabel } from './registrationLabel';
 import { splitClassificationSeason } from './classificationFilter';
 import type { SeasonRegistrationFile } from '../../shared/registration';
-import { buildOpponentSeasonWinRates } from './opponentSeasonWinRate';
+import { buildOpponentSeasonWinRates } from './opponentStrength';
 import { teamNameInSeason } from './teamLabel';
 import { previousSeason } from './seasonCompare';
 import { buildSituationalRecordGroups, teamSeasonColumnLabels } from '../pages/TeamDetailPage';

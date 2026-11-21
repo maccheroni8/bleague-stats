@@ -16,7 +16,7 @@ import type { DivisionHistoryFile, GameSummary, StandingsSnapshot, TeamGameLog, 
 import type { ResultOnlyGameEntry } from "../shared/resultOnlyGames";
 import { applyConditionalCondition, type ConditionalCondition } from "../src/lib/conditionalCondition";
 import { buildBackToBackStatus, buildBiweekPeriods, buildRecordsBeforeGame } from "../src/lib/situational";
-import { buildOpponentSeasonWinRates } from "../src/lib/opponentSeasonWinRate";
+import { buildOpponentSeasonWinRates } from "../src/lib/opponentStrength";
 import { resultOnlySummaries, withResultOnlyLogs } from "../src/lib/resultOnlyGames";
 import {
   buildCondEnv, condCodec, condOptionGroups, condRecord, condRecords, conditionOf, DEFAULT_COND, minGamesCodec, OPP_RATE_KEY, parseCondSpec, parseRateInput, rateText, sameCond, condSpecToText,

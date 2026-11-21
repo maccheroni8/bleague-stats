@@ -32,7 +32,7 @@ import {
   type ForeignMeasure,
   type Lead,
 } from "./situationalRecords";
-import { matchesOpponentSeasonWinRate, type OpponentSeasonTier } from "./opponentSeasonWinRate";
+import { matchesOpponentLatestRate, matchesOpponentSeasonWinRate, type OpponentSeasonTier } from "./opponentStrength";
 
 /** 条件「クラッチタイムになった試合」の名前（設計書375章） */
 export const CLUTCH_GAMES_LABEL = "クラッチタイムになった試合";
@@ -257,10 +257,7 @@ export function applyConditionalCondition(
       return logs.filter((g) => hasOvertimeLog(g) === (condition.value === "ot"));
     case "opponentLatestRate": {
       const rates = ctx.opponentLatestWinRates ?? new Map<string, number>();
-      return logs.filter((g) => {
-        const r = rates.get(g.opponentTeamId);
-        return r !== undefined && (condition.mode === "ge" ? r >= condition.rate - 1e-9 : r < condition.rate - 1e-9);
-      });
+      return logs.filter((g) => matchesOpponentLatestRate(g.opponentTeamId, condition.mode, condition.rate, rates));
     }
     case "opponentLatestWinRate":
       return logs.filter((g) => matchesOpponentSeasonWinRate(g.opponentTeamId, condition.tier, ctx.opponentLatestWinRates ?? new Map()));

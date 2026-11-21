@@ -111,7 +111,7 @@ import { ExportImageButton } from "../components/ExportImageButton";
 import { TeamSituationTab } from "../components/TeamSituationTab";
 import { PageTitleRow } from "../components/HeaderActions";
 import { ExportTarget } from "../components/ExportTarget";
-import { buildOpponentSeasonWinRates, matchesOpponentSeasonWinRate } from "../lib/opponentSeasonWinRate";
+import { buildOpponentSeasonWinRates, matchesOpponentSeasonWinRate } from "../lib/opponentStrength";
 import { logsHaveOn4, on4Supported, onlyOn4Games } from "../lib/on4Core";
 import { buildExportFilename } from "../lib/conditionLabels";
 import { addGameFlow } from "../lib/gameFlowTotals";

@@ -10,7 +10,7 @@ import { formatPct } from "../src/lib/format";
 import { buildSituationalRecordGroups } from "../src/pages/TeamDetailPage";
 import { filterByGameType } from "../src/lib/playerSeasonBoxscore";
 import type { TeamGameLog, DivisionHistoryFile } from "../shared/types.ts";
-import { buildOpponentSeasonWinRates } from "../src/lib/opponentSeasonWinRate";
+import { buildOpponentSeasonWinRates } from "../src/lib/opponentStrength";
 import type { TeamSummary } from "../shared/types.ts";
 import type { GameSummary } from "../shared/types.ts";
 
