@@ -249,7 +249,7 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
     player: ONCOURT_SHARE("FTA"),
     team: `${TEAM_SHARE_NOT_SHOWN("FTA")}チームのFTA / FGAは、アドバンスドのFTR（FT Rate）で見られます。`,
   },
-  "内訳対象": "2P内訳の記録が揃う試合数／全試合数。内訳の平均・成功率は記録が揃う試合だけで計算します。ランキングでは、全試合の記録が揃わないチームと、試投数が0本のチームは順位を付けず、参考値として末尾に出します。",
+  "記録のある試合数": "2P内訳の記録が揃う試合数／全試合数。内訳の平均・成功率は記録が揃う試合だけで計算します。ランキングでは、全試合の記録が揃わないチームと、試投数が0本のチームは順位を付けず、参考値として末尾に出します。",
   PAINT2M: `ペイント内の2P成功数（${PAINT_SPLIT_NOTE}）`,
   PAINT2A: `ペイント内の2P試投数（${PAINT_SPLIT_NOTE}）`,
   "PAINT2%": `PAINT2M / PAINT2A（${PAINT_SPLIT_NOTE}）`,

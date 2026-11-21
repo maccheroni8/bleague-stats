@@ -149,7 +149,9 @@ import {
   type MarginCondition,
 } from "../lib/situational";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
-import { SavableBlock } from "../components/SavableBlock";
+import { ExportImageButton, type ExportChoice } from "../components/ExportImageButton";
+import { ExportTarget } from "../components/ExportTarget";
+import { waitForSaveRender } from "../lib/saveWait";
 import { perspectiveFilePart, perspectiveTitleSuffix, type TitlePerspective } from "../lib/titlePerspective";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import { OnCourtShareNote } from "../components/OnCourtShareNote";
@@ -619,7 +621,7 @@ function buildSplitClassificationPtsSegments(logs: readonly TeamGameLog[], persp
  * （添付画像＝FG試投割合の円グラフと同じ形式）。FG試投構成（3P/IP/OP）・得点構成
  * （3P/IP/OP/FT）それぞれ自チーム・相手チームの円グラフを横に並べて表示する
  */
-function ScoringCompositionSection({ team, gameLogs, color, season }: { team: TeamSummary; gameLogs: TeamGameLog[]; color: string | undefined; season: string }) {
+function ScoringCompositionSection({ team, gameLogs, color, season, exportRef }: { team: TeamSummary; gameLogs: TeamGameLog[]; color: string | undefined; season: string; exportRef: React.RefObject<HTMLDivElement> }) {
   // 2026-27 以降は、登録区分を日本人／外国籍／帰化・アジア特別枠の3つに分ける（試合ログの試合ごとの区分の得点。DESIGN.md 298章）
   const classSplit = splitClassificationSeason(season);
   // 自チームの円グラフはチームカラーの濃淡、opp は対戦相手全体なので無彩色の濃淡（DESIGN.md 182章）
@@ -640,8 +642,9 @@ function ScoringCompositionSection({ team, gameLogs, color, season }: { team: Te
 
   return (
     <div className="key-stats-card">
-      <h3>得点構成 / 失点構成</h3>
-      <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成・FG試投構成" scope="レギュラーシーズンの値です。" />
+      <ExportTarget ref={exportRef} className="export-target-pies" baseDate={{ kind: "season", season, gameType: "regular" }}>
+      <div data-save-key="pie">
+      <ConditionTitle title={`${season}シーズン ${team.teamName}　得点構成／失点構成`} exportScope={`${season}シーズン`} conditions={composeLabels(gameTypeLabels("regular", season))} />
       <h4 className="composition-pie-group-title">シュート試投構成</h4>
       <div className="composition-pie-row">
         <CompositionPieChart title="FG 試投割合" segments={ownFga} baseColor={ownColor} />
@@ -658,6 +661,9 @@ function ScoringCompositionSection({ team, gameLogs, color, season }: { team: Te
         <CompositionPieChart title="得点割合" segments={ownClassificationPts} baseColor={ownColor} />
         <CompositionPieChart title="opp 得点割合" segments={oppClassificationPts} baseColor={MONO_FALLBACK_COLOR} />
       </div>
+      </div>
+      </ExportTarget>
+      <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成・FG試投構成" scope="レギュラーシーズンの値です。" />
     </div>
   );
 }
@@ -1687,6 +1693,11 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
 
 /** 表のシーズンがすべて2026-27以降（foulSplit）なら、Miscのファウルの列はTF1・TF2・FLAG・DISR、そうでなければTF・UFOUL（新旧の合計） */
 function teamSeasonBoxColumns(tab: SeasonBoxTabKey, foulSplit: boolean): TeamSeasonBoxColumn[] {
+  // 「G」は表の「試合数」の列と必ず同じ値（行の試合数）なので、画面の表には出さない（DESIGN.md 462章）。md の書き出しは別に列を持つ
+  return teamSeasonBoxColumnsWithG(tab, foulSplit).filter((c) => c.key !== "g");
+}
+
+function teamSeasonBoxColumnsWithG(tab: SeasonBoxTabKey, foulSplit: boolean): TeamSeasonBoxColumn[] {
   switch (tab) {
     case "traditional":
       return TEAM_SEASON_TRADITIONAL_COLUMNS;
@@ -3075,6 +3086,14 @@ export function TeamDetailPage({ season }: { season: string }) {
   // quarterScores（試合の生データ）が必要なため、ショットチャートと同じ折りたたみ式にし、
   // 展開したときだけstatsRawGamesを取得する（DESIGN.md参照。初回表示時の通信を抑える）
   const [situationalRecordRawExpanded, setSituationalRecordRawExpanded] = usePageState(pk("situationalRecordRawExpanded"), false);
+  // 保存（DESIGN.md 463章）: タブごとに1つの保存の窓で、表・グラフをチェックで選ぶ
+  const situationalSaveRef = useRef<HTMLDivElement>(null);
+  const situationalSaveOriginal = useRef<string | null>(null);
+  const situationalSaveFilename = useRef("");
+  const overviewPieRef = useRef<HTMLDivElement>(null);
+  const overviewRecordRef = useRef<HTMLDivElement>(null);
+  const overviewLeadRef = useRef<HTMLDivElement>(null);
+  const overviewLeadWasOpen = useRef<boolean | null>(null);
   // 「シチュエーション別勝敗」（概要タブ）「シチュエーション別成績」（チームスタッツタブ）の
   // 各グループの説明文。個人詳細ページの同名セクションと同じ「デフォルト非表示・▶説明ボタンで
   // 開閉」の仕組みをそのまま踏襲する
@@ -4031,6 +4050,49 @@ export function TeamDetailPage({ season }: { season: string }) {
       : (situationalTeamBoxTab === "periods" ? situationalPeriodGroups.length === 0 : situationalTeamGroups.length === 0)
         ? "保存できる表がありません。"
         : undefined;
+  situationalSaveFilename.current = situationalTeamSaveFilename;
+  const situationalSaveKeys: (BoxscoreTabKey | "shooting" | "periods")[] = [...BOXSCORE_TABS.map((t) => t.key), "shooting", "periods"];
+  const situationalSaveChoices: ExportChoice[] = situationalSaveKeys.map((key) => ({
+    key,
+    label: teamBoxCategoryLabel(key),
+    targetRef: situationalSaveRef,
+    filename: "",
+    baseDate: { kind: "season", season, gameType: situationalTeamGameType },
+    filenameOf: () => situationalSaveFilename.current,
+    activate: async () => {
+      if (situationalSaveOriginal.current === null) situationalSaveOriginal.current = situationalTeamBoxTab;
+      setSituationalTeamBoxTab(key);
+      await waitForSaveRender(() => situationalSaveRef.current, key);
+    },
+  }));
+  // 概要タブの保存: 円グラフ・シチュエーション別勝敗・Q別・延長リード状況（延長リード状況は閉じていれば保存の間だけ開く）
+  const overviewBase = { kind: "season", season, gameType: situationalRecordGameType } as const;
+  const overviewName = [`${season}シーズン`, team.teamName];
+  const overviewSaveChoices: ExportChoice[] = [
+    { key: "pie", label: "得点構成／失点構成（円グラフ）", targetRef: overviewPieRef, filename: buildExportFilename([...overviewName, "得点構成・失点構成", ...composeLabels(gameTypeLabels("regular", season))]), baseDate: { kind: "season", season, gameType: "regular" } },
+    { key: "record", label: "シチュエーション別勝敗", targetRef: overviewRecordRef, filename: buildExportFilename([...overviewName, "シチュエーション別勝敗", ...situationalRecordSaveConditions]), baseDate: overviewBase },
+    {
+      key: "lead",
+      label: "Q別・延長リード状況",
+      targetRef: overviewLeadRef,
+      filename: buildExportFilename([...overviewName, "Q別・延長リード状況", ...situationalRecordSaveConditions]),
+      baseDate: overviewBase,
+      activate: async () => {
+        if (overviewLeadWasOpen.current === null) overviewLeadWasOpen.current = situationalRecordRawExpanded;
+        setSituationalRecordRawExpanded(true);
+        await waitForSaveRender(() => overviewLeadRef.current, "lead");
+      },
+    },
+  ];
+  const overviewSaveDefaultKeys = ["pie", "record", ...(situationalRecordRawExpanded ? ["lead"] : [])];
+  const restoreOverviewLead = () => {
+    if (overviewLeadWasOpen.current === false) setSituationalRecordRawExpanded(false);
+    overviewLeadWasOpen.current = null;
+  };
+  const restoreSituationalTab = () => {
+    if (situationalSaveOriginal.current !== null) setSituationalTeamBoxTab(situationalSaveOriginal.current as BoxscoreTabKey | "shooting" | "periods");
+    situationalSaveOriginal.current = null;
+  };
   // フィルタバー（DESIGN.md 105章 B4）。ショットチャート専用の絞り込み（旧・チームスタッツの共有バーから独立させた。118章）
   const teamShotChartFilterAxes: FilterAxis[] = [
     gameTypeAxis(teamShotChartGameType, setTeamShotChartGameType, season),
@@ -4234,10 +4296,10 @@ export function TeamDetailPage({ season }: { season: string }) {
           ))}
 
           <MobileCollapse label="円グラフ">
-            <ScoringCompositionSection team={team} gameLogs={gameLogs ?? []} color={accentColor} season={season} />
+            <ScoringCompositionSection team={team} gameLogs={gameLogs ?? []} color={accentColor} season={season} exportRef={overviewPieRef} />
           </MobileCollapse>
 
-          <ConditionTitle section title="チーム内リーダー" conditions={teamLeadersConditions} />
+          <ConditionTitle section title="チーム内リーダー" exportScope={`${season}シーズン`} conditions={teamLeadersConditions} />
           <FilterBar
             simple
             stateKey={pk("teamLeadersFilter")}
@@ -4316,12 +4378,23 @@ export function TeamDetailPage({ season }: { season: string }) {
             </div>
           )}
 
-          <ConditionTitle section title="シチュエーション別勝敗" conditions={situationalRecordConditions} />
+          <ExportImageButton
+            multi
+            choicesLabel="保存する表・グラフ"
+            choices={overviewSaveChoices}
+            defaultChoiceKey="record"
+            defaultChoiceKeys={overviewSaveDefaultKeys}
+            restoreAfterSave={restoreOverviewLead}
+            disabledReason={gameLogsLoading ? "記録を読み込み中です。" : undefined}
+          />
           <FilterBar
             simple
             stateKey={pk("situationalRecordFilter")}
             axes={[gameTypeAxis(situationalRecordGameType, setSituationalRecordGameType, season)]}
           />
+          <ExportTarget ref={overviewRecordRef} className="export-target-standings export-target-narrow" baseDate={{ kind: "season", season, gameType: situationalRecordGameType }}>
+          <div data-save-key="record">
+          <ConditionTitle title={`${season}シーズン ${team.teamName}　シチュエーション別勝敗`} exportScope={`${season}シーズン`} conditions={situationalRecordSaveConditions} />
           {situationalRecordGroups.some((group) => group.key === "opponentStrength") && (
             <p className="rule-change-footnote">対戦相手の強さの「最新勝率」は相手の対象シーズンの最新勝率（終了後は最終勝率）、「試合時点の勝率」はその試合の前の時点の相手の勝率（相手が{MIN_GAMES_FOR_OPPONENT_WIN_RATE}試合以上を消化した試合だけ）で判定します。「対5割以上」には「対6割以上」も含みます。勝率を出せない相手との試合は対象外です。</p>
           )}
@@ -4364,6 +4437,8 @@ export function TeamDetailPage({ season }: { season: string }) {
               </table>
             </div>
           )}
+          </div>
+          </ExportTarget>
 
           <h3
             className="collapsible-heading"
@@ -4384,11 +4459,8 @@ export function TeamDetailPage({ season }: { season: string }) {
             </>
           ) : (
             <>
-              <SavableBlock
-                filename={buildExportFilename([`${season}シーズン`, team.teamName, "Q別・延長リード状況", ...situationalRecordSaveConditions])}
-                baseDate={{ kind: "season", season, gameType: situationalRecordGameType }}
-                className="export-target-standings"
-              >
+              <ExportTarget ref={overviewLeadRef} className="export-target-standings" baseDate={{ kind: "season", season, gameType: situationalRecordGameType }}>
+              <div data-save-key="lead">
               <ConditionTitle title={`${season}シーズン ${team.teamName}　Q別・延長リード状況`} exportScope={`${season}シーズン`} conditions={situationalRecordSaveConditions} />
               <div className="table-scroll">
                 <table className="stats-table situational-record-table">
@@ -4423,7 +4495,8 @@ export function TeamDetailPage({ season }: { season: string }) {
                   </tbody>
                 </table>
               </div>
-              </SavableBlock>
+              </div>
+              </ExportTarget>
               <GlossaryNote anchor={GLOSSARY_ANCHORS.situational} label="シチュエーション別成績" />
             </>
           )}
@@ -4677,7 +4750,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             <p className="empty-message">クラブレコードのデータがありません</p>
           ) : (
             <>
-              <ConditionTitle title="クラブレコード" conditions={careerConditions} />
+              <ConditionTitle title="クラブレコード" exportScope="通算" conditions={careerConditions} />
               <h3 className="career-highs-subheading">シーズン記録</h3>
               <div className="career-highs-grid">
                 {mostWinsSeasonRecord && (
@@ -5404,12 +5477,16 @@ export function TeamDetailPage({ season }: { season: string }) {
               {CATEGORY_LABELS.periods}
             </button>
           </div>
-          <SavableBlock
-            filename={situationalTeamSaveFilename}
-            baseDate={{ kind: "season", season, gameType: situationalTeamGameType }}
-            className="export-target-standings"
-            unavailableReason={situationalTeamSaveReason}
-          >
+          <ExportImageButton
+            multi
+            choicesLabel="保存するタブ"
+            choices={situationalSaveChoices}
+            defaultChoiceKey={situationalTeamBoxTab}
+            restoreAfterSave={restoreSituationalTab}
+            disabledReason={situationalTeamSaveReason}
+          />
+          <ExportTarget ref={situationalSaveRef} className="export-target-standings" baseDate={{ kind: "season", season, gameType: situationalTeamGameType }}>
+          <div data-save-key={situationalTeamBoxTab}>
           <ConditionTitle title={situationalTeamTitle} exportScope={`${season}シーズン`} conditions={situationalTeamConditions} />
           {situationalTeamBoxTab === "periods" ? (
             situationalPeriodGroups.length === 0 ? (
@@ -5580,7 +5657,8 @@ export function TeamDetailPage({ season }: { season: string }) {
             </p>
           )}
 
-          </SavableBlock>
+          </div>
+          </ExportTarget>
           <GlossaryNote anchor={GLOSSARY_ANCHORS.situational} label="シチュエーション別成績" />
 
           <h2
@@ -5728,6 +5806,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           <ConditionTitle
             section
             title="アシスト経由の得点パターン"
+            exportScope={`${season}シーズン`}
             conditions={composeLabels(seasonLabel, gameTypeLabels("regular", null), periodLabels(undefined))}
           />
           {coverageLoading ? (
@@ -5799,7 +5878,7 @@ export function TeamDetailPage({ season }: { season: string }) {
 
       {tab === "lineups" && (
         <div className="team-tab-panel team-lineups-panel">
-          <ConditionTitle title="ラインナップ" conditions={composeLabels(seasonLabel)} />
+          <ConditionTitle title="ラインナップ" exportScope={`${season}シーズン`} conditions={composeLabels(seasonLabel)} />
           {coverageLoading ? (
             <p className="loading">読み込み中...</p>
           ) : !pbpSupported ? (

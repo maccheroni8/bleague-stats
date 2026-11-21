@@ -91,6 +91,30 @@ for (const season of ["2025-26", "2021-22"]) {
     const first = [...ranks!].filter(([, r]) => r.rank === 1).map(([id]) => Number(col.sortValue(rows.find((x) => x.team.teamId === id)!)));
     assert(first.every((v) => Math.abs(v - best) < 1e-9), `${season} ${key}: 多い順の1位`);
   }
+  // 良し悪しのない項目の色（countTiers）: 多い上位3が tier=top・少ない下位3が tier=bottom（kind=count）。countTiers でなければ色は付かない（DESIGN.md 463章）
+  for (const [category, key] of [["traditional", "min"], ["advanced", "poss"], ["advanced", "pace"], ["misc", "benchPts"]] as const) {
+    const col = buildTeamCategoryColumns(category, "perGame", "own", true, true, false).find((c) => c.key === key)!;
+    const plain = teamRanksOf(rows, col, "own", true)!;
+    assert([...plain.values()].every((r) => r.tier === null), `${season} ${key}: countTiers なしは色なし`);
+    const ranks = teamRanksOf(rows, col, "own", true, true)!;
+    const tops = [...ranks.values()].filter((r) => r.tier === "top");
+    const bottoms = [...ranks.values()].filter((r) => r.tier === "bottom");
+    assert(tops.length >= 3 && tops.every((r) => r.rank <= 3 && r.kind === "count"), `${season} ${key}: 多い上位3が青（kind=count）`);
+    assert(bottoms.length >= 3 && bottoms.every((r) => r.bottomRank <= 3 && r.kind === "count"), `${season} ${key}: 少ない下位3がオレンジ（kind=count）`);
+  }
+  // 色つきの項目は countTiers でも緑・赤（kind=quality）のまま
+  {
+    const col = buildTeamCategoryColumns("traditional", "perGame", "own", true, true, false).find((c) => c.key === "tov")!;
+    const ranks = teamRanksOf(rows, col, "own", true, true)!;
+    assert([...ranks.values()].every((r) => r.kind === "quality"), `${season} tov: 良し悪しの項目は kind=quality`);
+  }
+  // 試合数・記録のある試合数は rankAllNeutral でも順位を付けない
+  for (const key of ["g", "gs", "paint2games"]) {
+    for (const category of ["traditional", "advanced", "misc", "scoring"] as const) {
+      const col = buildTeamCategoryColumns(category, "perGame", "own", true, true, false).find((c) => c.key === key);
+      if (col) assert.equal(teamRanksOf(rows, col, "own", true, true), null, `${key} は順位を付けない`);
+    }
+  }
   // 色つきの項目（PTS）は rankAllNeutral でも変わらない
   {
     const col = buildTeamCategoryColumns("traditional", "perGame", "own", true, true, false).find((c) => c.key === "pts")!;

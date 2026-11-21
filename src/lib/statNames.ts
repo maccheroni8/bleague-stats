@@ -19,7 +19,7 @@ export const NATURALIZED_ASIA_LABEL = "帰化・アジア特別枠";
 /** 略称 → 日本語名 */
 export const STAT_NAMES: Record<string, StatJaName> = {
   // --- 試合数・出場 ---
-  "内訳対象": "2P内訳の対象試合数",
+  "記録のある試合数": "2P内訳の対象試合数",
   G: "試合数",
   GS: "スタメン出場試合数",
   MIN: "出場時間",

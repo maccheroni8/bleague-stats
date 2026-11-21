@@ -21,6 +21,13 @@
   --tier-bot-1: rgba(214, 69, 80, 0.311);
   --tier-bot-2: rgba(214, 69, 80, 0.17);
   --tier-bot-3: rgba(214, 69, 80, 0.094);
+  /* 良し悪しのない項目の色（多い上位3は青・少ない下位3はオレンジ。1位・最下位がいちばん濃い。DESIGN.md 461章） */
+  --count-hi-1: rgba(45, 110, 230, 0.36);
+  --count-hi-2: rgba(45, 110, 230, 0.2);
+  --count-hi-3: rgba(45, 110, 230, 0.11);
+  --count-lo-1: rgba(232, 130, 20, 0.38);
+  --count-lo-2: rgba(232, 130, 20, 0.21);
+  --count-lo-3: rgba(232, 130, 20, 0.115);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -43,6 +50,13 @@
   --tier-bot-1: rgba(240, 98, 110, 0.422);
   --tier-bot-2: rgba(240, 98, 110, 0.24);
   --tier-bot-3: rgba(240, 98, 110, 0.132);
+  /* 良し悪しのない項目の色（多い上位3は青・少ない下位3はオレンジ。1位・最下位がいちばん濃い。DESIGN.md 461章） */
+  --count-hi-1: rgba(90, 150, 255, 0.453);
+  --count-hi-2: rgba(90, 150, 255, 0.26);
+  --count-hi-3: rgba(90, 150, 255, 0.143);
+  --count-lo-1: rgba(255, 165, 50, 0.45);
+  --count-lo-2: rgba(255, 165, 50, 0.26);
+  --count-lo-3: rgba(255, 165, 50, 0.14);
   }
 }
 
@@ -65,6 +79,13 @@
   --tier-bot-1: rgba(240, 98, 110, 0.422);
   --tier-bot-2: rgba(240, 98, 110, 0.24);
   --tier-bot-3: rgba(240, 98, 110, 0.132);
+  /* 良し悪しのない項目の色（多い上位3は青・少ない下位3はオレンジ。1位・最下位がいちばん濃い。DESIGN.md 461章） */
+  --count-hi-1: rgba(90, 150, 255, 0.453);
+  --count-hi-2: rgba(90, 150, 255, 0.26);
+  --count-hi-3: rgba(90, 150, 255, 0.143);
+  --count-lo-1: rgba(255, 165, 50, 0.45);
+  --count-lo-2: rgba(255, 165, 50, 0.26);
+  --count-lo-3: rgba(255, 165, 50, 0.14);
 }
 
 :root[data-theme="light"] {
@@ -8339,6 +8360,14 @@ table.sortable-table.lineup-search-table tbody th {
 .sortable-table td.tier-bot-2 { background-color: var(--tier-bot-2); }
 .sortable-table td.tier-bot-3 { background-color: var(--tier-bot-3); }
 
+/* 良し悪しのない項目の多い・少ない（チーム詳細・全チームスタッツ）。color-mix は保存画像の部品が読めないので使わない */
+.stats-table td.count-hi-1, .sortable-table td.count-hi-1 { background-color: var(--count-hi-1); }
+.stats-table td.count-hi-2, .sortable-table td.count-hi-2 { background-color: var(--count-hi-2); }
+.stats-table td.count-hi-3, .sortable-table td.count-hi-3 { background-color: var(--count-hi-3); }
+.stats-table td.count-lo-1, .sortable-table td.count-lo-1 { background-color: var(--count-lo-1); }
+.stats-table td.count-lo-2, .sortable-table td.count-lo-2 { background-color: var(--count-lo-2); }
+.stats-table td.count-lo-3, .sortable-table td.count-lo-3 { background-color: var(--count-lo-3); }
+
 .tab-bar-with-toggle > .compare-rank-toggle {
   margin-left: auto;
 }
@@ -9742,4 +9771,28 @@ table.sortable-table.tts-table th {
 
 .export-rendering.export-target-share h3 {
   font-size: 18px;
+}
+
+/* チーム詳細 Q別の「Q別得失点」: 列が少ないので幅を詰める（保存画像・画面とも。DESIGN.md 463章） */
+.export-wide.export-target-standings.export-target-qscore,
+.export-wide.export-target-standings.export-target-narrow {
+  width: 100%;
+  max-width: 760px;
+}
+
+.export-rendering.export-target-standings.export-target-qscore,
+.export-rendering.export-target-standings.export-target-narrow {
+  width: 760px;
+  max-width: none;
+}
+
+/* チーム詳細 概要の円グラフ: 保存画像の幅を決める（DESIGN.md 463章） */
+.export-wide.export-target-pies {
+  width: 100%;
+  max-width: 900px;
+}
+
+.export-rendering.export-target-pies {
+  width: 900px;
+  max-width: none;
 }

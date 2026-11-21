@@ -16,6 +16,10 @@ import type { TeamPerspective } from "../lib/teamStatsColumns";
 export interface TeamCellRank {
   text: string;
   tier: TeamRankResult["tier"];
+  /** 色の意味（良し悪し＝緑・赤、多い・少ない＝青・オレンジ） */
+  kind: TeamRankResult["kind"];
+  /** 色の濃さ（1＝いちばん濃い。上位は順位、下位はいちばん悪い方からの順位） */
+  level: number;
 }
 
 /** 表の項目（key・label）の順位。順位を付けない項目（良し悪しなし・ランキングに無い項目・値の無いシーズン）は undefined */
@@ -79,9 +83,9 @@ export function TeamRankScope({
       const column = matchRankColumn(source.columns, col);
       if (!column) continue;
       const cacheKey = `${i}:${column.key}`;
-      if (!cache.has(cacheKey)) cache.set(cacheKey, teamRanksOf(source.boxRows, column, perspective, rankAllNeutral));
+      if (!cache.has(cacheKey)) cache.set(cacheKey, teamRanksOf(source.boxRows, column, perspective, rankAllNeutral, true));
       const result = cache.get(cacheKey)?.get(teamId);
-      return result ? { text: rankText(result.rank), tier: result.tier } : undefined;
+      return result ? { text: rankText(result.rank), tier: result.tier, kind: result.kind, level: result.tier === "bottom" ? result.bottomRank : result.rank } : undefined;
     }
     return undefined;
   };
@@ -90,7 +94,10 @@ export function TeamRankScope({
 
 /** 順位を付けたマスの className の足し分（上位・下位の色） */
 export function rankTierClass(rank: TeamCellRank | undefined): string {
-  return rank?.tier === "top" ? " rank-tier-top" : rank?.tier === "bottom" ? " rank-tier-bottom" : "";
+  if (!rank?.tier) return "";
+  // 良し悪しのない項目: 多い上位3は青・少ない下位3はオレンジ（1位・最下位がいちばん濃い）
+  if (rank.kind === "count") return ` count-${rank.tier === "top" ? "hi" : "lo"}-${Math.min(3, Math.max(1, rank.level))}`;
+  return rank.tier === "top" ? " rank-tier-top" : " rank-tier-bottom";
 }
 
 /** マスの値の下の順位（小さい字。比較ページと同じ部品の見た目） */

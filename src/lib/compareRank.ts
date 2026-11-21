@@ -35,6 +35,8 @@ export interface TeamRankResult {
   rank: number;
   total: number;
   tier: "top" | "bottom" | null;
+  /** 色の意味。quality＝良し悪し（緑・赤）、count＝良し悪しのない項目の多い・少ない（青・オレンジ。DESIGN.md 461章） */
+  kind: "quality" | "count";
   /** いちばん悪い方から数えた順位（同じ値は同じ順位）。全チームスタッツの下位3位の濃さに使う */
   bottomRank: number;
 }
@@ -51,10 +53,14 @@ export function teamRanksOf(
   perspective: TeamPerspective,
   /** true なら、良し悪しなしの項目も色なしで多い順の順位を出す（チーム詳細のシーズン別成績。DESIGN.md 455章） */
   rankAllNeutral = false,
+  /** true なら、色なしで順位を付ける項目にも「多い上位3（青）・少ない下位3（オレンジ）」の色（tier・kind=count）を付ける。チーム詳細・全チームスタッツ用 */
+  countTiers = false,
 ): Map<string, TeamRankResult> | null {
   const direction = rankDirectionOf(column.key, perspective);
   // 良し悪しなしは順位も出さない。ただし isRankOnlyKey の項目（rankAllNeutral のときは良し悪しなしのすべて）は、多い順の順位だけ出す（色なし）
-  const rankOnly = direction === "neutral" && (rankAllNeutral || isRankOnlyKey(column.key));
+  // 試合数・記録のある試合数は、多い少ないを比べる項目ではないので、rankAllNeutral でも順位を付けない
+  const gamesKey = ["g", "gs", "paint2games"].includes(normalizeRankKey(column.key));
+  const rankOnly = direction === "neutral" && ((rankAllNeutral && !gamesKey) || isRankOnlyKey(column.key));
   if (direction === "neutral" && !rankOnly) return null;
   const higherIsBetter = direction !== "lower";
   const value = (r: AllTeamsRow) => Number(column.sortValue(r));
@@ -73,8 +79,8 @@ export function teamRanksOf(
   best.forEach((r, i) => {
     const rank = fromTop[i]!;
     const bottomRank = fromBottom[total - 1 - i]!;
-    const tier = rankOnly || total <= TEAM_RANK_TIER_SIZE * 2 ? null : rank <= TEAM_RANK_TIER_SIZE ? "top" : bottomRank <= TEAM_RANK_TIER_SIZE ? "bottom" : null;
-    out.set(r.team.teamId, { rank, total, tier, bottomRank });
+    const tier = (rankOnly && !countTiers) || total <= TEAM_RANK_TIER_SIZE * 2 ? null : rank <= TEAM_RANK_TIER_SIZE ? "top" : bottomRank <= TEAM_RANK_TIER_SIZE ? "bottom" : null;
+    out.set(r.team.teamId, { rank, total, tier, kind: rankOnly ? "count" : "quality", bottomRank });
   });
   return out;
 }

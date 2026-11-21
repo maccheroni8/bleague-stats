@@ -49,7 +49,7 @@ for (const season of ["2025-26", "2021-22"]) {
       assert(colored.length >= 6 && colored.length <= 12, `${season} ${perspective} ${key}: 色が付いたチーム数 ${colored.length}`);
     }
   }
-  // ④ 良し悪しなし
+  // ④ 良し悪しなし: G は色なし。POSS・PACE・MIN は、多い上位3が青（count-hi-1〜3）・少ない下位3がオレンジ（count-lo-1〜3）。緑・赤（tier-…）は付かない（DESIGN.md 463章）
   for (const key of ["g", "poss", "pace", "min"]) {
     const cols = withTierColors<AllTeamsRow>(
       [...buildTeamCategoryColumns("traditional", "perGame", "own", true, true, false), ...buildTeamCategoryColumns("advanced", "perGame", "own", true, true, false)],
@@ -57,7 +57,16 @@ for (const season of ["2025-26", "2021-22"]) {
       "own",
     );
     const col = cols.find((c: Col) => c.key === key);
-    if (col) assert(rows.every((r) => !col.cellClass?.(r)), `${season} ${key}: 良し悪しなしに色が付いた`);
+    if (!col) continue;
+    const classes = rows.map((r) => col.cellClass?.(r)).filter(Boolean) as string[];
+    if (key === "g") {
+      assert(classes.length === 0, `${season} ${key}: 試合数に色が付いた`);
+      continue;
+    }
+    assert(classes.every((c) => /^count-(hi|lo)-[123]$/.test(c)), `${season} ${key}: 良し悪しなしに緑・赤が付いた（${classes.join(",")}）`);
+    const sorted = [...rows].sort((a, b) => Number(col.sortValue(b)) - Number(col.sortValue(a)));
+    assert(col.cellClass?.(sorted[0]!) === "count-hi-1", `${season} ${key}: いちばん多いチームが count-hi-1 でない`);
+    assert(col.cellClass?.(sorted[sorted.length - 1]!) === "count-lo-1", `${season} ${key}: いちばん少ないチームが count-lo-1 でない`);
   }
   // ⑤ 6チーム以下は色なし
   const few = rows.slice(0, 6);

@@ -43,6 +43,9 @@ export function withNoFlow<T extends object>(value: T, totals: NoFlowTotals): T 
   return value;
 }
 
+/** 添えた値があるか（合計をコピーして新しいオブジェクトにするとき、添えた値を引き継ぐために使う） */
+export const hasNoFlow = (value: object): boolean => noFlowByValue.has(value);
+
 export const noFlowOf = (value: object): NoFlowTotals =>
   noFlowByValue.get(value) ?? { games: 0, own2m: 0, own3m: 0, ownFtm: 0, opp2m: 0, opp3m: 0, oppFtm: 0 };
 

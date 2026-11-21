@@ -15,7 +15,7 @@ import type { TeamCellRank } from "./TeamRankScope";
 /** 順位を付けた項目の引き当て。key は Shooting＝列のキー（例: ジャンプショット_2pm）、Forced TOV＝「forced:項目」「committed:項目」 */
 export type SpecialRankLookup = (key: string) => TeamCellRank | undefined;
 
-/** 全チームの順位。teamRanksOf と同じ決め方（表示の文字が同じなら同じ順位・次は飛ばす・6チーム以下は色なし）。tierless なら色を付けない */
+/** 全チームの順位。teamRanksOf と同じ決め方（表示の文字が同じなら同じ順位・次は飛ばす・6チーム以下は色なし）。tierless なら良し悪しのない項目として青・オレンジの色（kind=count） */
 export function ranksOfRows<T extends { teamId: string; gamesPlayed: number }>(
   rows: readonly T[],
   value: (r: T) => number,
@@ -33,8 +33,8 @@ export function ranksOfRows<T extends { teamId: string; gamesPlayed: number }>(
   best.forEach((r, i) => {
     const rank = fromTop[i]!;
     const bottomRank = fromBottom[total - 1 - i]!;
-    const noTier = tierless || direction === "neutral" || total <= TEAM_RANK_TIER_SIZE * 2;
-    out.set(r.teamId, { rank, total, tier: noTier ? null : rank <= TEAM_RANK_TIER_SIZE ? "top" : bottomRank <= TEAM_RANK_TIER_SIZE ? "bottom" : null, bottomRank });
+    const noTier = total <= TEAM_RANK_TIER_SIZE * 2;
+    out.set(r.teamId, { rank, total, tier: noTier ? null : rank <= TEAM_RANK_TIER_SIZE ? "top" : bottomRank <= TEAM_RANK_TIER_SIZE ? "bottom" : null, kind: tierless || direction === "neutral" ? "count" : "quality", bottomRank });
   });
   return out;
 }
@@ -93,7 +93,7 @@ export function TeamSpecialRankScope({
       }
     }
     const result = cache.get(key)?.get(teamId);
-    return result ? { text: rankText(result.rank), tier: result.tier } : undefined;
+    return result ? { text: rankText(result.rank), tier: result.tier, kind: result.kind, level: result.tier === "bottom" ? result.bottomRank : result.rank } : undefined;
   };
   return <>{children(lookup)}</>;
 }

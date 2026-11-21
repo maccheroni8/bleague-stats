@@ -18,11 +18,13 @@ export function tierCellClasses<R extends AllTeamsRow>(rows: readonly R[], col: 
   const own = OWN_RESULT_KEYS.has(col.key);
   // 負けの数は少ないほど良い（向きを決める表には「l」が無いので、少ないほど良い項目の TOV の向きを借りる）
   const target = (col.key === "l" ? { ...col, key: "tov" } : col) as unknown as Column<AllTeamsRow>;
-  const ranks = teamRanksOf(rows, target, own ? "own" : perspective);
+  // 良し悪しのない項目（MIN・POSS・PACE・構成比など）も順位を付け、多い上位3は青・少ない下位3はオレンジ（DESIGN.md 461章）
+  const ranks = teamRanksOf(rows, target, own ? "own" : perspective, true, true);
   if (!ranks) return out;
   for (const [teamId, r] of ranks) {
-    if (r.tier === "top") out.set(teamId, `tier-top-${r.rank}`);
-    else if (r.tier === "bottom") out.set(teamId, `tier-bot-${r.bottomRank}`);
+    const prefix = r.kind === "count" ? ["count-hi", "count-lo"] : ["tier-top", "tier-bot"];
+    if (r.tier === "top") out.set(teamId, `${prefix[0]}-${r.rank}`);
+    else if (r.tier === "bottom") out.set(teamId, `${prefix[1]}-${r.bottomRank}`);
   }
   return out;
 }

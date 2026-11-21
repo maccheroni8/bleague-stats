@@ -1,3 +1,5 @@
+import { paintOf, withPaint } from "./teamPaint2";
+import { hasNoFlow, noFlowOf, withNoFlow } from "./selfScoring";
 import { rankDirectionProps } from "./rankDirection";
 import { useMemo } from "react";
 import { fetchTeams } from "./data";
@@ -285,7 +287,12 @@ export function useTeamSeasonRanking(
       // OFF FOUL・CHARGE は索引の値（読めなかった・古い索引のときは「-」）
       if (foulIndexActive) {
         const foul = periodSource ? sumTeamGameFoulTotals(periodSource, scoped) : null;
-        return { team, gamesPlayed: scoped.length, wins, losses: scoped.length - wins, totals: foul ? { ...logTotals, ...foul } : { ...logTotals, offFoul: Number.NaN, charge: Number.NaN, oppOffFoul: Number.NaN, oppCharge: Number.NaN } };
+        // 合計をコピーすると、ペイント内外の内訳・試合の流れの記録が無い試合の分（オブジェクトに添えた値）が消えるので、引き継ぐ（DESIGN.md 462章）
+        const copied = foul ? { ...logTotals, ...foul } : { ...logTotals, offFoul: Number.NaN, charge: Number.NaN, oppOffFoul: Number.NaN, oppCharge: Number.NaN };
+        const paint = paintOf(logTotals);
+        if (paint) withPaint(copied, paint);
+        if (hasNoFlow(logTotals)) withNoFlow(copied, noFlowOf(logTotals));
+        return { team, gamesPlayed: scoped.length, wins, losses: scoped.length - wins, totals: copied };
       }
       return { team, gamesPlayed: scoped.length, wins, losses: scoped.length - wins, totals: logTotals };
     });
