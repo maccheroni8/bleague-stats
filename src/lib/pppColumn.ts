@@ -4,7 +4,8 @@
 import { playerPpp } from "../../shared/formulas";
 import { formatDecimal } from "./format";
 import { seasonBoxColumnsWithFtr } from "./ftrColumn";
-import { seasonBoxColumnsFor, type SeasonBoxscoreColumn, type SeasonBoxTabKey } from "./playerSeasonBoxscore";
+import { type SeasonBoxscoreColumn, type SeasonBoxTabKey } from "./playerSeasonBoxscore";
+import { seasonBoxColumnsFor } from "./playerColumnsView";
 
 /** 合計でも平均でも同じ値（比）。分母が0なら undefined */
 export function pppOfRaw(raw: { pts: number; fga: number; fta: number; tov: number }): number | undefined {

@@ -1,4 +1,5 @@
 import { withPppColumn } from "./pppColumn";
+import { seasonBoxColumnsFor } from "./playerColumnsView";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORY_LABELS } from "./categoryLabels";
 import { fetchPlayerCareers, fetchPlayerGameLogs, fetchPlayers, fetchRegisteredPlayers, fetchTeams } from "./data";
@@ -13,7 +14,6 @@ import { filterGameLogs, isDefaultFilter, type SituationalFilter } from "./situa
 import { SEASON_ADVANCED_COLUMNS_WITH_FTR } from "./ftrColumn";
 import {
   SEASON_BOX_TABS,
-  seasonBoxColumnsFor,
   SEASON_SCORING_COLUMNS,
   SEASON_TRADITIONAL_COLUMNS,
   EMPTY_TEAM_TOTALS,

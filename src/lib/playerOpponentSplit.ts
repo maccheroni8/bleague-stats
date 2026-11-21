@@ -15,7 +15,6 @@ import {
   buildTeamSplitRows,
   countDoubleTripleDoubles,
   filterByGameType,
-  seasonBoxColumnsFor,
   sumTeamTotalsForLogs,
   type SeasonBoxscoreCtx,
   type SeasonBoxTabKey,

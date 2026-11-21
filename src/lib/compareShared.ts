@@ -11,7 +11,6 @@ import type { BoxscoreCounts } from "./boxscoreAggregate";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 import { ftRate } from "../../shared/formulas";
 import {
-  seasonBoxColumnsFor,
   type SeasonBoxTabKey,
   type SeasonBoxscoreCtx,
   type TeamGameBoxTotals,

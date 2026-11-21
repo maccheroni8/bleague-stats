@@ -3,7 +3,8 @@
 // このファイルを保存キーの対象のファイルから import しないこと。
 import { ftRate } from "../../shared/formulas";
 import { formatPct } from "./format";
-import { SEASON_ADVANCED_COLUMNS, seasonBoxColumnsFor, type SeasonBoxscoreColumn, type SeasonBoxTabKey } from "./playerSeasonBoxscore";
+import { SEASON_ADVANCED_COLUMNS, type SeasonBoxscoreColumn, type SeasonBoxTabKey } from "./playerSeasonBoxscore";
+import { seasonBoxColumnsFor } from "./playerColumnsView";
 
 /** FGA が 0 のとき FTR は出せない（「-」。0.00% にしない）。合計・平均のどちらでも率は同じ */
 export function ftrOf(raw: { fta: number; fga: number }): number | undefined {

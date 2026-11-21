@@ -36,12 +36,12 @@ const selfOwn = (label: string, get: (s: SeasonBoxscoreCtx["scaled"]) => number)
   label,
   value: (c) => (playerSelfUnavailable(c.raw) ? undefined : get(c.scaled)),
 });
-const AST2M = selfOwn("AST2M", (s) => s.assisted2m);
-const AST3M = selfOwn("AST3M", (s) => s.assisted3m);
+const AST2PM = selfOwn("AST2PM", (s) => s.assisted2m);
+const AST3PM = selfOwn("AST3PM", (s) => s.assisted3m);
 const ASTFTM = selfOwn("ASTFTM", (s) => s.assistedFtm);
-const SELF2M = selfOwn("Self2M", (s) => s.fgm - s.tpm - s.assisted2m);
-const SELF3M = selfOwn("Self3M", (s) => s.tpm - s.assisted3m);
-const SELFFTM = selfOwn("SelfFTM", (s) => s.ftm - s.assistedFtm);
+const SELF2M = selfOwn("SELF2PM", (s) => s.fgm - s.tpm - s.assisted2m);
+const SELF3M = selfOwn("SELF3PM", (s) => s.tpm - s.assisted3m);
+const SELFFTM = selfOwn("SELFFTM", (s) => s.ftm - s.assistedFtm);
 const MADE2 = selfOwn("2PM", (s) => s.fgm - s.tpm);
 const MADE3 = selfOwn("3PM", (s) => s.tpm);
 const MADEFG = selfOwn("FGM", (s) => s.fgm);
@@ -92,12 +92,12 @@ const RELATED_BY_KEY: Record<string, RelatedSpec[]> = {
   astpct: [oc("FG AST", (r) => r.ocFgAssists), oc("TEAM FGM−FGM（出場中）", (r) => r.ocTeamFgm - r.ocFgm)],
   pctptsasted: [own("ASTED PTS", (s) => s.assisted2m * 2 + s.assisted3m * 3 + s.assistedFtm), PTS],
   // アシストあり／セルフの割合（Scoring）
-  pct2pmast: [AST2M, MADE2],
+  pct2pmast: [AST2PM, MADE2],
   pct2pmself: [SELF2M, MADE2],
-  pct3pmast: [AST3M, MADE3],
+  pct3pmast: [AST3PM, MADE3],
   pct3pmself: [SELF3M, MADE3],
-  pctfgmast: [selfOwn("AST2M＋AST3M", (s) => s.assisted2m + s.assisted3m), MADEFG],
-  pctfgmself: [selfOwn("Self2M＋Self3M", (s) => s.fgm - s.assisted2m - s.assisted3m), MADEFG],
+  pctfgmast: [selfOwn("AST2PM＋AST3PM", (s) => s.assisted2m + s.assisted3m), MADEFG],
+  pctfgmself: [selfOwn("SELF2PM＋SELF3PM", (s) => s.fgm - s.assisted2m - s.assisted3m), MADEFG],
   pctftmast: [ASTFTM, MADEFT],
   pctftmself: [SELFFTM, MADEFT],
   pctptsself: [selfOwn("SELF PTS", (s) => (s.fgm - s.tpm - s.assisted2m) * 2 + (s.tpm - s.assisted3m) * 3 + (s.ftm - s.assistedFtm)), selfOwn("PTS", (s) => (s.fgm - s.tpm) * 2 + s.tpm * 3 + s.ftm)],

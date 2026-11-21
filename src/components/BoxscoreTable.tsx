@@ -283,6 +283,13 @@ const MISC_COLUMNS: BoxscoreColumn[] = [
     format: (c, ctx) => (ctx.isTeamTotalRow ? String(ctx.ownPlayType.pt2in) : String(c.pt2in)),
     value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ownPlayType.pt2in : c.pt2in),
   },
+  // ミッドレンジの2Pで決めた得点＝MID2M×2（MID2M と同じ区分・同じ「-」の扱い。DESIGN.md 467章）
+  {
+    key: "midpts",
+    label: "MID PTS",
+    format: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) ? String(c.nonPaint2m * 2) : "-"),
+    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) ? c.nonPaint2m * 2 : undefined),
+  },
   {
     key: "fbps",
     label: "FBPS",
@@ -402,8 +409,8 @@ const SCORING_COLUMNS: BoxscoreColumn[] = [
 
   // アシストからの得点（得点者視点。shared/assistedScoring.ts参照）。FTAST含め
   // PlayByPlays配列内の構造的な隣接パターンから求めた「被アシスト」内訳
-  { key: "ast2m", label: "AST2M", format: (c) => String(c.assisted2m), value: (c) => c.assisted2m },
-  { key: "ast3m", label: "AST3M", format: (c) => String(c.assisted3m), value: (c) => c.assisted3m },
+  { key: "ast2m", label: "AST2PM", format: (c) => String(c.assisted2m), value: (c) => c.assisted2m },
+  { key: "ast3m", label: "AST3PM", format: (c) => String(c.assisted3m), value: (c) => c.assisted3m },
   { key: "astftm", label: "ASTFTM", format: (c) => String(c.assistedFtm), value: (c) => c.assistedFtm },
   ...SELF_COUNT_DEFS.map(
     (d): BoxscoreColumn => ({
@@ -424,7 +431,13 @@ const SCORING_COLUMNS: BoxscoreColumn[] = [
       formatPct100(sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts)),
     value: (c) => sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts),
   },
-  boxSelfPctColumn("pctptsself", "%PTS Self", "pts", "self"),
+  boxSelfPctColumn("pctptsself", "%PTS SELF", "pts", "self"),
+  {
+    key: "midptspct",
+    label: "MID PTS%",
+    format: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) ? formatPct100(sharePct(c.nonPaint2m * 2, c.pts)) : "-"),
+    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) ? sharePct(c.nonPaint2m * 2, c.pts) : undefined),
+  },
   // ペイント内外の2P内訳（PAINT2M〜MID2%）は、プレーバイプレーの公式の区分で数える（全シーズン。DESIGN.md 155章）
   {
     key: "paint2m",
@@ -531,7 +544,7 @@ const PPP_BOX_COLUMN: BoxscoreColumn = {
   value: (c) => playerPpp(c.pts, c.pt2a + c.pt3a, c.fta, c.tov),
 };
 
-/** Scoring に PC を足す。%PTS Self（%PTS ASTED の右）の右（全選手スタッツの Scoring と同じ並び）。試合詳細・個人詳細の試合ログで共通 */
+/** Scoring に PC を足す。%PTS SELF（%PTS ASTED の右）の右（全選手スタッツの Scoring と同じ並び）。試合詳細・個人詳細の試合ログで共通 */
 export function withPcColumn(cols: BoxscoreColumn[]): BoxscoreColumn[] {
   const a = cols.findIndex((c) => c.key === "pctptsself");
   return a < 0 ? [...cols, PC_BOX_COLUMN] : [...cols.slice(0, a + 1), PC_BOX_COLUMN, ...cols.slice(a + 1)];

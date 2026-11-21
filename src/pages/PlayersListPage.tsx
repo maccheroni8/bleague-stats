@@ -1,4 +1,5 @@
 import { SEASON_ADVANCED_COLUMNS_WITH_FTR } from "../lib/ftrColumn";
+import { seasonBoxColumnsFor } from "../lib/playerColumnsView";
 import { buildOpponentRecords } from "../lib/opponentStrength";
 import { GamesPlayedRatioSlider } from "../components/GamesPlayedRatioSlider";
 import { AchievableCheckbox } from "../components/AchievableCheckbox";
@@ -165,7 +166,6 @@ import {
   SEASON_SCORING_COLUMNS,
   SEASON_TRADITIONAL_COLUMNS,
   countDoubleTripleDoubles,
-  seasonBoxColumnsFor,
   sumPlayerGameLogs,
   type SeasonBoxTabKey,
   type SeasonBoxscoreColumn,

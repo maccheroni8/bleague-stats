@@ -273,8 +273,8 @@ import { enumParam, useUrlState } from "../lib/urlState";
 import { fgaShare, foreignShareFromSeconds, teamClassificationShareFromTotals, teamScoringShareFromTotals, type ForeignShare } from "../lib/shareCharts";
 import { EMPTY_TOTALS, sumTeamGameLogs, type AllTeamsRow } from "../lib/teamStatsColumns";
 import { addGameFlowLog, EMPTY_GAME_FLOW, opponentRunOf, formatGameFlow, GAME_FLOW_LABELS, gameFlowOf, gameFlowValue, sumGameFlow, withGameFlow, type GameFlowKey } from "../lib/gameFlowTotals";
-import { noFlowOf, noFlowTotalsOf, selfCountsOf, selfPct, selfSplitOf, SELF_PCT_DEFS, withNoFlow, type SelfCounts, type SelfShotKind, type ShotMadeSource } from "../lib/selfScoring";
-import { paintColumns, summarizePaintLogs, withPaint, PAINT2_NOTE, withoutCoverageColumn } from "../lib/teamPaint2";
+import { noFlowOf, noFlowTotalsOf, SELF_COUNT_DEFS, selfCountsOf, selfPct, selfSplitOf, SELF_PCT_DEFS, withNoFlow, type SelfCounts, type SelfShotKind, type ShotMadeSource } from "../lib/selfScoring";
+import { midPtsColumn, paintColumns, summarizePaintLogs, withPaint, PAINT2_NOTE, withoutCoverageColumn } from "../lib/teamPaint2";
 import { loadLeaguePaintComplete } from "../lib/teamPaint2Load";
 import { FORCED_TURNOVER_COLUMNS } from "../lib/forcedTurnoverColumns";
 import { categoryNeedsYahoo, type OpponentSplitCategory } from "../lib/opponentSplit";
@@ -1041,7 +1041,7 @@ function formatTeamSeasonSigned(ownVal: number, oppVal: number, perspective: Tea
 // PlayerGameLog由来）とは別に、チーム向けの列定義をここで新設する。トラディショナル/
 // アドバンスドはTeamSummary（seasonHistory、既に取得済みのシーズン集計）だけで完結する
 // （新規バックエンド集計は不要）。MiscはTeamGameLog（careerData）側のPITP/FBPS/2ND PTS/
-// PTSOFFTO/DUNKに加え、2026-08-29にTF/UFOUL/DQFOUL/AND1・被アシスト内訳（AST2M/AST3M/
+// PTSOFFTO/DUNKに加え、2026-08-29にTF/UFOUL/DQFOUL/AND1・被アシスト内訳（AST2PM/AST3PM/
 // ASTFTM/AST%）もTeamGameLogへ追加集計した（DESIGN.md参照。以前は「試合単位のPlayByPlaysから
 // のみ算出できチーム単位のシーズン集計としては永続化していない」という制約があったが解消済み）。
 // LIVETOV/DEADTOVのみ、Yahoo!スポーツPBP由来でチーム単位の永続化対象に含めていないため
@@ -1301,6 +1301,12 @@ const ALL_TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
     label: "PITP",
     format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.pt2in, m.oppPt2in, r.team.gamesPlayed, mode, p),
   },
+  // ミッドレンジの得点（MID2M×2）。MID2M と同じ内訳の対象の試合で数える（DESIGN.md 467章）
+  {
+    key: "midpts",
+    label: "MID PTS",
+    format: (_r, m, mode, p) => midPtsColumn(mode, p).format!({ totals: m } as unknown as AllTeamsRow),
+  },
   {
     key: "fbps",
     label: "FBPS",
@@ -1460,6 +1466,12 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
       formatTeamSeasonPct100(safeDiv(100 * m.pt2in, r.team.totals.pts), safeDiv(100 * m.oppPt2in, m.oppPts), p),
   },
   {
+    key: "midptspct",
+    label: "MID PTS%",
+    format: (r, m, _mode, p) =>
+      formatTeamSeasonPct100(safeDiv(100 * m.mid2m * 2, r.team.totals.pts), safeDiv(100 * m.oppMid2m * 2, m.oppPts), p),
+  },
+  {
     key: "fbppct",
     label: "FBP%",
     format: (r, m, _mode, p) =>
@@ -1480,12 +1492,12 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   // アシストからの得点（得点の内訳のまとまりとしてMiscから移設。DESIGN.md 140章）
   {
     key: "ast2m",
-    label: "AST2M",
+    label: "AST2PM",
     format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.assisted2m, m.oppAssisted2m, r.team.gamesPlayed, mode, p),
   },
   {
     key: "ast3m",
-    label: "AST3M",
+    label: "AST3PM",
     format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.assisted3m, m.oppAssisted3m, r.team.gamesPlayed, mode, p),
   },
   {
@@ -1493,14 +1505,8 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
     label: "ASTFTM",
     format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.assistedFtm, m.oppAssistedFtm, r.team.gamesPlayed, mode, p),
   },
-  ...(
-    [
-      ["self2m", "Self2M", (c: SelfCounts) => c.self2],
-      ["self3m", "Self3M", (c: SelfCounts) => c.self3],
-      ["selfftm", "SelfFTM", (c: SelfCounts) => c.selfFt],
-    ] as const
-  ).map(
-    ([key, label, pick]): TeamSeasonBoxColumn => ({
+  ...SELF_COUNT_DEFS.map(
+    ({ key, label, pick }): TeamSeasonBoxColumn => ({
       key,
       label,
       format: (r, m, mode, p) =>
@@ -1527,7 +1533,7 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
         p,
       ),
   },
-  { key: "pctptsself", label: "%PTS Self", format: (r, m, _mode, p) => seasonSelfPctText(r, m, "pts", "self", p) },
+  { key: "pctptsself", label: "%PTS SELF", format: (r, m, _mode, p) => seasonSelfPctText(r, m, "pts", "self", p) },
   // %BENCH PTS・%STARTER PTS（Batch 1でヘッダータイルから移設）。2026-09-26、全チームスタッツ・ランキングに合わせて
   // 自チーム/opp/+/- に切り替わるようにした（それまでは常に自チームの値。DESIGN.md 152章）
   {

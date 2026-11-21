@@ -13,6 +13,8 @@ export const withoutCoverageColumn = <T extends { key: string }>(columns: readon
 export const PAINT2_KEYS = ["paint2m", "paint2a", "paint2pct", "mid2m", "mid2a", "mid2pct"] as const;
 export type Paint2Key = (typeof PAINT2_KEYS)[number];
 const PAINT2_LABELS = ["PAINT2M", "PAINT2A", "PAINT2%", "MID2M", "MID2A", "MID2%"];
+/** MID PTS（ミッドレンジの2Pで決めた得点＝MID2M×2）。MID2M と同じ内訳の対象の試合で数える（DESIGN.md 467章） */
+export const MID_PTS_KEY = "midpts";
 
 /** 1試合・片側の2P内訳（pm/pa=ペイント内の成功/試投、mm/ma=ミッドレンジ、tm/ta=2P全体）。 */
 export interface PaintInput {
@@ -166,6 +168,8 @@ function sideValue(v: PaintSide, key: string): number | undefined {
       return v.pa;
     case "mid2m":
       return v.mm;
+    case MID_PTS_KEY:
+      return v.mm * 2;
     case "mid2a":
       return v.ma;
     case "paint2pct":
@@ -221,7 +225,18 @@ export function paintColumns(mode: string, perspective: TeamPerspective): Column
   ];
 }
 
-export const isPaint2Key = (key: string): key is Paint2Key => (PAINT2_KEYS as readonly string[]).includes(key);
+export const isPaint2Key = (key: string): key is Paint2Key => (PAINT2_KEYS as readonly string[]).includes(key) || key === MID_PTS_KEY;
+
+/** MID PTS の列（Misc の PITP の右）。値・順位の付け方・「-」の扱いは MID2M と同じ */
+export function midPtsColumn(mode: string, perspective: TeamPerspective): Column<AllTeamsRow> {
+  return {
+    key: MID_PTS_KEY,
+    label: "MID PTS",
+    sortValue: (r) => paintValue(paintOf(r.totals), MID_PTS_KEY, mode, perspective) ?? 0,
+    format: (r) => paintFormat(paintOf(r.totals), MID_PTS_KEY, mode, perspective),
+    higherIsBetter: perspective !== "opp",
+  };
+}
 
 /**
  * リーグ平均の内訳が2P全体と一致するか。リーグ平均は既存ファイルが1試合平均なので、

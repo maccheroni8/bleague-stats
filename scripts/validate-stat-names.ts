@@ -181,6 +181,8 @@ for (const file of walk(SRC)) {
     if (t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")) return;
     const code = line.replace(/\/\/.*$/, "");
     for (const alias of aliasKeys) {
+      // 保存キーの対象の個人の列の定義は、AST2M・AST3M のまま（見出しは playerSelfColumns.ts が AST2PM・AST3PM に直す。465章）
+      if (rel === "lib/playerSeasonBoxscore.ts" && (alias === "AST2M" || alias === "AST3M")) continue;
       const esc = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const patterns = [
         new RegExp(`label\\s*[:=]\\s*["'\`]${esc}["'\`]`),

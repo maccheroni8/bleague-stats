@@ -1,5 +1,5 @@
 import { addGameFlowLog, EMPTY_GAME_FLOW, formatGameFlow, GAME_FLOW_LABELS, gameFlowValue, opponentRunOf, type GameFlowKey, type GameFlowTotals } from "./gameFlowTotals";
-import { hasFlowRecord, SELF_PCT_DEFS, selfCountsOf, selfPct, selfSplitOf, type SelfShotKind, type ShotMadeSource } from "./selfScoring";
+import { hasFlowRecord, SELF_COUNT_DEFS, SELF_PCT_DEFS, selfCountsOf, selfPct, selfSplitOf, type SelfShotKind, type ShotMadeSource } from "./selfScoring";
 import type { Column } from "../components/SortableTable";
 import type { BoxscoreTabKey } from "../components/BoxscoreTable";
 import type { StoredGame, TeamGameLog } from "../../shared/types";
@@ -7,7 +7,7 @@ import { buildTeamGameBoxTotals, type SeasonDisplayMode } from "./playerSeasonBo
 import type { PeriodRangeOption } from "./periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 import { formatMinutesFromSeconds } from "./boxscoreAggregate";
-import { paintColumns, summarizePaintLogs, withPaint } from "./teamPaint2";
+import { midPtsColumn, paintColumns, summarizePaintLogs, withPaint } from "./teamPaint2";
 import { eff as effFormula, efgPct, ftRate, offensiveRating, orbPct, pace, safeDiv, tovPartPct, tovPct, tsPct } from "../../shared/formulas";
 
 /**
@@ -128,7 +128,7 @@ export interface TeamTotals {
   oppAssisted3m: number;
   oppAssistedFtm: number;
   /**
-   * Self2M・Self3M・SelfFTM（アシストが付かなかった成功数）の材料。試合の流れ（プレーバイプレーの記録）が無い試合（2017-18 の1810）は、
+   * SELF2PM・SELF3PM・SELFFTM（アシストが付かなかった成功数）の材料。試合の流れ（プレーバイプレーの記録）が無い試合（2017-18 の1810）は、
    * アシストの数が0になってしまうので Self の合計から除く。noFlowGames＝その試合数、noFlow*＝その試合の2PM・3PM・FTM（自チーム・相手）
    */
   /** 最大リード・最大ビハインド・最大ランの合計（試合の流れの記録がある試合だけ。gameFlowTotals.ts） */
@@ -794,6 +794,7 @@ export function buildMiscColumns(
   return [
     ...paintColumns(mode, perspective),
     countColumn("pitp", "PITP", (t) => t.pt2in, (t) => t.oppPt2in, mode, perspective),
+    midPtsColumn(mode, perspective),
     countColumn("fbps", "FBPS", (t) => t.fb, (t) => t.oppFb, mode, perspective),
     countColumn("2ndpts", "2ND PTS", (t) => t.pt2nd, (t) => t.oppPt2nd, mode, perspective),
     countColumn("ptsofftov", "PTSOFFTO", (t) => t.pft, (t) => t.oppPft, mode, perspective),
@@ -897,14 +898,9 @@ export function withoutSelfPctColumns<T extends { key: string }>(cols: T[]): T[]
   return cols.filter((c) => !drop.has(c.key));
 }
 
-/** Self2M・Self3M・SelfFTM。平均は、試合の流れの記録がある試合の数で割る */
+/** SELF2PM・SELF3PM・SELFFTM・ASTFGM・SELFFGM・ASTPTS・SELFPTS。平均は、試合の流れの記録がある試合の数で割る（その試合は合計にも入れない） */
 function buildSelfCountColumns(mode: SeasonDisplayMode, perspective: TeamPerspective): Column<AllTeamsRow>[] {
-  const defs: [string, string, (c: ReturnType<typeof selfCountsOf>) => number][] = [
-    ["self2m", "Self2M", (c) => c.self2],
-    ["self3m", "Self3M", (c) => c.self3],
-    ["selfftm", "SelfFTM", (c) => c.selfFt],
-  ];
-  return defs.map(([key, label, pick]) => {
+  return SELF_COUNT_DEFS.map(({ key, label, pick }) => {
     const valueFor = (r: AllTeamsRow) => {
       const games = r.gamesPlayed - (r.totals.noFlowGames ?? 0);
       const own = scaledValue(pick(selfCountsOf(teamShotMadeSource(r.totals, false))), games, mode);
@@ -934,6 +930,10 @@ export function buildScoringColumns(
 ): Column<AllTeamsRow>[] {
   return [
     pct100Column("pitppct", "PITP%", (t) => safeDiv(100 * t.pt2in, t.pts), (t) => safeDiv(100 * t.oppPt2in, t.oppPts), perspective),
+    // ミッドレンジの得点（MID2M×2）の割合。%MID2M と同じく、内訳を出せないシーズンは「-」
+    paintSupported
+      ? pct100Column("midptspct", "MID PTS%", (t) => safeDiv(100 * t.mid2m * 2, t.pts), (t) => safeDiv(100 * t.oppMid2m * 2, t.oppPts), perspective)
+      : unavailableColumn("midptspct", "MID PTS%"),
     pct100Column("fbppct", "FBP%", (t) => safeDiv(100 * t.fb, t.pts), (t) => safeDiv(100 * t.oppFb, t.oppPts), perspective),
     pct100Column(
       "2ndptspct",
@@ -950,8 +950,8 @@ export function buildScoringColumns(
       perspective,
     ),
     // アシストからの得点（得点の内訳のまとまりとしてMiscから移設。DESIGN.md 140章）
-    countColumn("ast2m", "AST2M", (t) => t.assisted2m, (t) => t.oppAssisted2m, mode, perspective),
-    countColumn("ast3m", "AST3M", (t) => t.assisted3m, (t) => t.oppAssisted3m, mode, perspective),
+    countColumn("ast2m", "AST2PM", (t) => t.assisted2m, (t) => t.oppAssisted2m, mode, perspective),
+    countColumn("ast3m", "AST3PM", (t) => t.assisted3m, (t) => t.oppAssisted3m, mode, perspective),
     countColumn("astftm", "ASTFTM", (t) => t.assistedFtm, (t) => t.oppAssistedFtm, mode, perspective),
     ...buildSelfCountColumns(mode, perspective),
     ...SELF_PCT_DEFS.flatMap((d) => [
@@ -965,7 +965,7 @@ export function buildScoringColumns(
       (t) => safeDiv(100 * (t.oppAssisted2m * 2 + t.oppAssisted3m * 3 + t.oppAssistedFtm), t.oppPts),
       perspective,
     ),
-    selfPctColumn("pctptsself", "%PTS Self", "pts", "self", perspective),
+    selfPctColumn("pctptsself", "%PTS SELF", "pts", "self", perspective),
     // 総得点に占めるベンチ得点・スタメン得点の割合（チーム詳細のシーズン別成績と同じくScoring。2026-09-26）
     classificationSupported
       ? pct100Column(

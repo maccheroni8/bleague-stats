@@ -144,8 +144,9 @@ const GLOSSARY_COMMON = [
   'BSR＝被ブロック数（自分のシュートが相手にブロックされた回数）。FD＝被ファウル、F＝ファウル。STOCKS＝STL＋BLK。',
   'EFF：Bリーグ公式の貢献度（(PTS＋AST＋BLK＋STL＋FD＋TR)−(TOV＋BSR＋F)−(FGA−FGM)−(FTA−FTM)）。',
   'POSS・PACE・ORtg・DRtg・NetRtg：ポゼッション（攻撃回数）が元。試合ごとに、公式の攻撃回数がある試合はそれを使い、ない試合は推定式で求める。実際には、2022-23以降はほぼ全試合に公式の値があり（2022-23は718試合中717試合）、2021-22以前は全試合が推定式。',
-  'AST2M・AST3M・ASTFTM：アシストされた成功数。Self2M・Self3M・SelfFTM：アシストが付かなかった成功数（成功数−アシストされた成功数。試合の流れの記録が無い試合は除く）。2PM %AST・2PM %Self など：その種類の成功数のうちアシストあり／セルフの割合。%PTS ASTED：得点のうちアシストされた得点の割合。%PTS Self：アシストが付かずに決めた得点の割合。',
+  'AST2PM・AST3PM・ASTFTM：アシストされた成功数。SELF2PM・SELF3PM・SELFFTM：アシストが付かなかった成功数（成功数−アシストされた成功数。試合の流れの記録が無い試合は除く）。2PM %AST・2PM %SELF など：その種類の成功数のうちアシストあり／セルフの割合。%PTS ASTED：得点のうちアシストされた得点の割合。%PTS SELF：アシストが付かずに決めた得点の割合。',
   'PITP・FBPS・2ND PTS・PTSOFFTO：ペイント内・速攻・セカンドチャンス・ターンオーバー後の得点（プレーバイプレーのタグ由来）。',
+  'MID PTS：ミッドレンジ（ペイント外）の2Pで決めた得点（MID2M×2）。MID PTS%：得点に占めるその割合。ASTFGM・SELFFGM：アシストあり／なしで決めたFGの成功数（ASTFGM＋SELFFGM＝FGM）。ASTPTS・SELFPTS：アシストあり／なしで決めた得点（ASTPTS＋SELFPTS＝PTS）。',
   'BENCH PTS・STARTER PTS：控え選手・先発（公式の先発5人）の得点。',
 ];
 const GLOSSARY_TEAM = [

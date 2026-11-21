@@ -25,8 +25,8 @@ const NEUTRAL_KEYS = new Set(["g", "gs", "min", "poss", "pace", "paint2games"]);
  */
 const NEUTRAL_COMPOSITION_KEYS = new Set([
   "usg", "benchpts", "starterpts", "japanesepts3", "internationalpts3", "foreignpts3", "naturalizedasiapts3",
-  "ast2m", "ast3m", "astftm", "self2m", "self3m", "selfftm",
-  "pitppct", "fbppct", "2ndptspct", "ptsofftovpct",
+  "ast2m", "ast3m", "astftm", "self2m", "self3m", "selfftm", "astfgm", "selffgm", "astpts", "selfpts",
+  "pitppct", "midptspct", "fbppct", "2ndptspct", "ptsofftovpct",
 ]);
 
 /**
@@ -85,7 +85,7 @@ export const RANK_DIRECTION_GLOSSARY: { direction: RankDirection; title: string;
   {
     direction: "higher",
     title: "多いほど良い（多い順が1位）",
-    items: "PTS・REB・AST・STL・BLK・STOCKS・各種成功率・eFG%・TS%・AST/TO・EFF・+/-・ORtg・NetRtg・FD（被ファウル）・OR%・FTR・AST%・PPP・PPS・PITP・FBPS・2ND PTS・PTSOFFTO・DUNK・AND1・CHARGE・PC・最大リード・最大ラン など。",
+    items: "PTS・REB・AST・STL・BLK・STOCKS・各種成功率・eFG%・TS%・AST/TO・EFF・+/-・ORtg・NetRtg・FD（被ファウル）・OR%・FTR・AST%・PPP・PPS・PITP・MID PTS・FBPS・2ND PTS・PTSOFFTO・DUNK・AND1・CHARGE・PC・最大リード・最大ラン など。",
   },
   {
     direction: "lower",
@@ -95,6 +95,6 @@ export const RANK_DIRECTION_GLOSSARY: { direction: RankDirection; title: string;
   {
     direction: "neutral",
     title: "良し悪しがない（多い順に並べるが、良い・悪いの色は付けない）",
-    items: "G・GS・MIN・POSS・PACE、USG%、構成比・内訳（%PTS・%FGM・%3PA などの「%」で始まる項目、PITP%・FBP%・2ND PTS%・PTSOFFTO%、AST2M・Self2M などアシストの有無の分け方、BENCH／STARTER PTS、日本人・外国籍・帰化・アジア特別枠の PTS とその割合、%3P・%PoutP・%FT・%OPA）。このうち、ベンチ／スターター・登録区分別の PTS とその割合、%3P・%PoutP・%FT・%OPA は、チーム詳細と比較ページで色なしの順位だけ出します（多い順が1位）。",
+    items: "G・GS・MIN・POSS・PACE、USG%、構成比・内訳（%PTS・%FGM・%3PA などの「%」で始まる項目、PITP%・MID PTS%・FBP%・2ND PTS%・PTSOFFTO%、AST2PM・SELF2PM・ASTFGM・ASTPTS などアシストの有無の分け方、BENCH／STARTER PTS、日本人・外国籍・帰化・アジア特別枠の PTS とその割合、%3P・%PoutP・%FT・%OPA）。このうち、ベンチ／スターター・登録区分別の PTS とその割合、%3P・%PoutP・%FT・%OPA は、チーム詳細と比較ページで色なしの順位だけ出します（多い順が1位）。",
   },
 ];

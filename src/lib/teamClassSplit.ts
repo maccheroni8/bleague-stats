@@ -7,7 +7,7 @@
 // （unclassified に別に数える。推測しない。51章）。所属チームは行の「ホーム」の旗で決めるので、移籍した選手は試合ごとにそのときのチームに数えられる。
 //
 // 値の出どころ:
-// - 選手の値を足せばチームの値と一致する項目（PTS・FGM/FGA・3P・FT・AST・STL・BLK・FD・PITP・FBPS・2ND PTS・PTSOFFTO・DUNK・AND1・AST2M/3M/FTM・TF/UFOUL）は、そのまま足す
+// - 選手の値を足せばチームの値と一致する項目（PTS・FGM/FGA・3P・FT・AST・STL・BLK・FD・PITP・FBPS・2ND PTS・PTSOFFTO・DUNK・AND1・AST2PM/3M/FTM・TF/UFOUL）は、そのまま足す
 // - 足しても一致しない項目（OR・DR・TR・TOV・PF・TF）は、選手の分だけ（チームリバウンド・チームターンオーバー・ベンチ／コーチのファウル・テクニカルファウルを含まない）
 // - ペイント内外の2P・DQFOUL は試合全体の索引に無いので、ピリオド別の索引（5区間）を足して出す（ピリオド別の行が無い試合は「記録なし」）
 // - 出せないもの（POSS・PACE・ORtg・DRtg・NetRtg・+/-・TF1/TF2/FLAG/DISR・ベンチ／スタメン得点・OR% など相手の値が要るもの）は CLASS_SPLIT_UNAVAILABLE に挙げ、列の側で「-」にする

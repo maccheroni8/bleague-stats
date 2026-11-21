@@ -47,11 +47,16 @@ export function GlossaryGuides() {
         </p>
         <h3>アシストの有無・Self</h3>
         <p>
-          成功したシュートのうち、アシストが付いたもの（AST2M・AST3M・ASTFTM）と付かなかったもの（Self2M＝2PM−AST2M、Self3M＝3PM−AST3M、SelfFTM＝FTM−ASTFTM）の割合です。
+          成功したシュートのうち、アシストが付いたもの（AST2PM・AST3PM・ASTFTM）と付かなかったもの（SELF2PM＝2PM−AST2PM、SELF3PM＝3PM−AST3PM、SELFFTM＝FTM−ASTFTM）の割合です。
           全チームスタッツの Scoring % では、シュートの種類（2P・3P・FG〔2P＋3P〕・FT・得点全体）を選んで、自チームの成功のうち（アシストの有無）と相手の成功のうち（相手のアシストの有無）を、
           アシストありを濃い色、セルフを薄い色で並べます。得点全体は、アシストあり・セルフそれぞれの得点（2P×2＋3P×3＋FT）の割合です。
-          表の列は 2PM %AST・2PM %Self・3PM %AST・3PM %Self・FGM %AST・FGM %Self・FTM %AST・FTM %Self・%PTS ASTED・%PTS Self です。
-          アシストはプレーバイプレーの記録から数えるため、その記録が無い試合（2017-18シーズンの試合ID 1810）は、Self の本数・割合と平均の試合数から除きます。
+          表の列は 2PM %AST・2PM %SELF・3PM %AST・3PM %SELF・FGM %AST・FGM %SELF・FTM %AST・FTM %SELF・%PTS ASTED・%PTS SELF です。
+          アシストはプレーバイプレーの記録から数えるため、その記録が無い試合（2017-18シーズンの試合ID 1810）は、SELF の本数・割合と平均の試合数から除きます。
+        </p>
+        <p>
+          アシストの有無を数で見る項目もあります。ASTFGM（アシストから決めたFGの成功数＝AST2PM＋AST3PM）、SELFFGM（アシストが付かずに決めたFGの成功数＝SELF2PM＋SELF3PM）、
+          ASTPTS（アシストから決めた得点＝AST2PM×2＋AST3PM×3＋ASTFTM）、SELFPTS（アシストが付かずに決めた得点＝SELF2PM×2＋SELF3PM×3＋SELFFTM）です。
+          ASTFGM＋SELFFGM＝FGM、ASTPTS＋SELFPTS＝PTS になります。アシストの記録が無い試合は「-」にして、合計と平均から外します。
         </p>
         <h3>棒グラフの数値</h3>
         <p>
@@ -605,7 +610,7 @@ export function GlossaryGuides() {
         </p>
         <h3>PBPの項目・来場者数</h3>
         <p>
-          PITP・FBPS・2ND PTS・PTSOFFTOは、プレーバイプレーのタグから数えた得点です。ホーム来場者数は、ホーム開催の試合だけが対象です。
+          PITP・FBPS・2ND PTS・PTSOFFTOは、プレーバイプレーのタグから数えた得点です。MID PTS は、ミッドレンジの2P（ペイント外の2P）で決めた得点（MID2M×2）で、MID PTS% は総得点に占めるその割合です（MID2M と同じ内訳の記録がそろった試合で数えます）。ホーム来場者数は、ホーム開催の試合だけが対象です。
         </p>
         <h3>項目名の下の順位（クラブレコード・通算）</h3>
         <p>

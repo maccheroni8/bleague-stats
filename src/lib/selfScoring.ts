@@ -1,5 +1,5 @@
-// Self2M・Self3M・SelfFTM（アシストが付かなかった成功数）と、アシストあり／セルフの割合の計算（画面専用。DESIGN.md 362章）。
-// Self2M＝2PM−AST2M、Self3M＝3PM−AST3M、SelfFTM＝FTM−ASTFTM。保存する値は増やさず、読むとき足し引きして出す。
+// SELF2PM・SELF3PM・SELFFTM（アシストが付かなかった成功数）と、アシストあり／セルフの割合の計算（画面専用。DESIGN.md 362章。表記の変更と新4項目は465〜467章）。
+// SELF2PM＝2PM−AST2PM、SELF3PM＝3PM−AST3PM、SELFFTM＝FTM−ASTFTM。保存する値は増やさず、読むとき足し引きして出す。
 // このファイルを保存キーの対象のファイルから import しないこと。
 
 /** 試合の流れ（プレーバイプレーの記録）がある試合か。無い試合（2017-18 の1810）はアシストの数が0なので Self の合計から除く */
@@ -63,10 +63,29 @@ export interface SelfCounts {
   self2: number;
   self3: number;
   selfFt: number;
+  /** ASTFGM＝AST2PM＋AST3PM（アシストから決めたFGの成功数） */
+  astFgm: number;
+  /** SELFFGM＝SELF2PM＋SELF3PM（アシストが付かずに決めたFGの成功数） */
+  selfFgm: number;
+  /** ASTPTS＝AST2PM×2＋AST3PM×3＋ASTFTM */
+  astPts: number;
+  /** SELFPTS＝SELF2PM×2＋SELF3PM×3＋SELFFTM */
+  selfPts: number;
 }
 
 export function selfCountsOf(s: ShotMadeSource): SelfCounts {
-  return { self2: s.made2 - s.ast2, self3: s.made3 - s.ast3, selfFt: s.madeFt - s.astFt };
+  const self2 = s.made2 - s.ast2;
+  const self3 = s.made3 - s.ast3;
+  const selfFt = s.madeFt - s.astFt;
+  return {
+    self2,
+    self3,
+    selfFt,
+    astFgm: s.ast2 + s.ast3,
+    selfFgm: self2 + self3,
+    astPts: s.ast2 * 2 + s.ast3 * 3 + s.astFt,
+    selfPts: self2 * 2 + self3 * 3 + selfFt,
+  };
 }
 
 /** シュートの種類。FG は 2P＋3P、PTS は得点全体 */
@@ -108,17 +127,24 @@ export function selfPct(part: number, total: number): number {
 
 /** 割合の列の定義（名前は表の見出し。種類ごとにアシストあり・セルフを隣り合わせで並べる） */
 export const SELF_PCT_DEFS: { kind: Exclude<SelfShotKind, "pts">; astKey: string; astLabel: string; selfKey: string; selfLabel: string }[] = [
-  { kind: "2pm", astKey: "pct2pmast", astLabel: "2PM %AST", selfKey: "pct2pmself", selfLabel: "2PM %Self" },
-  { kind: "3pm", astKey: "pct3pmast", astLabel: "3PM %AST", selfKey: "pct3pmself", selfLabel: "3PM %Self" },
-  { kind: "fgm", astKey: "pctfgmast", astLabel: "FGM %AST", selfKey: "pctfgmself", selfLabel: "FGM %Self" },
-  { kind: "ftm", astKey: "pctftmast", astLabel: "FTM %AST", selfKey: "pctftmself", selfLabel: "FTM %Self" },
+  { kind: "2pm", astKey: "pct2pmast", astLabel: "2PM %AST", selfKey: "pct2pmself", selfLabel: "2PM %SELF" },
+  { kind: "3pm", astKey: "pct3pmast", astLabel: "3PM %AST", selfKey: "pct3pmself", selfLabel: "3PM %SELF" },
+  { kind: "fgm", astKey: "pctfgmast", astLabel: "FGM %AST", selfKey: "pctfgmself", selfLabel: "FGM %SELF" },
+  { kind: "ftm", astKey: "pctftmast", astLabel: "FTM %AST", selfKey: "pctftmself", selfLabel: "FTM %SELF" },
 ];
 
-/** Self の本数の列の定義（キー・見出し・取り出し方） */
+/**
+ * Self の本数と、アシストの有無の4項目の列の定義（キー・見出し・取り出し方）。並びは SELF2PM・SELF3PM・SELFFTM・ASTFGM・SELFFGM・ASTPTS・SELFPTS。
+ * キー（URL・保存した設定に残る値）は古い表記のまま変えない（self2m など）。見出しだけ新しい表記（SELF2PM など）
+ */
 export const SELF_COUNT_DEFS: { key: string; label: string; pick: (c: SelfCounts) => number }[] = [
-  { key: "self2m", label: "Self2M", pick: (c) => c.self2 },
-  { key: "self3m", label: "Self3M", pick: (c) => c.self3 },
-  { key: "selfftm", label: "SelfFTM", pick: (c) => c.selfFt },
+  { key: "self2m", label: "SELF2PM", pick: (c) => c.self2 },
+  { key: "self3m", label: "SELF3PM", pick: (c) => c.self3 },
+  { key: "selfftm", label: "SELFFTM", pick: (c) => c.selfFt },
+  { key: "astfgm", label: "ASTFGM", pick: (c) => c.astFgm },
+  { key: "selffgm", label: "SELFFGM", pick: (c) => c.selfFgm },
+  { key: "astpts", label: "ASTPTS", pick: (c) => c.astPts },
+  { key: "selfpts", label: "SELFPTS", pick: (c) => c.selfPts },
 ];
 
 // --- アシストの有無の帯グラフ（全チームスタッツ Scoring %。アシストありを濃い色、セルフを薄い色） ---

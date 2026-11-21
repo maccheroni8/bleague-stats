@@ -1,4 +1,4 @@
-// Self2M・Self3M・SelfFTM とアシストあり／セルフの割合の検証（DESIGN.md 362章）。使い方: npm run validate:self-scoring（先に npm run build:data）
+// SELF2PM・SELF3PM・SELFFTM・ASTFGM・SELFFGM・ASTPTS・SELFPTS・MID PTS・MID PTS% とアシストあり／セルフの割合の検証（DESIGN.md 362章・465〜467章）。使い方: npm run validate:self-scoring（先に npm run build:data）
 //  1. 列の並び: 全チームスタッツ・選手の Scoring で、AST の右に Self、種類ごとに「アシストあり→セルフ」が隣り合い、%PTS ASTED の右に %PTS Self。
 //     全チームスタッツの Scoring の表には割合の列を出さない（帯グラフで見せる）。Scoring 以外には出ない
 //  2. チームの値: 試合の生データ（ボックススコアのチーム合計の 2PM・3PM・FTM と、プレーバイプレーから数え直したアシスト付きの数）から手計算した
@@ -13,7 +13,9 @@ import type { BoxscoreRow, PlayerGameLog, StoredGame, TeamGameLog } from "../sha
 import { computeAssistedScoring } from "../shared/assistedScoring";
 import { gameDetailColumnsFor } from "../src/components/BoxscoreTable";
 import { SEASON_SCORING_COLUMNS, buildSeasonBoxscoreCtx, sumPlayerGameLogs, EMPTY_TEAM_TOTALS } from "../src/lib/playerSeasonBoxscore";
-import { buildScoringColumns, sumTeamGameLogs, withoutSelfPctColumns, teamShotMadeSource, type AllTeamsRow } from "../src/lib/teamStatsColumns";
+import { PLAYER_MID_PTS_COLUMN, PLAYER_MID_PTS_PCT_COLUMN } from "../src/lib/playerSelfColumns";
+import { summarizePaintLogs, withPaint } from "../src/lib/teamPaint2";
+import { buildMiscColumns, buildScoringColumns, sumTeamGameLogs, withoutSelfPctColumns, teamShotMadeSource, type AllTeamsRow } from "../src/lib/teamStatsColumns";
 import "../src/lib/playerSelfColumns";
 import { selfCountsOf, selfSplitOf, SELF_PCT_DEFS } from "../src/lib/selfScoring";
 
@@ -36,7 +38,7 @@ const check = (label: string, ok: boolean, detail = "") => {
 
 // 1. 並び
 {
-  const want = ["ast2m", "ast3m", "astftm", "self2m", "self3m", "selfftm", "pct2pmast", "pct2pmself", "pct3pmast", "pct3pmself", "pctfgmast", "pctfgmself", "pctftmast", "pctftmself", "pctptsasted", "pctptsself"];
+  const want = ["ast2m", "ast3m", "astftm", "self2m", "self3m", "selfftm", "astfgm", "selffgm", "astpts", "selfpts", "pct2pmast", "pct2pmself", "pct3pmast", "pct3pmself", "pctfgmast", "pctfgmself", "pctftmast", "pctftmself", "pctptsasted", "pctptsself"];
   const sliceOf = (keys: string[]) => keys.slice(keys.indexOf("ast2m"), keys.indexOf("pctptsself") + 1);
   const lists: [string, string[]][] = [
     ["全チームスタッツ（列の元）", buildScoringColumns("perGame", "own", true, true).map((c: { key: string }) => c.key)],
@@ -119,6 +121,13 @@ for (const [base, seasons] of [["", ["2025-26", "2026-27", "2017-18", "2021-22"]
         const want = (c: Counts) => [c.m2 - c.a2, c.m3 - c.a3, c.mf - c.af].join();
         check(`${season}${base} ${teamId} ${g.scheduleKey}: 自チームの Self`, [own.self2, own.self3, own.selfFt].join() === want(mine), `${[own.self2, own.self3, own.selfFt].join()} ≠ ${want(mine)}`);
         check(`${season}${base} ${teamId} ${g.scheduleKey}: 相手の Self`, [opp.self2, opp.self3, opp.selfFt].join() === want(theirs), `${[opp.self2, opp.self3, opp.selfFt].join()} ≠ ${want(theirs)}`);
+        // 新しい4項目: 生データから手計算した値と一致し、足すと得点・FGMになる（相手も同じ）
+        for (const [who, c, o, pts, fgm] of [["自チーム", mine, own, g.teamScore, g.fgm], ["相手", theirs, opp, g.opponentScore, g.opponentFgm]] as const) {
+          check(`${season}${base} ${teamId} ${g.scheduleKey}: ${who}の ASTFGM・SELFFGM・ASTPTS・SELFPTS`,
+            [o.astFgm, o.selfFgm, o.astPts, o.selfPts].join() === [c.a2 + c.a3, c.m2 - c.a2 + c.m3 - c.a3, c.a2 * 2 + c.a3 * 3 + c.af, (c.m2 - c.a2) * 2 + (c.m3 - c.a3) * 3 + (c.mf - c.af)].join(),
+            [o.astFgm, o.selfFgm, o.astPts, o.selfPts].join());
+          check(`${season}${base} ${teamId} ${g.scheduleKey}: ${who}の ASTPTS＋SELFPTS＝PTS、ASTFGM＋SELFFGM＝FGM`, o.astPts + o.selfPts === pts && o.astFgm + o.selfFgm === fgm, `${o.astPts}+${o.selfPts} ≠ ${pts} / ${o.astFgm}+${o.selfFgm} ≠ ${fgm}`);
+        }
         teamGamesChecked += 1;
         if (examples.length < 3 && season === "2025-26" && !base) examples.push(`${season} ${teamId} ${g.scheduleKey}: Self2M ${own.self2}・Self3M ${own.self3}・SelfFTM ${own.selfFt}（生データ: 2PM ${mine.m2}−${mine.a2}、3PM ${mine.m3}−${mine.a3}、FTM ${mine.mf}−${mine.af}）`);
       }
@@ -136,6 +145,24 @@ for (const [base, seasons] of [["", ["2025-26", "2026-27", "2017-18", "2021-22"]
       const shown = cols.get("self2m")!.format(row);
       const wantAvg = withFlow.length > 0 ? (s2 / withFlow.length).toFixed(2) : "0.00";
       check(`${season}${base} ${teamId}: シーズンの Self2M（1試合平均）`, shown === wantAvg, `${shown} ≠ ${wantAvg}`);
+      // 4項目の合計＝流れの記録がある試合の得点・FGM。MID PTS＝MID2M×2
+      for (const opp of [false, true]) {
+        const c = selfCountsOf(teamShotMadeSource(row.totals, opp));
+        const wantPts = withFlow.reduce((a, g) => a + (opp ? g.opponentScore : g.teamScore), 0);
+        const wantFgm = withFlow.reduce((a, g) => a + (opp ? g.opponentFgm : g.fgm), 0);
+        check(`${season}${base} ${teamId}: ${opp ? "相手" : "自チーム"}のシーズン ASTPTS＋SELFPTS＝PTS・ASTFGM＋SELFFGM＝FGM（流れの記録がある試合）`, c.astPts + c.selfPts === wantPts && c.astFgm + c.selfFgm === wantFgm, `${c.astPts + c.selfPts} ≠ ${wantPts} / ${c.astFgm + c.selfFgm} ≠ ${wantFgm}`);
+      }
+      {
+        const miscCols = new Map<string, { format: (r: AllTeamsRow) => string }>(buildMiscColumns("total", "own", true, false).map((c: { key: string }) => [c.key, c as never]));
+        const paintRow: AllTeamsRow = { ...row, totals: withPaint(sumTeamGameLogs(logs), summarizePaintLogs(logs)) };
+        const mid = miscCols.get("midpts");
+        const mid2 = miscCols.get("mid2m");
+        check(`${season}${base} ${teamId}: Misc に MID PTS があり PITP の右`, !!mid);
+        if (mid && mid2) {
+          const wantMid = Number(mid2.format(paintRow)) * 2;
+          check(`${season}${base} ${teamId}: MID PTS＝MID2M×2`, mid.format(paintRow) === (Number.isNaN(wantMid) ? "-" : String(wantMid)) && !Number.isNaN(wantMid), `${mid.format(paintRow)} ≠ ${mid2.format(paintRow)}×2`);
+        }
+      }
       // 割合: アシストあり＋セルフ＝100%（成功が1本でもあれば）。得点全体は得点の合計が PTS（除いた試合を除く）と一致
       for (const opp of [false, true]) {
         const src = teamShotMadeSource(row.totals, opp);
@@ -190,7 +217,16 @@ for (const [base, seasons] of [["", ["2025-26", "2026-27", "2017-18", "2021-22"]
         const t2 = w2 + (raw.assisted2m ?? 0);
         const pct = scol.get("pct2pmself")!.format(ctx, "total");
         const wantPct = t2 > 0 ? `${((100 * w2) / t2).toFixed(2)}%` : "-";
-        check(`${season}${base} 選手 ${pid}: 2PM %Self`, pct === wantPct, `${pct} ≠ ${wantPct}`);
+        check(`${season}${base} 選手 ${pid}: 2PM %SELF`, pct === wantPct, `${pct} ≠ ${wantPct}`);
+        const hand = [w2 + w3, w2 + w3, 0, 0];
+        void hand;
+        const a2p = raw.assisted2m ?? 0, a3p = raw.assisted3m ?? 0, afp = raw.assistedFtm ?? 0;
+        const showNew = ["astfgm", "selffgm", "astpts", "selfpts"].map((k) => scol.get(k)!.format(ctx, "total").replaceAll(",", ""));
+        const wantNew = [a2p + a3p, w2 + w3, a2p * 2 + a3p * 3 + afp, w2 * 2 + w3 * 3 + wf];
+        check(`${season}${base} 選手 ${pid}: ASTFGM・SELFFGM・ASTPTS・SELFPTS`, showNew.join() === wantNew.join(), `${showNew.join()} ≠ ${wantNew.join()}`);
+        check(`${season}${base} 選手 ${pid}: ASTPTS＋SELFPTS＝PTS、ASTFGM＋SELFFGM＝FGM`, wantNew[2]! + wantNew[3]! === raw.pts && wantNew[0]! + wantNew[1]! === raw.fgm, `${wantNew[2]! + wantNew[3]!} ≠ ${raw.pts} / ${wantNew[0]! + wantNew[1]!} ≠ ${raw.fgm}`);
+        check(`${season}${base} 選手 ${pid}: MID PTS＝MID2M×2`, PLAYER_MID_PTS_COLUMN.format(ctx, "total").replaceAll(",", "") === String(raw.mid2m * 2), `${PLAYER_MID_PTS_COLUMN.format(ctx, "total")} ≠ ${raw.mid2m * 2}`);
+        check(`${season}${base} 選手 ${pid}: MID PTS%`, PLAYER_MID_PTS_PCT_COLUMN.format(ctx, "total") === (raw.pts > 0 ? `${((100 * raw.mid2m * 2) / raw.pts).toFixed(2)}%` : "-"), PLAYER_MID_PTS_PCT_COLUMN.format(ctx, "total"));
         playersChecked += 1;
         if (examples.length < 6 && season === "2025-26" && !base && played > 20) examples.push(`${season} 選手 ${pid}: Self2M ${w2}・Self3M ${w3}・SelfFTM ${wf}（${played}試合。画面 ${shown.join("／")}）`);
       }

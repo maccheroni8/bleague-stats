@@ -1,6 +1,7 @@
 // 画面専用（図解「ベン図」の選手版）。選べる項目は、ランキング（個人・シーズン成績）で選べる Traditional・Advanced・Misc・Scoring の1試合平均。
 // 値・向き（higherIsBetter）・表示値は、全選手スタッツ／ランキングと同じ列定義をそのまま使う。円に入るのは、基準の値以上（以下）の選手だけ。
-import { buildSeasonBoxscoreCtx, SEASON_SCORING_COLUMNS, SEASON_TRADITIONAL_COLUMNS, seasonBoxColumnsFor, type SeasonBoxscoreColumn, type SeasonBoxscoreCtx } from "./playerSeasonBoxscore";
+import { seasonBoxColumnsFor } from "./playerColumnsView";
+import { buildSeasonBoxscoreCtx, SEASON_SCORING_COLUMNS, SEASON_TRADITIONAL_COLUMNS, type SeasonBoxscoreColumn, type SeasonBoxscoreCtx } from "./playerSeasonBoxscore";
 import { SEASON_ADVANCED_COLUMNS_WITH_FTR } from "./ftrColumn";
 import { withPppColumn } from "./pppColumn";
 import { foulColumnsSplit } from "./ruleChange";

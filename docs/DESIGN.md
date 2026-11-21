@@ -17429,3 +17429,36 @@ X に地区ごとに投稿するための画像。「全地区まとめて1枚�
 - 表の下の注意書き（`PAINT2_NOTE`・`PAINT2_COMPARE_NOTE`）は、列の名前を使わない書き方に直した（「内訳の平均・成功率は、ペイント内外の記録が揃う試合だけで計算します。」）。
 - **良し悪しのない項目の色を、青・オレンジから緑（多い上位3）・赤（少ない下位3）に戻した**（461章の `kind=count` の仕組み・濃さ3段階・対象はそのまま。色だけ `--count-hi-N`＝`--tier-top-N`〔緑〕・`--count-lo-N`＝`--tier-bot-N`〔赤〕に差し替え、`color-mix` は使っていない）。Forced TOV の「自チームが記録」も同じ。**緑・赤は、良し悪しのある項目では「良し悪し」、良し悪しのない項目では「多い・少ない」を表す**ことを、用語集の「チーム詳細の順位と色」に書いた。
 - 検証: `validate:team-detail-rank`・`validate:team-tier-colors`（クラス名は count-hi／count-lo のまま）・`validate:team-paint2`・`validate:compare-table`・`validate:team-rank-columns`・`validate:league-wiring`。宇都宮 2026-27 で、シーズン別成績の Misc・全チームスタッツの Misc・比較の Scoring に「記録のある試合数」が出ていないこと、Advanced の POSS・PACE が緑・赤になっていることを確かめた。
+
+## 465. アシスト・セルフの成功数の表記変更（2026-11-22。**画面だけの変更でキー不変**）
+
+- **変えた表記**（画面・保存画像・md・用語集・ツールチップに出る名前だけ）: AST2M→**AST2PM**、AST3M→**AST3PM**、Self2M→**SELF2PM**、Self3M→**SELF3PM**、SelfFTM→**SELFFTM**。
+  アシスト付きのフリースロー成功数は元から **ASTFTM**（ほかの表記は無かった）。割合の列は同じ並びの名前を大文字にそろえた（2PM %Self→**2PM %SELF**・3PM・FGM・FTM も同じ、%PTS Self→**%PTS SELF**。%AST・%PTS ASTED は元から大文字）。
+- **変えていないもの**: データの中の名前（`assisted2m` など）、列のキー（`ast2m`・`self2m`・`selfftm`・`pct2pmself` など。URL の `stat=`・スタッツの条件・図の設定・保存した設定はキーで持つので、古いリンク・保存した設定はそのまま開ける）、
+  保存キーの対象のファイル（`scripts/aggregate.ts` のコメント、`src/lib/playerSeasonBoxscore.ts` の個人の列の見出し文字列 AST2M・AST3M）。
+- **個人の見出し**は、保存キーの対象の `playerSeasonBoxscore.ts` を書き換えず、`src/lib/playerSelfColumns.ts`（`src/main.tsx` から読む）が Scoring の列の見出しを AST2PM・AST3PM に直す（元の配列の列オブジェクトの `label` を書き換える。Self の列を差し込むのと同じ仕組み）。
+  `validate:stat-names` は、この2つの見出し（`playerSeasonBoxscore.ts` の AST2M・AST3M）だけを旧表記のチェックの例外にした。
+- **古い表記の読み替え**: `statNames.ts` の `STAT_ALIASES` に旧表記→新表記を足した（AST2M・AST3M・Self2M・Self3M・SelfFTM・2PM %Self など）。辞書の略称は新表記。
+- 検証: `validate:stat-names`・`validate:self-scoring`・`validate:ranking-related`。
+
+## 466. アシストの有無の新しい4項目（ASTFGM・SELFFGM・ASTPTS・SELFPTS。2026-11-22。**画面だけの変更でキー不変**）
+
+- **定義**: ASTFGM＝AST2PM＋AST3PM、SELFFGM＝SELF2PM＋SELF3PM、ASTPTS＝AST2PM×2＋AST3PM×3＋ASTFTM、SELFPTS＝SELF2PM×2＋SELF3PM×3＋SELFFTM。**ASTFGM＋SELFFGM＝FGM、ASTPTS＋SELFPTS＝PTS**。
+  保存する値は増やさず、読むとき `selfCountsOf`（`src/lib/selfScoring.ts`）で足し引きして出す（Self と同じ。列の定義は `SELF_COUNT_DEFS`）。
+- **並び**: AST2PM・AST3PM・ASTFTM・SELF2PM・SELF3PM・SELFFTM・**ASTFGM・SELFFGM・ASTPTS・SELFPTS**・（割合の列）・%PTS ASTED・%PTS SELF。
+- **足した場所**: 全チームスタッツ（Scoring）・ランキング（チーム・個人のシーズン成績）・全選手スタッツ（Scoring）・チーム詳細（シーズン別成績・Q別・条件・登録区分の行）・個人詳細（シーズン別・Q別・試合ログ）・
+  比較（チーム・個人。試合詳細と同じ列の部品）・試合詳細のボックススコア（Scoring）・図解の項目の選択肢・md・Q別・前後半・延長・クラッチ・条件・登録区分の切り替え（どれも既存の AST2PM・SELF2PM と同じ列の仕組みから出る）。
+- **アシストの記録が無い試合（試合の流れの記録が無い 2017-18 の1810。チームの試合ログ2件＝1試合）は「-」にして合計・平均から外す**（SELF2PM などと同じ。`noFlowTotalsOf`・個人は `playerSelfUnavailable`・試合詳細は `ctx.noFlow`）。その試合を含むチーム・シーズンの合計は、PTS からその試合の分を除いた値と一致する。
+- **順位・色**: `rankDirection.ts` の「良し悪しなし」（AST2PM・SELF2PM などと同じ扱い。多い上位3を緑・少ない下位3を赤＝464章）。
+- 検証: `validate:self-scoring`（生データから手計算した値との一致・ASTPTS＋SELFPTS＝PTS・ASTFGM＋SELFFGM＝FGM。チームの試合ごと・シーズン、選手のシーズン）・`validate:rank-direction`。
+
+## 467. ミッドレンジの得点（MID PTS・MID PTS%。2026-11-22。**画面だけの変更でキー不変**）
+
+- **MID PTS**＝MID2M×2（ミッドレンジの2P成功で決めた得点）、**MID PTS%**＝MID PTS÷PTS（PITP% と同じ書き方・同じ2桁のパーセント）。PITP からペイント内の得点を引いて出す %PoutP（2P得点−PITP）÷PTS とは別の項目（MID2M は公式のペイント内／外の区分から数える。155章）。
+- **置き場所**: Misc の PITP の右に **MID PTS**、Scoring の PITP% の右に **MID PTS%**（チーム）。個人は Misc の PITP の右に MID PTS、Scoring の PC の右（ペイント内外の内訳の手前）に MID PTS%（個人には PITP% が無い）。
+- **MID2M と同じ扱い**: 内訳の記録がそろった試合だけで数える（チームの MID PTS は MID2M と同じ内訳の対象。ランキングの順位も全試合の記録がそろったときだけ）。MID PTS% は %MID2M と同じ（内訳を出せないシーズンは「-」）。1810 は MID2M と同じ扱い。
+- **実装**: チーム＝`teamPaint2.ts` の `midPtsColumn`（`isPaint2Key` に `midpts` を足した）と `teamStatsColumns.ts` の `buildScoringColumns`、チーム詳細＝`TeamDetailPage.tsx`、試合詳細＝`BoxscoreTable.tsx`、
+  個人＝`playerSelfColumns.ts`（Scoring は元の配列に差し込む）と `src/lib/playerColumnsView.ts`（Misc は、ファウル分割で配列が作り直されるため、`seasonBoxColumnsFor` の画面向けの版で足す。画面・検証は `playerSeasonBoxscore.ts` の同名の関数でなくこちらを使う）。
+  `playerSeasonBoxscore.ts`（保存キーの対象）は書き換えていない。
+- **順位・色**: MID PTS は多いほど良い（PITP と同じ）、MID PTS% は良し悪しなし（PITP% と同じ。464章の緑・赤）。
+- 検証: `validate:self-scoring`（MID PTS＝MID2M×2・個人の MID PTS%）・`validate:rank-direction`・`validate:team-paint2`。
