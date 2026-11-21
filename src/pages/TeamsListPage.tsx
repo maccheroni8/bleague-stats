@@ -108,6 +108,8 @@ import {
 } from "../components/ForeignPlayerCourtTimeChart";
 import { usePageState } from "../lib/pageStateCache";
 import { ExportImageButton } from "../components/ExportImageButton";
+import { TeamSituationTab } from "../components/TeamSituationTab";
+import { PageTitleRow } from "../components/HeaderActions";
 import { ExportTarget } from "../components/ExportTarget";
 import { buildOpponentSeasonWinRates, matchesOpponentSeasonWinRate } from "../lib/opponentSeasonWinRate";
 import { logsHaveOn4, on4Supported, onlyOn4Games } from "../lib/on4Core";
@@ -182,13 +184,13 @@ import {
   type TtsTotals,
 } from "../lib/teamTts";
 
-type TeamsPageTab = "stats" | "records" | "champions" | "recent";
+type TeamsPageTab = "stats" | "records" | "champions" | "recent" | "situation";
 
 /**
  * チーム一覧のURLのキー（DESIGN.md 163章）。view＝ページのタブ、tab＝全チームスタッツのカテゴリ、tov＝Forced TOV の向き、
  * scope＝記録の範囲、cat・venue・stat＝歴代の記録のカテゴリ・会場・項目、n＝直近成績の試合数
  */
-const TEAMS_VIEW_PARAM = enumParam<TeamsPageTab>("view", ["stats", "records", "champions", "recent"], "stats");
+const TEAMS_VIEW_PARAM = enumParam<TeamsPageTab>("view", ["stats", "records", "champions", "recent", "situation"], "stats");
 type TeamsBoxTab = BoxscoreTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers" | "scoringComposition" | "periods" | "timeToShot" | "streaks";
 const TEAMS_BOX_TAB_PARAM = enumParam<TeamsBoxTab>(
   "tab",
@@ -222,8 +224,7 @@ export function TeamsListPage({ season }: { season: string }) {
 
   return (
     <div data-design="v2">
-      <h1>チーム</h1>
-      <p className="page-subtitle">{season}シーズン</p>
+      <PageTitleRow subtitle={`${season}シーズン`}>チーム</PageTitleRow>
       <div className="tab-bar">
         <button
           className={`tab-button${tab === "stats" ? " active" : ""}`}
@@ -257,6 +258,13 @@ export function TeamsListPage({ season }: { season: string }) {
         >
           直近成績
         </button>
+        <button
+          className={`tab-button${tab === "situation" ? " active" : ""}`}
+          onClick={() => setTab("situation")}
+          type="button"
+        >
+          シチュエーション別
+        </button>
       </div>
       {league === "one" && ONE_TEAMS_TAB_REASONS[urlTab] && <p className="standings-tab-note">{ONE_TEAMS_TAB_REASONS[urlTab]}</p>}
       {tab === "stats" ? (
@@ -265,6 +273,8 @@ export function TeamsListPage({ season }: { season: string }) {
         <RecordsTab season={season} />
       ) : tab === "champions" ? (
         <ChampionsTab />
+      ) : tab === "situation" ? (
+        <TeamSituationTab season={season} league={league} />
       ) : (
         <RecentFormTab season={season} league={league} />
       )}

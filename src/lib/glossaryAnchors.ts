@@ -22,6 +22,7 @@ export const GLOSSARY_ANCHORS = {
   recentForm: "recent-form",
   standingsTable: "standings-table",
   teamStreaks: "team-streaks",
+  teamSituation: "team-situation",
   timeToShot: "time-to-shot",
   conditionalStandings: "conditional-standings",
   foreignCountStandings: "foreign-count-standings",
