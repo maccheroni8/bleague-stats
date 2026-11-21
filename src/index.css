@@ -9722,3 +9722,24 @@ table.sortable-table.tts-table th {
 .export-multi-all {
   font-weight: 600;
 }
+
+/* Scoring %（全チームスタッツ）の保存範囲: 1グラフ1枚。幅を固定し（グラフは幅いっぱいに描くため）、軸・行の見出し・凡例の字を表の保存画像と同じくらいの大きさにする（設計書451章） */
+.export-rendering.export-target-share {
+  width: 1180px;
+  max-width: none;
+}
+
+.export-rendering.export-target-share .recharts-yAxis text,
+.export-rendering.export-target-share .recharts-xAxis text,
+.export-rendering.export-target-share .recharts-yAxis tspan {
+  font-size: 13px;
+}
+
+.export-rendering.export-target-share .foreign-count-legend {
+  font-size: 15px;
+  gap: 18px;
+}
+
+.export-rendering.export-target-share h3 {
+  font-size: 18px;
+}

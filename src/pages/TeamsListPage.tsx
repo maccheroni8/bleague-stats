@@ -203,6 +203,20 @@ const TEAMS_BOX_TAB_PARAM = enumParam<TeamsBoxTab>(
   { traditional: "trad", advanced: "adv", shooting: "shoot", forcedTurnovers: "tov", foreignPlayers: "oc", scoringComposition: "share", timeToShot: "tts" },
 );
 const TURNOVER_PERSPECTIVE_PARAM = enumParam<"forced" | "committed">("tov", ["forced", "committed"], "forced");
+/** Scoring % の8つのグラフ（保存は1グラフ1枚。設計書451章）。name＝画像のタイトル・ファイル名に入れるグラフ名 */
+const SHARE_GRAPHS = [
+  { key: "score-own", name: "得点構成", group: "score" },
+  { key: "score-opp", name: "失点構成", group: "score" },
+  { key: "fga-own", name: "FG試投構成", group: "fga" },
+  { key: "fga-opp", name: "opp FG試投構成", group: "fga" },
+  { key: "assist-own", name: "アシストの有無", group: "assist" },
+  { key: "assist-opp", name: "相手のアシストの有無", group: "assist" },
+  { key: "class-own", name: "得点構成（登録区分）", group: "class" },
+  { key: "class-opp", name: "失点構成（登録区分）", group: "class" },
+] as const;
+type ShareGraphKey = (typeof SHARE_GRAPHS)[number]["key"];
+const shareGraphOf = (key: string | null) => SHARE_GRAPHS.find((g) => g.key === key);
+
 /** まとめて保存で選べるタブ（設計書449章。この並びで1タブ1枚） */
 const SAVE_TABS: { key: TeamsBoxTab; label: string }[] = [
   { key: "traditional", label: "Traditional" },
@@ -597,7 +611,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   const { data: foreignRules } = useJsonData(() => (boxTab === "foreignPlayers" ? fetchSeasonRules() : Promise.resolve(null)), [boxTab]);
   // 対象の試合（すべての試合／on4 が可能だった試合だけ。DESIGN.md 352章）。同時出場の上限が4人の B.PREMIER のシーズンだけ選べる
   // On-Court Foreign の画像保存で、保存の間だけ「棒グラフだけ」「一覧だけ」に切り替える
-  const [ocSavePart, setOcSavePart] = useState<"chart" | "table" | null>(null);
+  const [ocSavePart, setOcSavePart] = useState<"chart" | "table" | ShareGraphKey | null>(null);
   // 表の並び順（保存画像のサブタイトルに出す。どのタブの並びかも持ち、タブを替えたら古い並びは出さない）
   const [sortInfo, setSortInfo] = useState<{ tab: string; text: string }>({ tab: "", text: "" });
   const onTableSort = useCallback(
@@ -618,7 +632,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   // まとめて保存（設計書449章）: タブを切り替えながら1タブ1枚を保存し、終わったら元のタブに戻す
   const boxTabRef = useRef(boxTab);
   boxTabRef.current = boxTab;
-  const renderedSaveTab = useRef<{ tab: TeamsBoxTab; part: "chart" | "table" | null }>({ tab: boxTab, part: ocSavePart });
+  const renderedSaveTab = useRef<{ tab: TeamsBoxTab; part: "chart" | "table" | ShareGraphKey | null }>({ tab: boxTab, part: ocSavePart });
   useEffect(() => {
     renderedSaveTab.current = { tab: boxTab, part: ocSavePart };
   });
@@ -1191,7 +1205,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
     title:
       boxTab === "foreignPlayers"
         ? `${season}シーズン ${ocSavePart === "table" ? "オンザコート割合（一覧）" : "オンザコート割合"}${perspectiveTitleSuffix(titlePerspective)}`
-        : `${season}シーズン 全チームスタッツ：${TEAMS_STATS_CATEGORY_LABELS[boxTab]}${perspectiveTitleSuffix(titlePerspective)}`,
+        : `${season}シーズン 全チームスタッツ：${TEAMS_STATS_CATEGORY_LABELS[boxTab]}${boxTab === "scoringComposition" && shareGraphOf(ocSavePart) ? `　${shareGraphOf(ocSavePart)!.name}` : ""}${perspectiveTitleSuffix(titlePerspective)}`,
     conditions:
       boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring" || boxTab === "periods"
         ? composeLabels(
@@ -1227,6 +1241,10 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   };
 
   const savedConditions = [...statsTitle.conditions, ...(sortInfo.tab === boxTab && sortInfo.text ? [sortInfo.text] : [])];
+  // Scoring % のグラフの出し分け（保存の間だけ1つに絞る。画面は8つとも出す。設計書451章）
+  const sharePart = boxTab === "scoringComposition" ? shareGraphOf(ocSavePart) : undefined;
+  const showShare = (key: ShareGraphKey) => !sharePart || sharePart.key === key;
+  const showShareGroup = (group: string) => !sharePart || sharePart.group === group;
   // 保存のファイル名（視点・条件・並び順を入れる。切り替えた画面の値を保存の直前に読む）
   const perspectiveFile = perspectiveFilePart(titlePerspective);
   saveFilenameRef.current =
@@ -1237,8 +1255,8 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
           ...(perspectiveFile ? [perspectiveFile] : []),
           ...savedConditions,
         ])
-      : buildExportFilename([`${season}シーズン`, "全チームスタッツ", `${TEAMS_STATS_CATEGORY_LABELS[boxTab] ?? ""}タブ`, ...(perspectiveFile ? [perspectiveFile] : []), ...savedConditions]);
-  const waitForSaveTab = async (tab: TeamsBoxTab, part: "chart" | "table" | null) => {
+      : buildExportFilename([`${season}シーズン`, "全チームスタッツ", `${TEAMS_STATS_CATEGORY_LABELS[boxTab] ?? ""}タブ`, ...(boxTab === "scoringComposition" && shareGraphOf(ocSavePart) ? [shareGraphOf(ocSavePart)!.name] : []), ...(perspectiveFile ? [perspectiveFile] : []), ...savedConditions]);
+  const waitForSaveTab = async (tab: TeamsBoxTab, part: "chart" | "table" | ShareGraphKey | null) => {
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     const started = Date.now();
     while (Date.now() - started < 40000) {
@@ -1254,22 +1272,26 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
     throw new Error("タブの表示が終わらなかったため、保存を止めました");
   };
   const saveChoices: ExportChoice[] = SAVE_TABS.flatMap((t) => {
-    const part = (p: "chart" | "table" | null): ExportChoice => ({
-      key: p === "table" ? `${t.key}:table` : t.key,
-      label: p === "table" ? "On-Court Foreign（一覧だけ）" : p === "chart" ? "On-Court Foreign" : t.label,
+    const make = (key: string, label: string, part: "chart" | "table" | ShareGraphKey | null): ExportChoice => ({
+      key,
+      label,
       targetRef: exportRef,
       filename: "",
       baseDate: { kind: "season", season, gameType },
       filenameOf: () => saveFilenameRef.current,
       activate: async () => {
         if (originalSaveTab.current === null) originalSaveTab.current = boxTabRef.current;
-        setOcSavePart(t.key === "foreignPlayers" ? (p === "table" ? "table" : "chart") : null);
+        setOcSavePart(part);
         if (boxTabRef.current !== t.key) setBoxTab(t.key);
-        await waitForSaveTab(t.key, t.key === "foreignPlayers" ? (p === "table" ? "table" : "chart") : null);
+        await waitForSaveTab(t.key, part);
       },
     });
-    return t.key === "foreignPlayers" ? [part("chart"), part("table")] : [part(null)];
+    if (t.key === "foreignPlayers") return [make(t.key, "On-Court Foreign", "chart"), make(`${t.key}:table`, "On-Court Foreign（一覧だけ）", "table")];
+    // Scoring % は8つのグラフを1つずつ選べる（1グラフ1枚）
+    if (t.key === "scoringComposition") return SHARE_GRAPHS.map((g) => make(`${t.key}:${g.key}`, `Scoring %：${g.name}`, g.key));
+    return [make(t.key, t.label, null)];
   });
+  const saveDefaultKeys = boxTab === "scoringComposition" ? SHARE_GRAPHS.map((g) => `scoringComposition:${g.key}`) : [boxTab];
   const tierRows = passingTeamIds ? rows.filter((r) => passes(r.team.teamId)) : rows;
 
   return (
@@ -1369,10 +1391,11 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
         choicesLabel="保存するタブ"
         choices={saveChoices}
         defaultChoiceKey={boxTab}
+        defaultChoiceKeys={saveDefaultKeys}
         restoreAfterSave={restoreSaveTab}
         disabledReason={gameLogsLoading || !gameLogsByTeam ? "データを読み込み中です。表が出てから保存してください。" : undefined}
       />
-      <StatsExportTarget enabled={boxTab !== "foreignPlayers"} exportRef={exportRef} baseDate={{ kind: "season", season, gameType }}>
+      <StatsExportTarget enabled={boxTab !== "foreignPlayers"} className={boxTab === "scoringComposition" ? "export-target-share" : "export-target-standings"} exportRef={exportRef} baseDate={{ kind: "season", season, gameType }}>
       {!(boxTab === "foreignPlayers" && foreignRows) && (
         <ConditionTitle
           title={statsTitle.title}
@@ -1581,26 +1604,58 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
             ]}
           />
           </div>
-          <h3>得点構成（総得点に占める割合）</h3>
-          <ScoringCompositionChart teams={scoringTeams} mode="own" order={scoringOrder} shareOf={scoringShareOf.scoring} />
-          <h3>失点構成（このチームが奪われた得点の割合）</h3>
-          <ScoringCompositionChart teams={scoringTeams} mode="opponent" order={scoringOrder} shareOf={scoringShareOf.scoring} />
-          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成" scope="上部で選んだ試合区分・試合の条件・区間に当てはまる試合の合計の値です。" />
-          <h3>FG試投構成（FGAに占める割合）</h3>
-          {fgaTeams ? <FgaCompositionChart teams={fgaTeams.own} mode="own" order={fgaOrder} /> : <p className="loading">読み込み中...</p>}
-          <h3>opp FG試投構成（相手のFGAに占める割合）</h3>
-          {fgaTeams ? <FgaCompositionChart teams={fgaTeams.opponent} mode="opponent" order={fgaOrder} /> : <p className="loading">読み込み中...</p>}
-          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="FG試投構成" scope="上部で選んだ試合区分・試合の条件・区間に当てはまる試合の合計の値です。" />
-          <h3>アシストの有無（{SELF_SHOT_KIND_LABELS[assistKind]}の成功のうちアシストありとセルフの割合）</h3>
-          {assistSelfTeams ? <AssistSelfChart teams={assistSelfTeams.own} mode="own" kind={assistKind} order={assistOrder} /> : <p className="loading">読み込み中...</p>}
-          <h3>相手のアシストの有無（相手の成功のうちアシストありとセルフの割合）</h3>
-          {assistSelfTeams ? <AssistSelfChart teams={assistSelfTeams.opponent} mode="opponent" kind={assistKind} order={assistOrder} /> : <p className="loading">読み込み中...</p>}
-          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="アシストの有無" scope="上部で選んだ試合区分・試合の条件・区間に当てはまる試合の合計の値です。" />
-          <h3>得点構成（登録区分）</h3>
-          <ClassificationCompositionChart teams={scoringTeams} mode="own" order={classificationOrder} shareOf={scoringShareOf.classification} />
-          <h3>失点構成（登録区分）</h3>
-          <ClassificationCompositionChart teams={scoringTeams} mode="opponent" order={classificationOrder} shareOf={scoringShareOf.classification} />
-          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成（登録区分）" scope="上部で選んだ試合区分・試合の条件・区間に当てはまる試合の合計の値です。" />
+          {showShare("score-own") && (
+            <>
+              <h3>得点構成（総得点に占める割合）</h3>
+              <ScoringCompositionChart teams={scoringTeams} mode="own" order={scoringOrder} shareOf={scoringShareOf.scoring} />
+            </>
+          )}
+          {showShare("score-opp") && (
+            <>
+              <h3>失点構成（このチームが奪われた得点の割合）</h3>
+              <ScoringCompositionChart teams={scoringTeams} mode="opponent" order={scoringOrder} shareOf={scoringShareOf.scoring} />
+            </>
+          )}
+          {showShareGroup("score") && <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成" scope="上部で選んだ試合区分・試合の条件・区間に当てはまる試合の合計の値です。" />}
+          {showShare("fga-own") && (
+            <>
+              <h3>FG試投構成（FGAに占める割合）</h3>
+              {fgaTeams ? <FgaCompositionChart teams={fgaTeams.own} mode="own" order={fgaOrder} /> : <p className="loading">読み込み中...</p>}
+            </>
+          )}
+          {showShare("fga-opp") && (
+            <>
+              <h3>opp FG試投構成（相手のFGAに占める割合）</h3>
+              {fgaTeams ? <FgaCompositionChart teams={fgaTeams.opponent} mode="opponent" order={fgaOrder} /> : <p className="loading">読み込み中...</p>}
+            </>
+          )}
+          {showShareGroup("fga") && <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="FG試投構成" scope="上部で選んだ試合区分・試合の条件・区間に当てはまる試合の合計の値です。" />}
+          {showShare("assist-own") && (
+            <>
+              <h3>アシストの有無（{SELF_SHOT_KIND_LABELS[assistKind]}の成功のうちアシストありとセルフの割合）</h3>
+              {assistSelfTeams ? <AssistSelfChart teams={assistSelfTeams.own} mode="own" kind={assistKind} order={assistOrder} /> : <p className="loading">読み込み中...</p>}
+            </>
+          )}
+          {showShare("assist-opp") && (
+            <>
+              <h3>相手のアシストの有無（相手の成功のうちアシストありとセルフの割合）</h3>
+              {assistSelfTeams ? <AssistSelfChart teams={assistSelfTeams.opponent} mode="opponent" kind={assistKind} order={assistOrder} /> : <p className="loading">読み込み中...</p>}
+            </>
+          )}
+          {showShareGroup("assist") && <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="アシストの有無" scope="上部で選んだ試合区分・試合の条件・区間に当てはまる試合の合計の値です。" />}
+          {showShare("class-own") && (
+            <>
+              <h3>得点構成（登録区分）</h3>
+              <ClassificationCompositionChart teams={scoringTeams} mode="own" order={classificationOrder} shareOf={scoringShareOf.classification} />
+            </>
+          )}
+          {showShare("class-opp") && (
+            <>
+              <h3>失点構成（登録区分）</h3>
+              <ClassificationCompositionChart teams={scoringTeams} mode="opponent" order={classificationOrder} shareOf={scoringShareOf.classification} />
+            </>
+          )}
+          {showShareGroup("class") && <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成（登録区分）" scope="上部で選んだ試合区分・試合の条件・区間に当てはまる試合の合計の値です。" />}
           {periodActive && period === "ot" && (
             <p className="page-subtitle">延長は、延長のあった試合だけの値です（すべての延長の合計）。右端の得点・失点は、延長のあった試合で割った1試合平均です。</p>
           )}
@@ -1749,7 +1804,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
           <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="全チームスタッツ" scope="各チームの試合ログから、選んだ条件で集計し直した値です。" />
         </>
       )}
-      {boxTab !== "foreignPlayers" && <ResultOnlyNote variant={boxTab === "streaks" ? "record" : "stats"} games={scheduleForNote?.resultOnlyGames} />}
+      {boxTab !== "foreignPlayers" && boxTab !== "scoringComposition" && <ResultOnlyNote variant={boxTab === "streaks" ? "record" : "stats"} games={scheduleForNote?.resultOnlyGames} />}
       </StatsExportTarget>
     </div>
   );
@@ -1758,18 +1813,20 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
 /** 全チームスタッツの画像にする範囲（見出し・表・注記）。On-Court Foreign は自前の ExportTarget を持つので包まない（設計書449章） */
 function StatsExportTarget({
   enabled,
+  className,
   exportRef,
   baseDate,
   children,
 }: {
   enabled: boolean;
+  className: string;
   exportRef: RefObject<HTMLDivElement>;
   baseDate: BaseDateSpec;
   children: ReactNode;
 }) {
   if (!enabled) return <>{children}</>;
   return (
-    <ExportTarget ref={exportRef} className="export-target-standings" baseDate={baseDate}>
+    <ExportTarget ref={exportRef} className={className} baseDate={baseDate}>
       {children}
     </ExportTarget>
   );

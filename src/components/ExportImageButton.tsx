@@ -104,6 +104,7 @@ export function ExportImageButton({
   restoreAfterSave,
   choicesLabel = "保存する図",
   multi,
+  defaultChoiceKeys,
 }: {
   targetRef?: RefObject<HTMLElement | null>;
   filename?: string;
@@ -127,6 +128,8 @@ export function ExportImageButton({
   choicesLabel?: string;
   /** 指定すると、choices をチェックで複数選んでまとめて保存できる（「すべて選ぶ」つき。選んだ順ではなく choices の並びで、1つの対象に1枚。開いた直後は defaultChoiceKey だけ選んでいる。設計書449章） */
   multi?: boolean;
+  /** multi の最初に選んでおく対象（指定しなければ defaultChoiceKey だけ。1つのタブが複数の対象に分かれるとき、そのタブの全部を選んでおく） */
+  defaultChoiceKeys?: string[];
 }) {
   // ファイル名の先頭と基準日は、見ているリーグで決める（DESIGN.md 297章）
   const league = useLeague();
@@ -192,7 +195,7 @@ export function ExportImageButton({
   // （共有シートは「押した直後」にしか開けないので、表示の中の「写真に保存」で開く。共有シートの結果は待たない。DESIGN.md 242・246章）
   const handleClick = async () => {
     // 保存する対象（まとめて保存のときは、続けて保存する対象すべて）
-    const multiKeys = multi && choices ? (checkedKeys ?? [defaultChoiceKey ?? choices[0]?.key ?? ""]) : null;
+    const multiKeys = multi && choices ? (checkedKeys ?? defaultChoiceKeys ?? [defaultChoiceKey ?? choices[0]?.key ?? ""]) : null;
     const items: { targetRef: RefObject<HTMLElement | null>; filename: string; baseDate?: BaseDateSpec; activate?: () => Promise<void>; filenameOf?: () => string }[] =
       multiKeys && choices
         ? choices.filter((c) => multiKeys.includes(c.key)).map((c) => ({ ...c, filename: exportFilenameWithLeague(c.filename, LEAGUE_LABELS[league]) }))
@@ -304,7 +307,7 @@ export function ExportImageButton({
       : { all: `上位${ranking.top}${ranking.unit}`, ten: `上位10${ranking.unit}` }
     : null;
 
-  const multiSelected = multi && choices ? (checkedKeys ?? [defaultChoiceKey ?? choices[0]?.key ?? ""]) : null;
+  const multiSelected = multi && choices ? (checkedKeys ?? defaultChoiceKeys ?? [defaultChoiceKey ?? choices[0]?.key ?? ""]) : null;
   const saveDisabled = busy || !!disabledReason || (!!multiSelected && multiSelected.length === 0);
   const saveEntry = useSaveMenuEntry({
     label: "画像",
