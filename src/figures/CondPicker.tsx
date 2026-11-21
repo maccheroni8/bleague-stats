@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { NumberTextInput } from '../components/NumberTextInput';
 import {
-  condNumberKind, condOptionGroups, OPP_RATE_KEY, parseRateInput, type CondEnv, type CondSpec,
+  condNumberKind, condOptionGroups, isOppRateKey, parseRateInput, type CondEnv, type CondSpec,
 } from '../lib/figureCondWinPct';
 import { NUMBER_CONDITION_DEFAULTS } from '../lib/conditionalCondition';
 import './CondPicker.css';
@@ -17,7 +17,7 @@ export function CondPicker({ env, spec, label, onChange }: { env: CondEnv; spec:
     <label>{label}の条件
       <select value={spec.key} onChange={e => {
         const key = e.target.value;
-        if (key === OPP_RATE_KEY) { onChange({ key, oppMode: spec.oppMode ?? 'ge', oppRate: spec.oppRate ?? 0.6 }); return; }
+        if (isOppRateKey(key)) { onChange({ key, oppMode: spec.oppMode ?? 'ge', oppRate: spec.oppRate ?? 0.6 }); return; }
         const next: CondSpec = { key };
         const kind = condNumberKind(env, next);
         onChange(kind ? { key, n: spec.n ?? NUMBER_CONDITION_DEFAULTS[kind] } : next);
@@ -25,7 +25,7 @@ export function CondPicker({ env, spec, label, onChange }: { env: CondEnv; spec:
         {groups.map(g => <optgroup key={g.label} label={g.label}>{g.options.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}</optgroup>)}
       </select>
     </label>
-    {spec.key === OPP_RATE_KEY && <>
+    {isOppRateKey(spec.key) && <>
       <label>相手の勝率
         <NumberTextInput kind="number" className="cond-picker-number" aria-label={`${label}の相手の勝率`} value={String(Number((spec.oppRate ?? 0.6).toFixed(4)))}
           onCommit={text => { const rate = parseRateInput(text); if (rate !== null) onChange({ ...spec, oppRate: rate }); }} />

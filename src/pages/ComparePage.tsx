@@ -241,7 +241,7 @@ interface SlotCardProps {
   entityValid: boolean;
   /** 対象selectの選択中の値。省略時は選んでいるID（選手の一覧は、チームごとの選択肢の値で渡す） */
   entityValue?: string;
-  data: Pick<TeamSlotData, "status" | "error" | "boundary" | "opponentWinRateSupported" | "ownTeamDivisionSupported" | "gamesCount" | "pendingGames">;
+  data: Pick<TeamSlotData, "status" | "error" | "boundary" | "opponentWinRateSupported" | "opponentLatestWinRateSupported" | "ownTeamDivisionSupported" | "gamesCount" | "pendingGames">;
   /** 「対戦地区」の「対◯地区」の選択肢（スロットのシーズンにある地区） */
   opponentDivisions?: Division[];
   onSeason: (season: string) => void;
@@ -311,6 +311,7 @@ function CompareSlotCard({
         onClear={onClear}
         boundary={data.boundary}
         opponentWinRateSupported={data.opponentWinRateSupported}
+        opponentLatestWinRateSupported={data.opponentLatestWinRateSupported}
         ownTeamDivisionSupported={data.ownTeamDivisionSupported}
         opponentDivisions={opponentDivisions}
         {...(slot.id === LEAGUE_TEAM_ID ? { situationalDisabledNote: LEAGUE_SLOT_NOTE } : {})}

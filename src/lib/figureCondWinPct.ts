@@ -34,7 +34,11 @@ import {
 
 /** 相手の勝率を数字で選ぶ条件のキー（条件別順位表の条件の一覧には無い。図解だけ） */
 export const OPP_RATE_KEY = "oppRate";
-export const OPP_RATE_GROUP = "対戦相手の強さ（最新勝率を数字で選ぶ）";
+/** 試合時点の勝率を数字で選ぶ条件（設計書450章で追加。最新勝率の「oppRate」は前の値のまま） */
+export const OPP_AT_GAME_RATE_KEY = "oppRateAt";
+export const OPP_RATE_GROUP = "対戦相手の強さ（勝率を数字で選ぶ）";
+/** 相手の勝率を数字で選ぶ条件か */
+export const isOppRateKey = (key: string) => key === OPP_RATE_KEY || key === OPP_AT_GAME_RATE_KEY;
 
 /** 条件付きの勝率の条件の選び方。key は条件別順位表の条件のキー（または OPP_RATE_KEY）。n は「●人」「●点」、oppMode・oppRate は相手の勝率の「●以上／●未満」 */
 export interface CondSpec { key: string; n?: number; oppMode?: "ge" | "lt"; oppRate?: number }
@@ -44,14 +48,14 @@ export const DEFAULT_COND: CondSpec = { key: OPP_RATE_KEY, oppMode: "ge", oppRat
 const rateNumber = (rate: number) => String(Number(rate.toFixed(4)));
 /** URL の文字列にする（`home`・`foreign-ge~2`・`oppRate~ge~0.6`） */
 export function condSpecToText(spec: CondSpec): string {
-  if (spec.key === OPP_RATE_KEY) return `${OPP_RATE_KEY}~${spec.oppMode ?? "ge"}~${rateNumber(spec.oppRate ?? 0.6)}`;
+  if (isOppRateKey(spec.key)) return `${spec.key}~${spec.oppMode ?? "ge"}~${rateNumber(spec.oppRate ?? 0.6)}`;
   return spec.n === undefined ? spec.key : `${spec.key}~${spec.n}`;
 }
 export function parseCondSpec(text: string | null | undefined): CondSpec | null {
   if (!text) return null;
   const [key, a, b] = text.split("~");
   if (!key) return null;
-  if (key === OPP_RATE_KEY) {
+  if (isOppRateKey(key)) {
     const rate = Number(b);
     return { key, oppMode: a === "lt" ? "lt" : "ge", oppRate: b !== undefined && b !== "" && Number.isFinite(rate) ? Math.min(1, Math.max(0, rate)) : 0.6 };
   }
@@ -121,7 +125,10 @@ export function buildCondEnv(input: CondEnvInput): CondEnv {
 
 /** 選べる条件（グループごと）。数字で相手の勝率を選ぶ条件を先頭に */
 export function condOptionGroups(env: CondEnv): { label: string; options: { key: string; label: string }[] }[] {
-  const out = [{ label: OPP_RATE_GROUP, options: [{ key: OPP_RATE_KEY, label: "対戦相手の勝率が●以上／●未満" }] }];
+  const out = [{ label: OPP_RATE_GROUP, options: [
+    { key: OPP_RATE_KEY, label: "対戦相手の勝率が●以上／●未満（最新勝率）" },
+    { key: OPP_AT_GAME_RATE_KEY, label: "対戦相手の勝率が●以上／●未満（試合時点の勝率）" },
+  ] }];
   for (const g of env.groups) if (g.options.length) out.push({ label: g.label, options: g.options.map((o) => ({ key: o.key, label: o.label })) });
   out.push({ label: "月別", options: Array.from({ length: 12 }, (_, i) => ({ key: `month-${i + 1}`, label: `${i + 1}月` })) });
   return out;
@@ -134,6 +141,7 @@ export function condNumberKind(env: CondEnv, spec: CondSpec): "count" | "score" 
 /** 選んだ条件を条件別順位表の条件にする。選択肢に無いキーは null */
 export function conditionOf(env: CondEnv, spec: CondSpec): ConditionalCondition | null {
   if (spec.key === OPP_RATE_KEY) return { kind: "opponentLatestRate", mode: spec.oppMode ?? "ge", rate: spec.oppRate ?? 0.6 };
+  if (spec.key === OPP_AT_GAME_RATE_KEY) return { kind: "opponentAtGameRate", mode: spec.oppMode ?? "ge", rate: spec.oppRate ?? 0.6 };
   const base = env.index.get(spec.key)?.condition;
   if (!base) return null;
   const nk = conditionNumberKind(base);
@@ -144,7 +152,7 @@ export function condLabel(env: CondEnv, spec: CondSpec): string {
   const c = conditionOf(env, spec);
   return c ? describeCondition(c) : "条件なし";
 }
-/** 軸・円の名前（例: 勝率（対勝率.600以上の相手）） */
+/** 軸・円の名前（例: 勝率（対勝率.600以上（最新勝率））） */
 export const condWinLabel = (env: CondEnv, spec: CondSpec) => `勝率（${condLabel(env, spec)}）`;
 /** 選んだ条件が使えるか（そのシーズンに無い条件のキーは使えない） */
 export const condAvailable = (env: CondEnv, spec: CondSpec) => conditionOf(env, spec) !== null;

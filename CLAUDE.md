@@ -213,6 +213,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 443章: チームのページの**「シチュエーション別」タブ**（`view=situation`。条件を1つ選ぶとその試合だけで全チームの成績を並べる。条件の一覧・判定は `src/lib/teamSituationGroups.ts` の1か所でチーム詳細と共通、値は全チームスタッツと同じ列の式を試合ログの合計に掛ける〔`src/components/TeamSituationTab.tsx`〕。URL `sit`。**画面だけの変更でキー不変**）
 - 444章・445章・446章: **相手の最新勝率（対戦相手の強さ）は `src/lib/opponentStrength.ts` の1か所**（最新勝率・1試合ごとの区分・ここまで〔順位表「対戦相手の強さ」〕・残り〔順位表「残り相手勝率」＝開催予定の相手の最新勝率の平均。日程が決まっていない試合・結果だけの試合は入らない〕）。相手の最新勝率を使う処理を足すときはここを通す（「その試合時点の勝率」は `situational.ts` の `buildRecordsBeforeGame` で別）。条件別順位表とチーム詳細の勝敗の違いは不戦勝など結果だけの試合だけ（228章どおり）。「外国籍人数別順位表」は「外国籍人数別成績」。検証は `npm run validate:opponent-strength`。**画面だけの変更でキー不変**
 - 447章: **ゲーム差の表記は小数第1位**（0.5・1.0。首位は「-」）。整形は `standingsTeams.ts` の `formatGamesBehind` の1か所（年間スケジュールタブだけ別に `formatDecimal(gb, 1)`）。
+- 450章: **相手の強さは「最新勝率」と「試合時点の勝率」の2つをどこでも選べる**（名前「対5割以上（最新勝率）」「対5割以上（試合時点の勝率）」・同じ区切りを隣り合わせ）。計算は `opponentStrength.ts`（試合時点の `buildRecordsBeforeGame` もここ。`OpponentRecords` に最新勝率 `latestWinRates` を添えて渡す・`buildOpponentRecords`・`useOpponentRecords`）。URL は試合時点 `opw`（前のまま）・最新 `opl`。新しい行のキーは `latest_…`／`atGame_…`（「-」は全チームスタッツの `sit` が受け付けない）。md の書き出しの「対戦相手」は対象外のまま。
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

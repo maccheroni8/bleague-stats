@@ -557,6 +557,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
     periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, { disabledReason: teamFilterDisabledReason }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
+      opponentLatestWinRateSupported: !!opponentRecords?.latestWinRates,
       ownTeamDivisionSupported: !!divisionHistory,
       ownDivisions: seasonDivisions(divisionHistory, season, league),
       opponentDivisions: opponentDivisionChoices(divisionHistory, season, league),
@@ -1127,6 +1128,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
     }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
+      opponentLatestWinRateSupported: !!opponentRecords?.latestWinRates,
       ownTeamDivisionSupported: !!divisionHistory,
       ownDivisions: seasonDivisions(divisionHistory, season, league),
       opponentDivisions: opponentDivisionChoices(divisionHistory, season, league),

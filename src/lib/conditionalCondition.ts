@@ -14,7 +14,6 @@ import {
   type BackToBackGame,
   type BiweekPeriod,
   type MarginCondition,
-  type RecordBeforeGame,
 } from "./situational";
 import type { Division, DivisionHistoryFile, TeamGameLog } from "../../shared/types";
 import {
@@ -32,7 +31,15 @@ import {
   type ForeignMeasure,
   type Lead,
 } from "./situationalRecords";
-import { matchesOpponentLatestRate, matchesOpponentSeasonWinRate, type OpponentSeasonTier } from "./opponentStrength";
+import {
+  matchesOpponentAtGameRate,
+  matchesOpponentLatestRate,
+  matchesOpponentSeasonWinRate,
+  opponentStrengthChoices,
+  opponentStrengthLabel,
+  type OpponentRecords,
+  type OpponentSeasonTier,
+} from "./opponentStrength";
 
 /** 条件「クラッチタイムになった試合」の名前（設計書375章） */
 export const CLUTCH_GAMES_LABEL = "クラッチタイムになった試合";
@@ -84,7 +91,9 @@ export type ConditionalCondition =
   /** 対戦相手の最新の勝率（概要の「対戦相手の強さ」と同じ。その時点までの勝率とは別） */
   | { kind: "opponentLatestWinRate"; tier: OpponentSeasonTier }
   /** 対戦相手の最新の勝率が rate 以上（ge）／未満（lt）。図解の「条件付きの勝率」で数字を選ぶための条件 */
-  | { kind: "opponentLatestRate"; mode: "ge" | "lt"; rate: number };
+  | { kind: "opponentLatestRate"; mode: "ge" | "lt"; rate: number }
+  /** 対戦相手の試合時点の勝率が rate 以上（ge）／未満（lt）。図解の「条件付きの勝率」で数字を選ぶための条件（設計書450章。相手が5試合未満の試合は入らない） */
+  | { kind: "opponentAtGameRate"; mode: "ge" | "lt"; rate: number };
 
 /** 条件の「●人」「●点」の数を持つ条件か（持つ条件は数を入れる欄を出す） */
 export function conditionNumberKind(c: ConditionalCondition): "count" | "score" | null {
@@ -125,7 +134,7 @@ export function describeCondition(condition: ConditionalCondition): string {
     case "month":
       return `${condition.value}月`;
     case "opponentWinRate":
-      return condition.tier === "under50" ? "対5割未満" : condition.tier === "atLeast50" ? "対5割以上" : "対6割以上";
+      return opponentStrengthLabel(condition.tier, "atGame");
     case "backToBack":
       return `連戦時${condition.value}`;
     case "biweekPeriod":
@@ -159,9 +168,11 @@ export function describeCondition(condition: ConditionalCondition): string {
     case "overtime":
       return condition.value === "ot" ? "OT試合" : "レギュレーション決着";
     case "opponentLatestRate":
-      return `対勝率${formatRateText(condition.rate)}${condition.mode === "ge" ? "以上" : "未満"}の相手`;
+      return `対勝率${formatRateText(condition.rate)}${condition.mode === "ge" ? "以上" : "未満"}（最新勝率）`;
+    case "opponentAtGameRate":
+      return `対勝率${formatRateText(condition.rate)}${condition.mode === "ge" ? "以上" : "未満"}（試合時点の勝率）`;
     case "opponentLatestWinRate":
-      return `対${condition.tier === "under50" ? "5割未満" : condition.tier === "atLeast50" ? "5割以上" : "6割以上"}（最新勝率）`;
+      return opponentStrengthLabel(condition.tier, "latest");
   }
 }
 
@@ -188,7 +199,7 @@ export interface ConditionContext {
   teamId: string;
   season: string;
   league: League;
-  opponentRecords?: Map<string, Map<string, RecordBeforeGame>>;
+  opponentRecords?: OpponentRecords;
   divisionHistory?: DivisionHistoryFile | null;
   backToBackStatus?: Map<string, Map<string, BackToBackGame>>;
   /** 相手の最新のレギュラーシーズン勝率（概要の「対戦相手の強さ」と同じ） */
@@ -259,6 +270,8 @@ export function applyConditionalCondition(
       const rates = ctx.opponentLatestWinRates ?? new Map<string, number>();
       return logs.filter((g) => matchesOpponentLatestRate(g.opponentTeamId, condition.mode, condition.rate, rates));
     }
+    case "opponentAtGameRate":
+      return logs.filter((g) => matchesOpponentAtGameRate(g, condition.mode, condition.rate, ctx.opponentRecords));
     case "opponentLatestWinRate":
       return logs.filter((g) => matchesOpponentSeasonWinRate(g.opponentTeamId, condition.tier, ctx.opponentLatestWinRates ?? new Map()));
   }
@@ -284,6 +297,9 @@ export interface ConditionGroupInput {
   /** 「●人」「●点」の数 */
   numbers: { count: number; score: number };
 }
+
+/** 試合時点の勝率の条件のキー（前からの値） */
+const OPP_AT_GAME_KEYS: Record<OpponentSeasonTier, string> = { under50: "oppwin-under50", atLeast50: "oppwin-50", atLeast60: "oppwin-60" };
 
 /** 条件別順位表で選べる条件の一覧（グループごと）。月別は buildConditionIndex が足す */
 export function buildConditionGroups({ presentDivisions, backToBackStatus, regularScheduleKeys, biweekPeriods, numbers }: ConditionGroupInput): ConditionGroup[] {
@@ -326,13 +342,15 @@ export function buildConditionGroups({ presentDivisions, backToBackStatus, regul
         { key: "holiday", label: "休日開催", condition: { kind: "weekday", value: false } },
       ],
     },
+    // 対戦相手の強さ（設計書450章）: 最新勝率と試合時点の勝率を1か所にまとめ、同じ区切りを隣り合わせに並べる。
+    // キーは前のまま（試合時点の勝率は「oppwin-…」、最新勝率は「oppLatest-…」。古いリンク・保存した設定がそのまま開けるように）
     {
-      label: "対戦相手の強さ（その時点までの勝率）",
-      options: [
-        { key: "oppwin-under50", label: "対5割未満", condition: { kind: "opponentWinRate", tier: "under50" } },
-        { key: "oppwin-50", label: "対5割以上", condition: { kind: "opponentWinRate", tier: "atLeast50" } },
-        { key: "oppwin-60", label: "対6割以上", condition: { kind: "opponentWinRate", tier: "atLeast60" } },
-      ],
+      label: "対戦相手の強さ",
+      options: opponentStrengthChoices().map(({ tier, basis, label }) => ({
+        key: basis === "latest" ? `oppLatest-${tier}` : OPP_AT_GAME_KEYS[tier],
+        label,
+        condition: (basis === "latest" ? { kind: "opponentLatestWinRate", tier } : { kind: "opponentWinRate", tier }) as ConditionalCondition,
+      })),
     },
     {
       label: "連戦（同じ相手と中1日以内の連戦）",
@@ -400,14 +418,6 @@ export function buildConditionGroups({ presentDivisions, backToBackStatus, regul
         { key: "both80lt", label: "お互い80点未満", condition: { kind: "bothScore", value: "lt" } },
         { key: "century", label: "100点ゲーム", condition: { kind: "century" } },
       ],
-    },
-    {
-      label: "対戦相手の強さ（最新勝率）",
-      options: (["under50", "atLeast50", "atLeast60"] as const).map((tier) => ({
-        key: `oppLatest-${tier}`,
-        label: `対${tier === "under50" ? "5割未満" : tier === "atLeast50" ? "5割以上" : "6割以上"}（最新勝率）`,
-        condition: { kind: "opponentLatestWinRate", tier } as ConditionalCondition,
-      })),
     },
     {
       label: "延長",

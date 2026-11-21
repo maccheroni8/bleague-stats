@@ -274,6 +274,7 @@ export function TeamSituationTab({ season, league }: { season: string; league: L
     periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, { disabledReason: periodReason }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
+      opponentLatestWinRateSupported: !!opponentRecords?.latestWinRates,
       ownTeamDivisionSupported: !!divisionHistory,
       opponentDivisions: opponentDivisionChoices(divisionHistory, season, league),
     }),

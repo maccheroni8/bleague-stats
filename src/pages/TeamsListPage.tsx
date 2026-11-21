@@ -115,7 +115,7 @@ import { ExportImageButton, type ExportChoice } from "../components/ExportImageB
 import { TeamSituationTab } from "../components/TeamSituationTab";
 import { PageTitleRow } from "../components/HeaderActions";
 import { ExportTarget } from "../components/ExportTarget";
-import { buildOpponentSeasonWinRates, matchesOpponentSeasonWinRate } from "../lib/opponentStrength";
+import { buildOpponentSeasonWinRates, matchesOpponentStrength, opponentStrengthLabel } from "../lib/opponentStrength";
 import { logsHaveOn4, on4Supported, onlyOn4Games } from "../lib/on4Core";
 import { buildExportFilename } from "../lib/conditionLabels";
 import { addGameFlow } from "../lib/gameFlowTotals";
@@ -454,8 +454,9 @@ function turnoverTotal(data: TeamForcedTurnovers): number {
 
 const ON4_ONLY_LABEL = "on4が可能だった試合だけ";
 // On-Court Foreign の「対戦相手の強さ」（相手の最新勝率が6割以上の試合だけ）。チーム詳細のシチュエーション別成績「対戦相手の強さ」と同じ出し方
-const OC_OPPONENT_PARAM = enumParam<"all" | "ge60">("ocopp", ["all", "ge60"], "all");
-const OC_OPPONENT_LABEL = "対勝率6割以上（最新勝率）";
+// 対戦相手の強さ。ge60＝最新勝率（前からの値）、ge60at＝試合時点の勝率（設計書450章で追加）
+const OC_OPPONENT_PARAM = enumParam<"all" | "ge60" | "ge60at">("ocopp", ["all", "ge60", "ge60at"], "all");
+const OC_OPPONENT_LABELS = { ge60: opponentStrengthLabel("atLeast60", "latest"), ge60at: opponentStrengthLabel("atLeast60", "atGame") } as const;
 const ON4_NO_DATA_REASON = "このシーズンのデータには、on4が可能だった試合の判定がまだ入っていません。";
 const ON4_UNAVAILABLE_REASON = "on4（外国籍・帰化・アジア特別枠が同時に4人）が可能なのは、B.PREMIER の2026-27シーズンだけです。";
 
@@ -611,7 +612,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   const on4Active = boxTab === "foreignPlayers" && on4Ok && on4Logs && storedForeignGames === "on4";
   // 相手の最新勝率が6割以上の試合だけ（teams.json の勝敗。結果だけの試合を含む最新の成績）
   const [ocOpponent, setOcOpponent] = useUrlState(OC_OPPONENT_PARAM, "all");
-  const ocOpponentActive = boxTab === "foreignPlayers" && ocOpponent === "ge60";
+  const ocOpponentActive = boxTab === "foreignPlayers" && ocOpponent !== "all";
   const ocOpponentRates = useMemo(() => buildOpponentSeasonWinRates(teams), [teams]);
   const exportRef = useRef<HTMLDivElement>(null);
   // まとめて保存（設計書449章）: タブを切り替えながら1タブ1枚を保存し、終わったら元のタブに戻す
@@ -1017,7 +1018,9 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
     for (const team of teams) {
       const teamLogs = scopedLogsByTeam.get(team.teamId) ?? [];
       const on4Logs2 = on4Active ? onlyOn4Games(teamLogs) : teamLogs;
-      const logs = ocOpponentActive ? on4Logs2.filter((g) => matchesOpponentSeasonWinRate(g.opponentTeamId, "atLeast60", ocOpponentRates)) : on4Logs2;
+      const logs = ocOpponentActive
+        ? on4Logs2.filter((g) => matchesOpponentStrength(g, "atLeast60", ocOpponent === "ge60at" ? "atGame" : "latest", { latest: ocOpponentRates, atGame: opponentRecords }))
+        : on4Logs2;
       const sum = sumForeignCourt(periodSource, logs, foreignPeriod, foreignSide);
       if (!sum || sum.games === 0 || sum.seconds.every((v) => v === 0)) continue;
       list.push({ team, games: sum.games, share: foreignShareFromSeconds(sum.seconds, sum.games) });
@@ -1032,7 +1035,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
       });
     }
     return list;
-  }, [boxTab, teams, gameLogsByTeam, foreignPeriod, periodSource, foreignLogsSupported, scopedLogsByTeam, foreignSide, on4Active, ocOpponentActive, ocOpponentRates]);
+  }, [boxTab, teams, gameLogsByTeam, foreignPeriod, periodSource, foreignLogsSupported, scopedLogsByTeam, foreignSide, on4Active, ocOpponentActive, ocOpponent, ocOpponentRates, opponentRecords]);
   const foreignShareById = useMemo(() => new Map((foreignRows ?? []).map((r) => [r.team.teamId, r.share])), [foreignRows]);
   // 表の人数の列は規定の上限まで。上限を超える人数でも、時間のあるチームがあれば出す
   const foreignCounts = FOREIGN_COUNTS.filter(
@@ -1157,6 +1160,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
     }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
+      opponentLatestWinRateSupported: !!opponentRecords?.latestWinRates,
       ownTeamDivisionSupported: !!divisionHistory,
       opponentDivisions: opponentDivisionChoices(divisionHistory, season, league),
       disabledReason: filterDisabledReason,
@@ -1215,7 +1219,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
                     situationalFilterLabels(filter),
                     periodLabels(periodOption),
                     on4Active ? ON4_ONLY_LABEL : [],
-                    ocOpponentActive ? OC_OPPONENT_LABEL : [],
+                    ocOpponent !== "all" && ocOpponentActive ? OC_OPPONENT_LABELS[ocOpponent] : [],
                     "在コート時間ベース",
                   )
                 : composeLabels(SEASON_TOTAL_ONLY_LABELS, "在コート時間ベース")
@@ -1459,11 +1463,12 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
                 label: "対戦相手の強さ",
                 options: [
                   { value: "all", label: "すべての相手" },
-                  { value: "ge60", label: OC_OPPONENT_LABEL },
+                  { value: "ge60", label: OC_OPPONENT_LABELS.ge60 },
+                  { value: "ge60at", label: OC_OPPONENT_LABELS.ge60at },
                 ],
                 value: ocOpponent,
                 defaultValue: "all",
-                onChange: (v) => setOcOpponent(v as "all" | "ge60"),
+                onChange: (v) => setOcOpponent(v as "all" | "ge60" | "ge60at"),
               }),
             ]}
           />

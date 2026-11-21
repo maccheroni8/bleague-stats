@@ -7,15 +7,35 @@
 // ④全シーズン・両リーグの実データで、最新勝率の元の2つ（teams.json と順位表の最新日）の勝敗が一致すること（チーム詳細と順位表で同じ最新勝率になる）、
 // 残りの相手の強さが別の書き方の計算と一致し、数えた試合数＝開催予定の試合数であること。今季は数えた残り＋消化試合が規定の試合数に届かないクラブ（日程が決まっていない試合）を出す
 //
+// ⑤最新勝率と試合時点の勝率（450章）: 小さな例（同じ相手でも時期で区分が変わる・5試合未満は対象外）・選択肢の並びと名前・絞り込みの部品・URL（opw は前のまま、opl が新しい値）・
+// 条件別順位表のグループのまとめ（キーは前のまま・ほかの並びは変えない）
+//
 // 使い方: npm run validate:opponent-strength（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { gunzipSync } from "node:zlib";
-import { buildOpponentSeasonWinRates, computeOpponentStrength, computeRemainingOpponentStrength, matchesOpponentSeasonWinRate } from "../src/lib/opponentStrength";
+import {
+  buildOpponentRecords,
+  buildOpponentSeasonWinRates,
+  computeOpponentStrength,
+  computeRemainingOpponentStrength,
+  isOpponentStrengthUnclassified,
+  matchesOpponentAtGameRate,
+  matchesOpponentSeasonWinRate,
+  matchesOpponentStrength,
+  matchesOpponentWinRateTier,
+  opponentStrengthChoices,
+  OPPONENT_STRENGTH_TIERS,
+  type OpponentSeasonTier,
+} from "../src/lib/opponentStrength";
+import { applyConditionalCondition, buildConditionGroups, describeCondition, type ConditionalCondition } from "../src/lib/conditionalCondition";
+import { matchesSituationalAndFilters } from "../src/lib/situational";
+import { situationalParam } from "../src/lib/urlState";
+import { withResultOnlyLogs } from "../src/lib/resultOnlyGames";
 import { pendingUpcomingGames } from "../shared/pendingUpcoming";
 import { resultOnlySummaries } from "../src/lib/resultOnlyGames";
-import type { GameSummary, StandingsSnapshot, TeamSummary, UpcomingGameEntry } from "../shared/types";
+import type { GameSummary, StandingsSnapshot, TeamGameLog, TeamSummary, UpcomingGameEntry } from "../shared/types";
 
 let failures = 0;
 function eq(label: string, actual: unknown, expected: unknown): void {
@@ -178,6 +198,60 @@ for (const season of seasons) {
       console.log(`   ${label}: 消化試合＋数えた残りが60試合に届かないクラブ（日程が決まっていない・中止の試合）: ${short.length === 0 ? "なし" : short.join("・")}`);
     }
   }
+}
+
+// --- ⑤最新勝率と試合時点の勝率（450章）: 小さな例・並び・名前・URL・条件別順位表のまとめ ---
+{
+  const g = (key: string, date: string, home: string, away: string, homeWin: boolean): GameSummary =>
+    ({ scheduleKey: key, date, homeTeamId: home, homeTeamName: home, awayTeamId: away, awayTeamName: away, homeScore: homeWin ? 80 : 70, awayScore: homeWin ? 70 : 80, gameEndedFlg: true, gameType: "regular" }) as GameSummary;
+  // B は最初の5試合で 4勝1敗（.800）、そのあと A と戦う（k6）。B の最新は 4勝6敗（.400）
+  const games = [
+    g("k1", "2026-10-01", "B", "C", true), g("k2", "2026-10-02", "B", "C", true), g("k3", "2026-10-03", "B", "C", true),
+    g("k4", "2026-10-04", "B", "C", true), g("k5", "2026-10-05", "B", "C", false), g("k6", "2026-10-06", "A", "B", true),
+    g("k7", "2026-10-07", "B", "C", false), g("k8", "2026-10-08", "B", "C", false), g("k9", "2026-10-09", "B", "C", false), g("k10", "2026-10-10", "B", "C", false),
+    g("k0", "2026-10-01", "A", "D", true),
+  ];
+  const teams = [{ teamId: "A", wins: 2, losses: 0 }, { teamId: "B", wins: 4, losses: 7 }, { teamId: "C", wins: 6, losses: 4 }, { teamId: "D", wins: 0, losses: 1 }];
+  const rec = buildOpponentRecords(games, teams);
+  const k6 = { scheduleKey: "k6", opponentTeamId: "B" };
+  const k0 = { scheduleKey: "k0", opponentTeamId: "D" };
+  eq("試合時点: k6 の B は 4勝1敗（.800）で対6割以上・対5割以上", (["atLeast60", "atLeast50", "under50"] as const).map((t) => matchesOpponentStrength(k6, t, "atGame", { atGame: rec })), [true, true, false]);
+  eq("最新: 同じ k6 の B は 4勝7敗（.364）で対5割未満", (["atLeast60", "atLeast50", "under50"] as const).map((t) => matchesOpponentStrength(k6, t, "latest", { atGame: rec })), [false, false, true]);
+  eq("試合時点: 相手が5試合未満（k0 の D は0試合）はどの区分にも入らず対象外。最新では D（0勝1敗）は対5割未満",
+    [OPPONENT_STRENGTH_TIERS.some((t) => matchesOpponentStrength(k0, t, "atGame", { atGame: rec })), isOpponentStrengthUnclassified(k0, "atGame", { atGame: rec }), matchesOpponentStrength(k0, "under50", "latest", { atGame: rec }), isOpponentStrengthUnclassified(k0, "latest", { atGame: rec })],
+    [false, true, true, false]);
+  eq("試合時点の判定は前からの matchesOpponentWinRateTier と同じ", OPPONENT_STRENGTH_TIERS.map((t) => matchesOpponentWinRateTier(k6, t, rec)), [false, true, true]);
+  eq("数字で選ぶ試合時点の勝率: k6 の B（.800）は .8以上・.81未満、5試合未満の k0 は入らない",
+    [matchesOpponentAtGameRate(k6, "ge", 0.8, rec), matchesOpponentAtGameRate(k6, "lt", 0.81, rec), matchesOpponentAtGameRate(k0, "lt", 1, rec)], [true, true, false]);
+  eq("teams.json が無ければ最新勝率は持たない（最新勝率の条件はどの試合も入らない）", [buildOpponentRecords(games, null).latestWinRates === undefined, matchesOpponentStrength(k6, "under50", "latest", { atGame: buildOpponentRecords(games, null) })], [true, false]);
+  eq("選択肢の並び: 同じ区切りの最新勝率と試合時点の勝率が隣り合わせ", opponentStrengthChoices().map((c) => c.label), [
+    "対5割未満（最新勝率）", "対5割未満（試合時点の勝率）", "対5割以上（最新勝率）", "対5割以上（試合時点の勝率）", "対6割以上（最新勝率）", "対6割以上（試合時点の勝率）",
+  ]);
+  // 絞り込みの部品: 試合時点（opponentWinRate）と最新（opponentLatestWinRate）
+  const log = { ...k6, date: "2026-10-06", win: true, isHome: true } as unknown as TeamGameLog;
+  eq("絞り込み: 試合時点の対6割以上に入り、最新の対6割以上には入らない", [matchesSituationalAndFilters(log, { opponentWinRate: "atLeast60" }, rec), matchesSituationalAndFilters(log, { opponentLatestWinRate: "atLeast60" }, rec), matchesSituationalAndFilters(log, { opponentLatestWinRate: "under50" }, rec)], [true, false, true]);
+  // URL: 前からの opw はそのまま、新しい opl は最新勝率
+  const readUrl = (q: string) => situationalParam.read(new URLSearchParams(q));
+  const write = (f: Parameters<typeof situationalParam.write>[1]) => { const p = new URLSearchParams(); situationalParam.write(p, f); return p.toString(); };
+  eq("URL: opw（試合時点）は前のまま読める・opl（最新）は新しい値", [readUrl("opw=atLeast60")?.opponentWinRate, readUrl("opl=under50")?.opponentLatestWinRate, readUrl("opl=under50")?.opponentWinRate], ["atLeast60", "under50", undefined]);
+  eq("URL: 書き出しは opw／opl", [write({ range: { kind: "all" }, opponentWinRate: "atLeast50" }), write({ range: { kind: "all" }, opponentLatestWinRate: "atLeast50" })], ["opw=atLeast50", "opl=atLeast50"]);
+  // 条件別順位表: 相手の強さは1つのグループに6つ。キーは前のまま。ほかのグループの並びは変えない
+  const groups = buildConditionGroups({ presentDivisions: ["east", "west"], backToBackStatus: undefined, regularScheduleKeys: new Set(), biweekPeriods: [], numbers: { count: 2, score: 80 } });
+  const opp = groups.filter((gr) => gr.options.some((o) => o.condition.kind === "opponentWinRate" || o.condition.kind === "opponentLatestWinRate"));
+  eq("条件別順位表: 相手の強さは1つのグループ（対戦相手の強さ）にまとまり、キーと名前が並ぶ", opp.map((gr) => [gr.label, gr.options.map((o) => `${o.key}=${o.label}`)]), [["対戦相手の強さ", [
+    "oppLatest-under50=対5割未満（最新勝率）", "oppwin-under50=対5割未満（試合時点の勝率）", "oppLatest-atLeast50=対5割以上（最新勝率）", "oppwin-50=対5割以上（試合時点の勝率）",
+    "oppLatest-atLeast60=対6割以上（最新勝率）", "oppwin-60=対6割以上（試合時点の勝率）",
+  ]]]);
+  eq("条件別順位表: グループの並び（相手の強さは前の「その時点までの勝率」の場所。最新勝率のグループは無くなる。ほかは前と同じ順）", groups.filter((gr) => gr.options.length > 0).map((gr) => gr.label), [
+    "年明け前後", "会場", "対戦相手の地区", "曜日", "対戦相手の強さ", "連戦（同じ相手と中1日以内の連戦）", "直近の試合数", "シーズンの時期", "点差決着",
+    "外国籍の出場人数", "外国籍・帰化・アジアの出場人数", "最長のオンザコート人数", "得点・失点", "延長", "Q1終了時点", "前半終了時点", "3Q終了時点", "試合中の点差（延長戦を含む）", "クラッチ",
+  ]);
+  eq("条件の名前（見出し）", ([{ kind: "opponentWinRate", tier: "atLeast50" }, { kind: "opponentLatestWinRate", tier: "atLeast50" }, { kind: "opponentLatestRate", mode: "ge", rate: 0.6 }, { kind: "opponentAtGameRate", mode: "lt", rate: 0.5 }] as ConditionalCondition[]).map(describeCondition),
+    ["対5割以上（試合時点の勝率）", "対5割以上（最新勝率）", "対勝率.600以上（最新勝率）", "対勝率.500未満（試合時点の勝率）"]);
+  const logs = [{ ...log }, { ...k0, date: "2026-10-01", win: true, isHome: true } as unknown as TeamGameLog];
+  eq("条件別順位表: 数字で選ぶ試合時点の勝率（.6以上は k6 だけ）", applyConditionalCondition(logs, { kind: "opponentAtGameRate", mode: "ge", rate: 0.6 }, { teamId: "A", season: "2026-27", league: "premier", opponentRecords: rec }).map((x) => x.scheduleKey), ["k6"]);
+  void withResultOnlyLogs;
+  void (null as unknown as OpponentSeasonTier);
 }
 
 if (failures > 0) {

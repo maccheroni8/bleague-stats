@@ -1,4 +1,6 @@
 import { seasonBoxColumnsWithFtrPpp } from "../lib/pppColumn";
+import { matchesOpponentStrength, opponentStrengthChoices } from "../lib/opponentStrength";
+import { useOpponentRecords } from "../lib/useOpponentRecords";
 import { SaveMenu } from "../components/SaveMenu";
 import { foreignSituationalGroups } from "../lib/situationalRecords";
 import { AiPlayerExportButton } from "../components/AiPlayerExportButton";
@@ -143,11 +145,9 @@ import {
   matchesDivision,
   matchesMonth,
   matchesNewYearHalf,
-  matchesOpponentWinRateTier,
   matchesShotChartGameFilters,
   resolveOwnTeam,
   type GameTeamInfo,
-  type RecordBeforeGame,
   type SeasonHalfBoundary,
   type ShotChartGameFilters,
   type SituationalFilter,
@@ -1134,10 +1134,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     [seasonShotChartExpanded, season, league],
     { discardStale: true },
   );
-  const shotChartOpponentRecords = useMemo(
-    () => (shotChartGameSummaries ? buildRecordsBeforeGame(shotChartGameSummaries) : undefined),
-    [shotChartGameSummaries],
-  );
+  const shotChartOpponentRecords = useOpponentRecords(shotChartGameSummaries, season, league);
   // シーズン内移籍対応: 所属チームを試合ログから動的に導出する（resolveOwnTeam参照）。
   // 複数チームでプレーしたシーズンのみショットチャートのフィルタバーにチーム別の選択が表示される
   const shotChartGameTeams = useMemo(
@@ -1685,8 +1682,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // 「対勝率別」フィルタ用（対戦相手のその試合時点までの勝率が必要。前半戦/後半戦の境界日と同じく
   // スロットごとのシーズンの試合日程から求める）
   const compareOpponentRecords = [
-    useMemo(() => (compareSummaries0 ? buildRecordsBeforeGame(compareSummaries0) : undefined), [compareSummaries0]),
-    useMemo(() => (compareSummaries1 ? buildRecordsBeforeGame(compareSummaries1) : undefined), [compareSummaries1]),
+    useOpponentRecords(compareSummaries0, compareSlots[0].season, league),
+    useOpponentRecords(compareSummaries1, compareSlots[1].season, league),
   ];
 
   // 「シチュエーション別成績」セクション用データ。選択中シーズンの試合日程（対勝率別・連戦・
@@ -1696,10 +1693,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     () => (tab === "stats" ? fetchGameSummaries(situationalStatsSeason, league) : Promise.resolve(null)),
     [tab, situationalStatsSeason, league],
   );
-  const situationalStatsOpponentRecords = useMemo(
-    () => (situationalStatsSummaries ? buildRecordsBeforeGame(situationalStatsSummaries) : undefined),
-    [situationalStatsSummaries],
-  );
+  const situationalStatsOpponentRecords = useOpponentRecords(situationalStatsSummaries, situationalStatsSeason, league);
   // 「アシストの関係性」（Batch 3）の相手選手名解決用。ページ本体のseason（自身のヘッダー用）とは
   // 独立にsituationalStatsSeasonのplayers.jsonを取得する（他選手の在籍シーズンが自身のページの
   // シーズンと異なりうるため）
@@ -2220,20 +2214,18 @@ export function PlayerDetailPage({ season }: { season: string }) {
         .map((m) => ({ key: `m${m}`, label: `${m}月`, predicate: (g) => matchesMonth(g, m) })),
     },
     {
+      // 対戦相手の強さ（設計書450章）: 試合時点の勝率と最新勝率を、同じ区切りを隣り合わせに並べる（チームのシチュエーション別と同じ）。
+      // 行のキーは試合時点の勝率が前のまま（under50 など）、最新勝率は「latest_」を付ける
       key: "opponentStrength",
       label: "対戦相手の強さ",
       rows: situationalStatsOpponentRecords
-        ? (
-            [
-              ["under50", "対5割未満"],
-              ["atLeast50", "対5割以上"],
-              ["atLeast60", "対6割以上"],
-            ] as const
-          ).map(([tier, label]) => ({
-            key: tier,
-            label,
-            predicate: (g: PlayerGameLog) => matchesOpponentWinRateTier(g, tier, situationalStatsOpponentRecords),
-          }))
+        ? opponentStrengthChoices()
+            .filter((c) => c.basis === "atGame" || !!situationalStatsOpponentRecords.latestWinRates)
+            .map(({ tier, basis, label }) => ({
+              key: basis === "atGame" ? tier : `latest_${tier}`,
+              label,
+              predicate: (g: PlayerGameLog) => matchesOpponentStrength(g, tier, basis, { atGame: situationalStatsOpponentRecords }),
+            }))
         : [],
     },
     {
@@ -2418,6 +2410,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       : []),
     ...situationalAndAxes(shotChartFilters, setShotChartFilters, {
       opponentWinRateSupported: !!shotChartGameSummaries,
+      opponentLatestWinRateSupported: !!shotChartOpponentRecords?.latestWinRates,
       ownTeamDivisionSupported: !!divisionHistory && !!shotChartGameSummaries,
       opponentDivisions: opponentDivisionChoices(divisionHistory, season, league),
     }).map((a): FilterAxis => (a.id === "s.result" ? { ...a, tier: "primary" } : a)),
@@ -3410,6 +3403,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                     onFilter={(f) => updateSlot({ filter: f })}
                     boundary={compareBoundaries[i]}
                     opponentWinRateSupported={!!compareOpponentRecords[i]}
+                    opponentLatestWinRateSupported={!!compareOpponentRecords[i]?.latestWinRates}
                     ownTeamDivisionSupported={!!divisionHistory && !!careerTeamData?.get(slot.season)}
                     opponentDivisions={opponentDivisionChoices(divisionHistory, slot.season, league)}
                   />

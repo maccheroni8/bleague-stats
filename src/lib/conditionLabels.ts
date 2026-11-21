@@ -14,6 +14,7 @@
 // 軸の略称（DESIGN.md 95章）: S=シチュエーション（SituationalFilter）、G=レギュラー/プレーオフ/合算、
 // P=Q別/前後半、D=平均/合計/30分換算、V=自チーム/opp/+/-
 
+import { opponentStrengthLabel } from "./opponentStrength";
 import type { PeriodRangeOption } from "./periodRange";
 import { MARGIN_CONDITION_LABELS, type SeasonHalfBoundary, type ShotChartGameFilters, type SituationalAndFilters, type SituationalFilter } from "./situational";
 import {
@@ -85,9 +86,8 @@ function situationalAndFilterParts(filter: SituationalAndFilters): string[] {
   if (filter.newYear) parts.push(filter.newYear === "before" ? "年明け前" : "年明け後");
   if (filter.weekday) parts.push("平日開催");
   if (filter.weekend) parts.push("土日祝開催");
-  if (filter.opponentWinRate) {
-    parts.push(filter.opponentWinRate === "under50" ? "対5割未満" : filter.opponentWinRate === "atLeast50" ? "対5割以上" : "対6割以上");
-  }
+  if (filter.opponentWinRate) parts.push(opponentStrengthLabel(filter.opponentWinRate, "atGame"));
+  if (filter.opponentLatestWinRate) parts.push(opponentStrengthLabel(filter.opponentLatestWinRate, "latest"));
   if (filter.margin) parts.push(MARGIN_CONDITION_LABELS[filter.margin]);
   return parts;
 }

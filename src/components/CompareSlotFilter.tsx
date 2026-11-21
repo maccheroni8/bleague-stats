@@ -46,6 +46,8 @@ interface CompareSlotFilterProps {
   onClear?: () => void;
   boundary?: SeasonHalfBoundary | null;
   opponentWinRateSupported?: boolean;
+  /** 「対戦相手の勝率」の最新勝率の選択肢を出すか（設計書450章） */
+  opponentLatestWinRateSupported?: boolean;
   ownTeamDivisionSupported?: boolean;
   /** 「対戦地区」の「対◯地区」の選択肢（スロットのシーズン・リーグにある地区。opponentDivisionChoices） */
   opponentDivisions?: Division[];
@@ -72,6 +74,7 @@ export function CompareSlotFilter({
   onClear,
   boundary,
   opponentWinRateSupported,
+  opponentLatestWinRateSupported,
   ownTeamDivisionSupported,
   opponentDivisions,
   situationalDisabledNote,
@@ -97,7 +100,7 @@ export function CompareSlotFilter({
     }
     if (!situationalDisabledNote) axes.push(
       // 会場はスロットでは詳細フィルタ側に置く（スロットの幅では主要軸を絞るため）
-      ...situationalAxes(filter, onFilter, { boundary, opponentWinRateSupported, ownTeamDivisionSupported, opponentDivisions }).map(
+      ...situationalAxes(filter, onFilter, { boundary, opponentWinRateSupported, opponentLatestWinRateSupported, ownTeamDivisionSupported, opponentDivisions }).map(
         (a): FilterAxis => (a.id === "s.homeAway" ? { ...a, tier: "advanced" } : a),
       ),
     );

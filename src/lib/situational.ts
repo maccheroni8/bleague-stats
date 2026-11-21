@@ -13,6 +13,18 @@ import { efgPct, offensiveRating, pace, safeDiv, tsPct } from "../../shared/form
 import type { Category, Division, DivisionHistoryFile, GameSummary, PlayerGameLog, TeamGameLog } from "../../shared/types";
 import { teamDivisionForSeason } from "../../scripts/lib/divisions";
 import { isWeekdayGame, isWeekendGame } from "./japaneseHolidays";
+import {
+  buildRecordsBeforeGame,
+  matchesOpponentSeasonWinRate,
+  matchesOpponentWinRateTier,
+  MIN_GAMES_FOR_OPPONENT_WIN_RATE,
+  type OpponentRecords,
+  type OpponentSeasonTier,
+  type RecordBeforeGame,
+} from "./opponentStrength";
+
+// 試合時点の勝率の計算は opponentStrength.ts に移した（設計書450章）。前からの読み込み先のまま使えるよう、ここからも出す
+export { buildRecordsBeforeGame, matchesOpponentWinRateTier, MIN_GAMES_FOR_OPPONENT_WIN_RATE, type OpponentRecords, type RecordBeforeGame };
 
 /**
  * 「試合の範囲」を決める軸。互いに排他（同時に2つは選べない）。前半戦/後半戦は
@@ -62,6 +74,11 @@ export interface SituationalAndFilters {
    * 0%/100%に振れやすく、対戦相手として意味のある強さの指標にならないため。DESIGN.md参照）
    */
   opponentWinRate?: "under50" | "atLeast50" | "atLeast60";
+  /**
+   * 対戦相手の「最新勝率」（teams.json の勝敗。チーム詳細の概要の「対戦相手の強さ」と同じ）による絞り込み（設計書450章）。
+   * opponentWinRate（試合時点の勝率）とは同じ選択欄の中の別の選択肢で、どちらか一方だけを選ぶ。判定には opponentRecords.latestWinRates が要る
+   */
+  opponentLatestWinRate?: OpponentSeasonTier;
   /**
    * 試合中の点差（試合ログの maxLead・maxDeficit。延長戦を含む。DESIGN.md 150章）。1つだけ選ぶ。同じ試合がリードとビハインドの
    * 両方の条件を満たすことはある。値が無い試合（プレーバイプレーが無い試合）はどの条件にも該当しない
@@ -151,6 +168,7 @@ export function isDefaultFilter(filter: SituationalFilter): boolean {
     !filter.weekday &&
     !filter.weekend &&
     !filter.opponentWinRate &&
+    !filter.opponentLatestWinRate &&
     !filter.margin
   );
 }
@@ -195,53 +213,6 @@ export function ownTeamResolverFromGames(
 ): OwnTeamResolver | undefined {
   if (!gameTeams) return undefined;
   return (g) => resolveOwnTeam(g, gameTeams)?.teamId;
-}
-
-/** 対戦相手のその試合時点までの勝率で絞り込む際、これ未満の消化試合数は対象外にする（DESIGN.md参照） */
-export const MIN_GAMES_FOR_OPPONENT_WIN_RATE = 5;
-
-export interface RecordBeforeGame {
-  wins: number;
-  losses: number;
-}
-
-/**
- * シーズンの試合日程（games-summary.json、レギュラーシーズンのみ対象）から、各試合について
- * 「その試合が始まる時点（その試合自体は含まない）」での両チームの勝敗数を求める。
- * Map<scheduleKey, Map<teamId, RecordBeforeGame>>（1試合につき対戦した2チーム分のキーを持つ）。
- * 「対勝率別」フィルタ（opponentWinRate）で、対戦相手のscheduleKeyをキーに引く用途で使う
- */
-export function buildRecordsBeforeGame(games: GameSummary[]): Map<string, Map<string, RecordBeforeGame>> {
-  const sorted = games
-    .filter((g) => g.gameType === "regular" && g.gameEndedFlg)
-    .sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey));
-
-  const result = new Map<string, Map<string, RecordBeforeGame>>();
-  const running = new Map<string, RecordBeforeGame>();
-  const ensure = (teamId: string): RecordBeforeGame => {
-    let r = running.get(teamId);
-    if (!r) {
-      r = { wins: 0, losses: 0 };
-      running.set(teamId, r);
-    }
-    return r;
-  };
-
-  for (const g of sorted) {
-    const perGame = new Map<string, RecordBeforeGame>();
-    perGame.set(g.homeTeamId, { ...ensure(g.homeTeamId) });
-    perGame.set(g.awayTeamId, { ...ensure(g.awayTeamId) });
-    result.set(g.scheduleKey, perGame);
-
-    if (g.homeScore > g.awayScore) {
-      ensure(g.homeTeamId).wins += 1;
-      ensure(g.awayTeamId).losses += 1;
-    } else {
-      ensure(g.awayTeamId).wins += 1;
-      ensure(g.homeTeamId).losses += 1;
-    }
-  }
-  return result;
 }
 
 /**
@@ -489,30 +460,6 @@ export function matchesNewYearHalf<T extends { date: string }>(g: T, half: "befo
 }
 
 /**
- * 対戦相手のその試合時点までの勝率が指定の閾値区分に該当するか。opponentRecordsが未指定、
- * または相手の消化試合数がMIN_GAMES_FOR_OPPONENT_WIN_RATE未満の場合は常にfalse（DESIGN.md参照）
- */
-export function matchesOpponentWinRateTier<T extends { scheduleKey: string; opponentTeamId: string }>(
-  g: T,
-  tier: "under50" | "atLeast50" | "atLeast60",
-  opponentRecords: Map<string, Map<string, RecordBeforeGame>> | undefined,
-): boolean {
-  const rec = opponentRecords?.get(g.scheduleKey)?.get(g.opponentTeamId);
-  if (!rec) return false;
-  const gp = rec.wins + rec.losses;
-  if (gp < MIN_GAMES_FOR_OPPONENT_WIN_RATE) return false;
-  const winPct = rec.wins / gp;
-  switch (tier) {
-    case "under50":
-      return winPct < 0.5;
-    case "atLeast50":
-      return winPct >= 0.5;
-    case "atLeast60":
-      return winPct >= 0.6;
-  }
-}
-
-/**
  * SituationalAndFilters（勝敗・会場・地区・月別・年明け前後・平日開催・対勝率別）を全てAND合成で
  * 判定する共通マッチャー。SituationalFilterPicker（filterGameLogs経由）・ShotChartFilterPicker
  * （matchesShotChartGameFilters経由）の両方から呼ばれる、複数選択フィルタの唯一の判定ロジック
@@ -531,7 +478,7 @@ export function matchesSituationalAndFilters<
 >(
   g: T,
   filters: SituationalAndFilters,
-  opponentRecords?: Map<string, Map<string, RecordBeforeGame>>,
+  opponentRecords?: OpponentRecords,
   divisionHistory?: DivisionHistoryFile | null,
   season?: string,
   ownTeamOf?: OwnTeamResolver,
@@ -548,6 +495,7 @@ export function matchesSituationalAndFilters<
   if (filters.weekday && !isWeekdayGame(g.date)) return false;
   if (filters.weekend && !isWeekendGame(g.date)) return false;
   if (filters.opponentWinRate && !matchesOpponentWinRateTier(g, filters.opponentWinRate, opponentRecords)) return false;
+  if (filters.opponentLatestWinRate && !matchesOpponentSeasonWinRate(g.opponentTeamId, filters.opponentLatestWinRate, opponentRecords?.latestWinRates ?? new Map())) return false;
   if (filters.margin && !matchesMargin(g, filters.margin)) return false;
   return true;
 }
@@ -574,7 +522,7 @@ export function matchesShotChartGameFilters<
 >(
   g: T,
   filters: ShotChartGameFilters,
-  opponentRecords?: Map<string, Map<string, RecordBeforeGame>>,
+  opponentRecords?: OpponentRecords,
   ownTeamByScheduleKey?: Map<string, GameTeamInfo>,
   divisionHistory?: DivisionHistoryFile | null,
   season?: string,
@@ -628,7 +576,7 @@ export function filterGameLogs<
 >(
   logs: T[],
   filter: SituationalFilter,
-  opponentRecords?: Map<string, Map<string, RecordBeforeGame>>,
+  opponentRecords?: OpponentRecords,
   divisionHistory?: DivisionHistoryFile | null,
   season?: string,
   ownTeamOf?: OwnTeamResolver,

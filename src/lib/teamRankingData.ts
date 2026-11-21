@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchDivisionHistory, fetchGame, fetchGameSummaries, fetchTeamGameLogs, type League } from "./data";
+import { fetchDivisionHistory, fetchGame, fetchGameSummaries, fetchTeamGameLogs, fetchTeams, type League } from "./data";
+import { buildOpponentRecords, type OpponentRecords } from "./opponentStrength";
 import {
   buildGameTeamsByScheduleKey,
-  buildRecordsBeforeGame,
   ownTeamResolverFromGames,
   type OwnTeamResolver,
-  type RecordBeforeGame,
 } from "./situational";
-import type { DivisionHistoryFile, GameSummary, StoredGame, TeamGameLog } from "../../shared/types";
+import type { DivisionHistoryFile, GameSummary, StoredGame, TeamGameLog, TeamSummary } from "../../shared/types";
 
 /**
  * 26チーム分（または指定したチーム一覧分）のteam-games/{teamId}.jsonを並行取得する。
@@ -62,17 +61,20 @@ export function useLeagueSituationalContext(
 ): {
   summaries: GameSummary[] | null;
   divisionHistory: DivisionHistoryFile | null;
-  opponentRecords: Map<string, Map<string, RecordBeforeGame>> | undefined;
+  /** 試合時点の勝率（最新勝率〔teams.json〕も latestWinRates に添える。設計書450章） */
+  opponentRecords: OpponentRecords | undefined;
   /** 選手の試合ログから試合ごとの自チームを引く（対戦地区の「同地区/他地区」用）。日程未取得ならundefined */
   playerOwnTeamOf: OwnTeamResolver | undefined;
 } {
   const [summaries, setSummaries] = useState<GameSummary[] | null>(null);
   const [divisionHistory, setDivisionHistory] = useState<DivisionHistoryFile | null>(null);
+  const [latestTeams, setLatestTeams] = useState<TeamSummary[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setSummaries(null);
     setDivisionHistory(null);
+    setLatestTeams(null);
     // 前シーズン比較の前季は、比較をオンにしたときだけ読む（enabled が false の間は読まない）
     if (!enabled) return;
     Promise.all([fetchGameSummaries(season, league), fetchDivisionHistory()])
@@ -85,14 +87,20 @@ export function useLeagueSituationalContext(
       .catch(() => {
         // 対勝率別・地区フィルタが使えなくなるだけなので、失敗しても他の機能は継続する
       });
+    // 最新勝率の条件用（読めなければ最新勝率の選択肢が出ないだけ）
+    fetchTeams(season, league)
+      .then((t) => {
+        if (!cancelled) setLatestTeams(t);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [season, enabled, league]);
 
-  const opponentRecords = useMemo<Map<string, Map<string, RecordBeforeGame>> | undefined>(
-    () => (summaries ? buildRecordsBeforeGame(summaries) : undefined),
-    [summaries],
+  const opponentRecords = useMemo<OpponentRecords | undefined>(
+    () => (summaries ? buildOpponentRecords(summaries, latestTeams) : undefined),
+    [summaries, latestTeams],
   );
 
   const playerOwnTeamOf = useMemo(

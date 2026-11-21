@@ -139,7 +139,6 @@ import {
   matchesDivision,
   matchesMonth,
   matchesNewYearHalf,
-  matchesOpponentWinRateTier,
   resolveOwnTeam,
   isDefaultFilter,
   type BackToBackGame,
@@ -171,7 +170,17 @@ import {
   LABEL_SEPARATOR,
 } from "../lib/conditionLabels";
 import { isWeekdayGame, isWeekendGame } from "../lib/japaneseHolidays";
-import { buildOpponentSeasonWinRates, matchesOpponentSeasonWinRate } from "../lib/opponentStrength";
+import {
+  buildOpponentRecords,
+  buildOpponentSeasonWinRates,
+  isOpponentStrengthUnclassified,
+  matchesOpponentStrength,
+  MIN_GAMES_FOR_OPPONENT_WIN_RATE,
+  OPPONENT_BASIS_LABELS,
+  opponentStrengthChoices,
+  type OpponentRecords,
+} from "../lib/opponentStrength";
+import { useOpponentRecords } from "../lib/useOpponentRecords";
 import { leaderStatLabel, PLAYER_STAT_DEFS } from "../lib/statDefs";
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers } from "../lib/playerRankingEligibility";
 import { safeDiv } from "../../shared/formulas";
@@ -1773,6 +1782,8 @@ export function buildSituationalRecordGroups(
   divisionHistory: DivisionHistoryFile | null | undefined,
   season: string,
   league: League = "premier",
+  /** 試合時点の勝率（チームスタッツの表と同じ。渡したときだけ「対戦相手の強さ」に試合時点の勝率の行を足す。設計書450章） */
+  opponentAtGameRecords?: OpponentRecords,
 ): SituationalRecordGroupDef[] {
   const monthsWithData = new Set(logs.map((g) => Number(g.date.slice(5, 7))));
   return [
@@ -1807,23 +1818,25 @@ export function buildSituationalRecordGroups(
         .map((m) => ({ key: `m${m}`, label: `${m}月`, predicate: (g: TeamGameLog) => matchesMonth(g, m) })),
     },
     {
+      // 対戦相手の強さ（設計書450章）: 最新勝率と試合時点の勝率を、同じ区切りを隣り合わせに並べる。
+      // 行のキーは最新勝率が前のまま（under50 など）、試合時点の勝率は「atGame_」を付ける。試合時点の勝率は opponentAtGameRecords が無ければ出さない
       key: "opponentStrength",
-      label: "対戦相手の強さ（最新勝率）",
+      label: "対戦相手の強さ",
       rows: [
-        ...([
-          ["under50", "対5割未満"],
-          ["atLeast50", "対5割以上"],
-          ["atLeast60", "対6割以上"],
-        ] as const).map(([tier, label]) => ({
-          key: tier,
-          label,
-          predicate: (g: TeamGameLog) => matchesOpponentSeasonWinRate(g.opponentTeamId, tier, opponentWinRates),
-        })),
-        {
-          key: "unclassified",
-          label: "対象外",
-          predicate: (g: TeamGameLog) => !opponentWinRates.has(g.opponentTeamId),
-        },
+        ...opponentStrengthChoices()
+          .filter((c) => c.basis === "latest" || !!opponentAtGameRecords)
+          .map(({ tier, basis, label }) => ({
+            key: basis === "latest" ? tier : `atGame_${tier}`,
+            label,
+            predicate: (g: TeamGameLog) => matchesOpponentStrength(g, tier, basis, { latest: opponentWinRates, atGame: opponentAtGameRecords }),
+          })),
+        ...(["latest", "atGame"] as const)
+          .filter((basis) => basis === "latest" || !!opponentAtGameRecords)
+          .map((basis) => ({
+            key: basis === "latest" ? "unclassified" : "atGame_unclassified",
+            label: `対象外（${OPPONENT_BASIS_LABELS[basis]}）`,
+            predicate: (g: TeamGameLog) => isOpponentStrengthUnclassified(g, basis, { latest: opponentWinRates, atGame: opponentAtGameRecords }),
+          })),
       ],
     },
     {
@@ -2317,7 +2330,8 @@ export function TeamDetailPage({ season }: { season: string }) {
   // ヘッダーの地区順位・全体順位表示用（既存の順位表ページと同じstandings-history.jsonを再利用）
   const { data: standingsHistory } = useJsonData(() => fetchStandingsHistory(season, league), [season, league]);
   // シチュエーション別フィルタの「対勝率別」用（対戦相手のその試合時点までの勝率が必要）
-  const opponentRecords = useMemo(() => (summaries ? buildRecordsBeforeGame(summaries) : undefined), [summaries]);
+  // 最新勝率（teams.json）も添える（設計書450章。絞り込みとシチュエーション別成績で両方の条件を選べるように）
+  const opponentRecords = useMemo(() => (summaries ? buildOpponentRecords(summaries, teams) : undefined), [summaries, teams]);
 
   // 「ショットチャート」専用の詳細フィルタ（試合種別・Q別/前後半とともに、シチュエーション別成績とは独立して持つ）
   const [teamShotChartFilter, setTeamShotChartFilter] = usePageState<SituationalFilter>(pk("teamShotChartFilter"), { range: { kind: "all" } });
@@ -2743,8 +2757,8 @@ export function TeamDetailPage({ season }: { season: string }) {
     [tab, compareSlots[1].season, league],
   );
   const compareOpponentRecords = [
-    useMemo(() => (compareSummaries0 ? buildRecordsBeforeGame(compareSummaries0) : undefined), [compareSummaries0]),
-    useMemo(() => (compareSummaries1 ? buildRecordsBeforeGame(compareSummaries1) : undefined), [compareSummaries1]),
+    useOpponentRecords(compareSummaries0, compareSlots[0].season, league),
+    useOpponentRecords(compareSummaries1, compareSlots[1].season, league),
   ];
 
   // トラディショナル/アドバンスド/Misc/スコアリングの全列（PTSOFFTO・DUNK・被アシスト内訳・
@@ -3513,6 +3527,7 @@ export function TeamDetailPage({ season }: { season: string }) {
         divisionHistory,
         season,
         league,
+        opponentRecords,
       )
     : [];
   const situationalRecordRawGamesReady =
@@ -3981,6 +3996,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     periodAxis(teamShotChartPeriod, setTeamShotChartPeriod, SEASON_PERIOD_OPTIONS_NO_CLUTCH),
     ...situationalAxes(teamShotChartFilter, setTeamShotChartFilter, {
       opponentWinRateSupported: !!opponentRecords,
+      opponentLatestWinRateSupported: !!opponentRecords?.latestWinRates,
       ownTeamDivisionSupported: !!divisionHistory,
       opponentDivisions: opponentDivisionChoices(divisionHistory, season, league),
     }),
@@ -3999,6 +4015,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     }),
     ...situationalAxes(playerStatsFilter, setPlayerStatsFilter, {
       opponentWinRateSupported: !!opponentRecords,
+      opponentLatestWinRateSupported: !!opponentRecords?.latestWinRates,
       ownTeamDivisionSupported: !!divisionHistory,
       opponentDivisions: opponentDivisionChoices(divisionHistory, season, league),
     }),
@@ -4265,7 +4282,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             axes={[gameTypeAxis(situationalRecordGameType, setSituationalRecordGameType, season)]}
           />
           {situationalRecordGroups.some((group) => group.key === "opponentStrength") && (
-            <p className="rule-change-footnote">対戦相手の強さ（最新勝率）は、対象シーズンの最新勝率（終了後は最終勝率）で判定します。「対5割以上」には「対6割以上」も含みます。勝率を算出できない相手との試合は対象外です。</p>
+            <p className="rule-change-footnote">対戦相手の強さの「最新勝率」は相手の対象シーズンの最新勝率（終了後は最終勝率）、「試合時点の勝率」はその試合の前の時点の相手の勝率（相手が{MIN_GAMES_FOR_OPPONENT_WIN_RATE}試合以上を消化した試合だけ）で判定します。「対5割以上」には「対6割以上」も含みます。勝率を出せない相手との試合は対象外です。</p>
           )}
           {gameLogsLoading ? (
             <p className="loading">読み込み中...</p>
@@ -5969,6 +5986,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     filter={slot.filter}
                     onFilter={(f) => updateSlot({ filter: f })}
                     opponentWinRateSupported={!!compareOpponentRecords[i]}
+                    opponentLatestWinRateSupported={!!compareOpponentRecords[i]?.latestWinRates}
                     ownTeamDivisionSupported={!!divisionHistory}
                     opponentDivisions={opponentDivisionChoices(divisionHistory, slot.season, league)}
                     {...(slot.league ? { situationalDisabledNote: LEAGUE_SLOT_NOTE } : {})}

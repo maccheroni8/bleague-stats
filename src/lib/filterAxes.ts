@@ -9,6 +9,7 @@
 //   playerSeasonBoxscore.tsのSEASON_*_LABELS等）と同じ表記を使い、ConditionTitleとずれないようにする
 // - 軸はtier（primary=常時表示 / advanced=「詳細フィルタ」に折りたたむ）を持つ
 
+import { opponentStrengthChoices, type OpponentSeasonTier } from "./opponentStrength";
 import type { ReactNode } from "react";
 import { teamShortName } from "../../shared/teamNames";
 import type { Category, Division } from "../../shared/types";
@@ -489,11 +490,16 @@ export function leagueVenueAxis(value: LeagueVenue, onChange: (v: LeagueVenue) =
   });
 }
 
+/** 「対戦相手の勝率」の選択欄で、最新勝率の選択肢の値の頭 */
+const LATEST_PREFIX = "latest:";
+
 export interface SituationalAxesContext {
   /** 前半戦/後半戦の境界日。未指定または算出不能（null）なら、その選択肢自体を出さない */
   boundary?: SeasonHalfBoundary | null;
-  /** 「対戦相手の勝率」の表示可否（対戦相手の勝率算出にシーズン全体の試合日程が必要なため） */
+  /** 「対戦相手の勝率」の試合時点の勝率の選択肢の表示可否（対戦相手の勝率算出にシーズン全体の試合日程が必要なため） */
   opponentWinRateSupported?: boolean;
+  /** 「対戦相手の勝率」の最新勝率の選択肢の表示可否（teams.json の勝敗が要る。opponentRecords.latestWinRates があるとき。設計書450章） */
+  opponentLatestWinRateSupported?: boolean;
   /**
    * 「対戦地区」の同地区・他地区の表示可否。自チームの地区を試合ごとに引く必要があるため、
    * 呼び出し側がfilterGameLogsにOwnTeamResolverを渡せるページだけtrueにする
@@ -550,6 +556,7 @@ export function situationalAndAxes<T extends SituationalAndFilters>(
   onChange: (filter: T) => void,
   ctx: {
     opponentWinRateSupported?: boolean;
+    opponentLatestWinRateSupported?: boolean;
     ownTeamDivisionSupported?: boolean;
     ownDivisions?: Division[];
     opponentDivisions?: Division[];
@@ -558,6 +565,7 @@ export function situationalAndAxes<T extends SituationalAndFilters>(
 ): FilterAxis[] {
   const {
     opponentWinRateSupported = false,
+    opponentLatestWinRateSupported = false,
     ownTeamDivisionSupported = false,
     ownDivisions = [],
     opponentDivisions = ["east", "west"] as Division[],
@@ -643,13 +651,25 @@ export function situationalAndAxes<T extends SituationalAndFilters>(
       (f, v) => ({ ...f, margin: v === "" ? undefined : (v as MarginCondition) }),
     ),
   );
-  if (opponentWinRateSupported) {
+  // 対戦相手の勝率（設計書450章）: 最新勝率と試合時点の勝率を同じ選択欄に、同じ区切りを隣り合わせに並べる。どちらか1つだけ選ぶ。
+  // 値は試合時点の勝率が前からの「under50」など、最新勝率が「latest:under50」など
+  if (opponentWinRateSupported || opponentLatestWinRateSupported) {
+    const value = filter.opponentLatestWinRate ? `${LATEST_PREFIX}${filter.opponentLatestWinRate}` : filter.opponentWinRate ?? "";
     axes.push(
-      andAxis("s.opponentWinRate", "対戦相手の勝率", "advanced", filter.opponentWinRate ?? "", [
-        { value: "under50", label: "5割未満" },
-        { value: "atLeast50", label: "5割以上" },
-        { value: "atLeast60", label: "6割以上" },
-      ], (f, v) => ({ ...f, opponentWinRate: v === "" ? undefined : (v as "under50" | "atLeast50" | "atLeast60") })),
+      andAxis(
+        "s.opponentWinRate",
+        "対戦相手の勝率",
+        "advanced",
+        value,
+        opponentStrengthChoices()
+          .filter((c) => (c.basis === "latest" ? opponentLatestWinRateSupported : opponentWinRateSupported))
+          .map((c) => ({ value: c.basis === "latest" ? `${LATEST_PREFIX}${c.tier}` : c.tier, label: c.label.replace(/^対/, "") })),
+        (f, v) => {
+          const latest = v.startsWith(LATEST_PREFIX) ? (v.slice(LATEST_PREFIX.length) as OpponentSeasonTier) : undefined;
+          const atGame = v !== "" && !latest ? (v as OpponentSeasonTier) : undefined;
+          return { ...f, opponentWinRate: atGame, opponentLatestWinRate: latest };
+        },
+      ),
     );
   }
   return axes;
@@ -666,7 +686,7 @@ export function situationalAxes(
   onChange: (filter: SituationalFilter) => void,
   ctx: SituationalAxesContext = {},
 ): FilterAxis[] {
-  const { boundary = null, opponentWinRateSupported = false, ownTeamDivisionSupported = false, ownDivisions, opponentDivisions, disabledReason } = ctx;
+  const { boundary = null, opponentWinRateSupported = false, opponentLatestWinRateSupported = false, ownTeamDivisionSupported = false, ownDivisions, opponentDivisions, disabledReason } = ctx;
   const rangeValue = rangeValueOf(filter, boundary);
   const dateRange = filter.range.kind === "dateRange" ? filter.range : null;
   const dateDisabledReason = disabledReason ?? (dateRange ? undefined : "対象期間で「期間指定」を選ぶと入力できます");
@@ -700,7 +720,7 @@ export function situationalAxes(
           ? `${dateRange.start || "…"}〜${dateRange.end || "…"}`
           : undefined,
     },
-    ...situationalAndAxes(filter, onChange, { opponentWinRateSupported, ownTeamDivisionSupported, ownDivisions, opponentDivisions, disabledReason }),
+    ...situationalAndAxes(filter, onChange, { opponentWinRateSupported, opponentLatestWinRateSupported, ownTeamDivisionSupported, ownDivisions, opponentDivisions, disabledReason }),
   ];
 
   const dateAxis = (id: string, label: string, key: "start" | "end"): FilterAxis => ({

@@ -11,6 +11,7 @@
 // 「ホーム」「プレーオフ」等で絞れば取得量も減る）。試合単位の取得はモジュールスコープの
 // Promiseキャッシュで重複排除するため、同じ試合を別スロットが必要としても二重取得にならない。
 
+import { useOpponentRecords } from "./useOpponentRecords";
 import { splitClassificationSeason } from "./classificationFilter";
 import { sumSplitClassPoints, type SplitClassPoints } from "./compareShared";
 import { leagueCacheKey, type League } from "./league";
@@ -38,7 +39,6 @@ import {
 } from "./playerSeasonBoxscore";
 import {
   buildGameTeamsByScheduleKey,
-  buildRecordsBeforeGame,
   computeSeasonHalfBoundary,
   filterGameLogs,
   resolveOwnTeam,
@@ -73,6 +73,8 @@ interface SlotDataCommon {
   boundary: SeasonHalfBoundary | null;
   /** 「対勝率別」ボタンの表示可否 */
   opponentWinRateSupported: boolean;
+  /** 「対戦相手の勝率」の最新勝率の選択肢の表示可否（設計書450章） */
+  opponentLatestWinRateSupported: boolean;
   /** 「対戦地区」の同地区・他地区の表示可否（自チームの地区を試合ごとに引けるか） */
   ownTeamDivisionSupported: boolean;
   /** 絞り込み後の試合数 */
@@ -230,7 +232,7 @@ export function useTeamCompareSlot({
   const base = data && data.key === `${leagueCacheKey(season, league)}|${teamId}` && !loading ? data : null;
 
   const boundary = useMemo(() => (base ? computeSeasonHalfBoundary(base.summaries) : null), [base]);
-  const opponentRecords = useMemo(() => (base ? buildRecordsBeforeGame(base.summaries) : undefined), [base]);
+  const opponentRecords = useOpponentRecords(base?.summaries, season, league);
 
   const filtered = useMemo<TeamGameLog[]>(() => {
     if (!base) return [];
@@ -281,6 +283,7 @@ export function useTeamCompareSlot({
       error: active ? leagueFile.error : null,
       boundary: null,
       opponentWinRateSupported: false,
+      opponentLatestWinRateSupported: false,
       ownTeamDivisionSupported: false,
       gamesCount: file ? file.games[gameType] : 0,
       pendingGames: 0,
@@ -304,6 +307,7 @@ export function useTeamCompareSlot({
     error: active ? error : null,
     boundary,
     opponentWinRateSupported: !!opponentRecords,
+    opponentLatestWinRateSupported: !!opponentRecords?.latestWinRates,
     ownTeamDivisionSupported: !!divisionHistory,
     gamesCount: filtered.length,
     pendingGames: pending,
@@ -377,7 +381,7 @@ export function usePlayerCompareSlot({
   const base = data && data.key === `${leagueCacheKey(season, league)}|${playerId}` && !loading ? data : null;
 
   const boundary = useMemo(() => (base ? computeSeasonHalfBoundary(base.summaries) : null), [base]);
-  const opponentRecords = useMemo(() => (base ? buildRecordsBeforeGame(base.summaries) : undefined), [base]);
+  const opponentRecords = useOpponentRecords(base?.summaries, season, league);
 
   const filtered = useMemo<PlayerGameLog[]>(() => {
     if (!base) return [];
@@ -435,6 +439,7 @@ export function usePlayerCompareSlot({
     error: active ? (error ?? (periodOn && !periodPending && !periodSource ? "この区間の記録を読み込めませんでした" : null)) : null,
     boundary,
     opponentWinRateSupported: !!opponentRecords,
+    opponentLatestWinRateSupported: !!opponentRecords?.latestWinRates,
     ownTeamDivisionSupported: !!divisionHistory && !!base,
     gamesCount: result?.games ?? filtered.filter((g) => g.min > 0).length,
     pendingGames: 0,

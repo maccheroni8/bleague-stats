@@ -1,4 +1,5 @@
 import { SEASON_ADVANCED_COLUMNS_WITH_FTR } from "../lib/ftrColumn";
+import { buildOpponentRecords } from "../lib/opponentStrength";
 import { GamesPlayedRatioSlider } from "../components/GamesPlayedRatioSlider";
 import { AchievableCheckbox } from "../components/AchievableCheckbox";
 import { useAchievableSupport } from "../lib/achievableSupport";
@@ -731,9 +732,10 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
   // タブの開閉に関わらず常に取得する（チーム詳細ページ・個人詳細ページと同じ方針）
   const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory(), []);
   const { data: gameSummaries } = useJsonData(() => fetchGameSummaries(season, league), [season, league]);
+  // 最新勝率（teams.json）も添える（設計書450章）
   const opponentRecords = useMemo(
-    () => (gameSummaries ? buildRecordsBeforeGame(gameSummaries) : undefined),
-    [gameSummaries],
+    () => (gameSummaries ? buildOpponentRecords(gameSummaries, teams) : undefined),
+    [gameSummaries, teams],
   );
   // 対戦地区の「同地区/他地区」用。試合ごとの自チーム（シーズン内移籍対応）を日程から引く
   const ownTeamOf = useMemo(
@@ -1248,6 +1250,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, { disabledReason: shootingReason }),
     ...situationalAxes(situationalFilter, setSituationalFilter, {
       opponentWinRateSupported: !!gameSummaries,
+      opponentLatestWinRateSupported: !!opponentRecords?.latestWinRates,
       ownTeamDivisionSupported: !!divisionHistory && !!gameSummaries,
       opponentDivisions: opponentDivisionChoices(divisionHistory, season, league),
       disabledReason: shootingReason,

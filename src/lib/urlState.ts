@@ -185,9 +185,9 @@ function pick<T extends string>(raw: string | null, values: readonly T[]): T | u
 
 /**
  * res（勝敗）・ven（会場）・div（対戦地区）・dv（自チームの地区。ランキングのシーズン成績だけ）・mon（月、カンマ区切り）・ny（年明け前後）・day（wkday／wkend）・
- * opw（対戦相手の勝率）・mg（点差）・rng（直近 r5、期間 2026-01-01~2026-02-28、片側だけなら ~2026-01-15・2026-01-16~）
+ * opw（対戦相手の勝率・試合時点）・opl（対戦相手の勝率・最新。設計書450章）・mg（点差）・rng（直近 r5、期間 2026-01-01~2026-02-28、片側だけなら ~2026-01-15・2026-01-16~）
  */
-export const SITUATIONAL_KEYS = ["res", "ven", "div", "dv", "mon", "ny", "day", "opw", "mg", "rng"];
+export const SITUATIONAL_KEYS = ["res", "ven", "div", "dv", "mon", "ny", "day", "opw", "opl", "mg", "rng"];
 
 export const situationalParam: UrlCodec<SituationalFilter> = {
   keys: SITUATIONAL_KEYS,
@@ -223,6 +223,9 @@ export const situationalParam: UrlCodec<SituationalFilter> = {
     if (day === "wkend") f.weekend = true;
     const opw = pick(p.get("opw"), OPP_WIN);
     if (opw) f.opponentWinRate = opw;
+    // 最新勝率（設計書450章で追加した新しい値。試合時点の「opw」と両方あれば試合時点を優先する）
+    const opl = pick(p.get("opl"), OPP_WIN);
+    if (opl && !opw) f.opponentLatestWinRate = opl;
     const margin = pick(p.get("mg"), MARGIN);
     if (margin) f.margin = margin;
     return f;
@@ -239,6 +242,7 @@ export const situationalParam: UrlCodec<SituationalFilter> = {
     if (f.weekday) p.set("day", "wkday");
     else if (f.weekend) p.set("day", "wkend");
     if (f.opponentWinRate) p.set("opw", f.opponentWinRate);
+    else if (f.opponentLatestWinRate) p.set("opl", f.opponentLatestWinRate);
     if (f.margin) p.set("mg", f.margin);
   },
 };

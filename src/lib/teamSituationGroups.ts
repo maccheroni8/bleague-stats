@@ -1,5 +1,6 @@
 // 「シチュエーション別」の条件の一覧と判定（チーム詳細のチームスタッツ・全チームスタッツの「シチュエーション別」で共通。設計書443章）。
 // 2つの画面が同じ関数を通るので、同じ条件は同じ試合を数える。画面だけの部品（保存キーの対象外）。
+import { matchesOpponentStrength, opponentStrengthChoices, type OpponentRecords } from "./opponentStrength";
 import type { DivisionHistoryFile, TeamGameLog } from "../../shared/types";
 import { opponentDivisionChoices } from "./divisionGroups";
 import { isWeekdayGame } from "./japaneseHolidays";
@@ -11,10 +12,8 @@ import {
   matchesMargin,
   matchesMonth,
   matchesNewYearHalf,
-  matchesOpponentWinRateTier,
   type BackToBackGame,
   type MarginCondition,
-  type RecordBeforeGame,
 } from "./situational";
 import { foreignSituationalGroups } from "./situationalRecords";
 
@@ -58,8 +57,8 @@ export interface TeamSituationContext {
   teamId: string;
   /** buildBackToBackStatus(summaries) の結果。日程が未取得なら undefined */
   backToBack: Map<string, Map<string, BackToBackGame>> | undefined;
-  /** 試合時点の相手の成績（buildRecordsBeforeGame）。未取得なら undefined */
-  opponentRecords: Map<string, Map<string, RecordBeforeGame>> | undefined;
+  /** 試合時点の相手の成績（buildOpponentRecords。最新勝率も添える）。未取得なら undefined */
+  opponentRecords: OpponentRecords | undefined;
   divisionHistory: DivisionHistoryFile | null | undefined;
   season: string;
   league: League;
@@ -139,20 +138,18 @@ export function buildTeamSituationGroupDefs(ctx: TeamSituationContext): TeamSitu
         .map((m) => ({ key: `m${m}`, label: `${m}月`, predicate: (g: TeamGameLog) => matchesMonth(g, m) })),
     },
     {
+      // 対戦相手の強さ（設計書450章）: 試合時点の勝率と最新勝率を、同じ区切りを隣り合わせに並べる。
+      // 行のキーは試合時点の勝率が前のまま（under50 など）、最新勝率は「latest_」を付ける。最新勝率は opponentRecords.latestWinRates があるときだけ
       key: "opponentStrength",
       label: "対戦相手の強さ",
       rows: opponentRecords
-        ? (
-            [
-              ["under50", "対5割未満"],
-              ["atLeast50", "対5割以上"],
-              ["atLeast60", "対6割以上"],
-            ] as const
-          ).map(([tier, label]) => ({
-            key: tier,
-            label,
-            predicate: (g: TeamGameLog) => matchesOpponentWinRateTier(g, tier, opponentRecords),
-          }))
+        ? opponentStrengthChoices()
+            .filter((c) => c.basis === "atGame" || !!opponentRecords.latestWinRates)
+            .map(({ tier, basis, label }) => ({
+              key: basis === "atGame" ? tier : `latest_${tier}`,
+              label,
+              predicate: (g: TeamGameLog) => matchesOpponentStrength(g, tier, basis, { atGame: opponentRecords }),
+            }))
         : [],
     },
     {
