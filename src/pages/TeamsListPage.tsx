@@ -234,6 +234,13 @@ export function TeamsListPage({ season }: { season: string }) {
           全チームスタッツ
         </button>
         <button
+          className={`tab-button${tab === "situation" ? " active" : ""}`}
+          onClick={() => setTab("situation")}
+          type="button"
+        >
+          シチュエーション別
+        </button>
+        <button
           className={`tab-button${tab === "records" ? " active" : ""}`}
           onClick={() => setTab("records")}
           type="button"
@@ -257,13 +264,6 @@ export function TeamsListPage({ season }: { season: string }) {
           type="button"
         >
           直近成績
-        </button>
-        <button
-          className={`tab-button${tab === "situation" ? " active" : ""}`}
-          onClick={() => setTab("situation")}
-          type="button"
-        >
-          シチュエーション別
         </button>
       </div>
       {league === "one" && ONE_TEAMS_TAB_REASONS[urlTab] && <p className="standings-tab-note">{ONE_TEAMS_TAB_REASONS[urlTab]}</p>}
