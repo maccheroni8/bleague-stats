@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "./GlossaryNote";
 import { postseasonLabel } from "../../shared/gameType";
@@ -7,13 +7,14 @@ import { playoffZonePreset } from "../lib/playoffZone";
 import { SortableTable, type Column } from "./SortableTable";
 import { TeamLogo } from "./TeamLogo";
 import { FilterBar } from "./FilterBar";
-import { simpleSelectAxis, teamMultiAxis, type FilterAxis, type FilterAxisOption } from "../lib/filterAxes";
+import { simpleSelectAxis, situationalAxes, teamMultiAxis, type FilterAxis, type FilterAxisOption } from "../lib/filterAxes";
+import { situationalParam, useUrlState, type UrlCodec } from "../lib/urlState";
 import { ConditionTitle } from "./ConditionTitle";
 import { sortOrderLabel } from "./SortMark";
 import { SavableBlock } from "./SavableBlock";
 import { topThreeRanks, type BetterDirection } from "../lib/topThreeTiers";
 import { SaveColumnChoice, SaveColumnHide, useSaveHiddenColumns } from "./SaveColumnChoice";
-import { buildExportFilename, clubSelectionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
+import { buildExportFilename, clubSelectionLabels, composeLabels, gameTypeLabels, multiSelectLabels, situationalFilterLabels } from "../lib/conditionLabels";
 import { formatPct, formatSigned, formatWinPct } from "../lib/format";
 import { safeDiv } from "../../shared/formulas";
 import { currentStreak, formatTeamStreak } from "../../shared/teamRecords";
@@ -24,7 +25,9 @@ import type { League } from "../lib/league";
 import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { useLeagueSituationalContext } from "../lib/teamRankingData";
 import {
+  applySituationalRange,
   buildBackToBackStatus,
+  type SituationalFilter,
   backToBackGameLabels,
   buildBiweekPeriods,
   buildRecordsBeforeGame,
@@ -77,6 +80,17 @@ import {
   type ConditionGroup,
 } from "../lib/conditionalCondition";
 export { applyConditionalCondition, type ConditionalCondition } from "../lib/conditionalCondition";
+
+/** 対象期間（設計書458章）。ほかのページの「対象期間」と同じ URL（rng）・同じ選択肢（シーズン全体・直近5・10試合・期間指定） */
+const DEFAULT_RANGE: SituationalFilter = { range: { kind: "all" } };
+const rangeCodec: UrlCodec<SituationalFilter> = {
+  keys: ["rng"],
+  read: (p) => {
+    const range = situationalParam.read(p)?.range;
+    return range && (range.kind !== "recent" || range.n === 5 || range.n === 10) ? { range } : undefined;
+  },
+  write: (p, value) => situationalParam.write(p, { range: value.range }),
+};
 
 interface UpcomingOwnGame {
   date: string;
@@ -206,11 +220,18 @@ export function ConditionalStandingsTable({
   /** 画像保存で載せない列（キー） */
   const [saveHiddenCols, setSaveHiddenCols] = useSaveHiddenColumns();
   const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string> | null>(null);
+  const [rangeFilter, setRangeFilter] = useUrlState(rangeCodec, DEFAULT_RANGE);
+  const range = rangeFilter.range;
 
-  // シーズンが変わったら条件・チーム絞り込みをリセットする（前シーズンの選択を引き継がない）
+  // シーズンが変わったら条件・チーム絞り込み・対象期間をリセットする（前シーズンの選択を引き継がない）。
+  // 対象期間は URL から開いたときの値を残すので、最初の表示ではリセットしない
+  const previousSeason = useRef(season);
   useEffect(() => {
     setCondition({ kind: "all" });
     setSelectedTeamIds(null);
+    if (previousSeason.current !== season) setRangeFilter(DEFAULT_RANGE);
+    previousSeason.current = season;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [season]);
 
   // 対戦相手の地区の選択肢: そのシーズンの順位表にいる地区だけを、リーグの並びで
@@ -257,7 +278,16 @@ export function ConditionalStandingsTable({
         ? `month-${condition.value}`
         : (conditionGroups.flatMap((g) => g.options).find((o) => conditionKeyOf(withoutNumber(o.condition)) === conditionKeyOf(withoutNumber(condition)))?.key ?? "all");
   const divisionByTeamId = new Map(teams.map((t) => [t.teamId, t.division]));
+  // 対象期間（ほかのページと同じ軸）。直近5・10試合と期間指定だけ（前半戦・後半戦は出さない）
+  const rangeAxes: FilterAxis[] = situationalAxes(rangeFilter, (next) => setRangeFilter({ range: next.range }))
+    .filter((axis) => axis.id === "s.range" || (range.kind === "dateRange" && (axis.id === "s.dateStart" || axis.id === "s.dateEnd")))
+    .map((axis) =>
+      axis.kind === "select"
+        ? { ...axis, options: axis.options.filter((o) => ["all", "recent:5", "recent:10", "custom"].includes(o.value)) }
+        : { ...axis, tier: "primary" as const },
+    );
   const filterAxes: FilterAxis[] = [
+    ...rangeAxes,
     simpleSelectAxis({
       id: "condition",
       label: "条件",
@@ -279,14 +309,17 @@ export function ConditionalStandingsTable({
   const clearFilters = () => {
     setCondition({ kind: "all" });
     setSelectedTeamIds(null);
+    setRangeFilter(DEFAULT_RANGE);
   };
 
   const rows: ConditionalRow[] = useMemo(() => {
     if (!gameLogsByTeam) return [];
     const built = teams.map((team): Omit<ConditionalRow, "rank"> => {
       const allLogs = (gameLogsByTeam.get(team.teamId) ?? []).filter((g) => g.gameType === "regular");
-      const sorted = [...allLogs].sort(
-        (a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey),
+      // 対象期間で試合を絞ってから条件を当てる（直近5試合などの条件は、期間の中での直近）
+      const sorted = applySituationalRange(
+        [...allLogs].sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey)),
+        range,
       );
       const filtered = applyConditionalCondition(sorted, condition, {
         teamId: team.teamId,
@@ -301,7 +334,14 @@ export function ConditionalStandingsTable({
       const losses = filtered.length - wins;
       const pts = filtered.reduce((s, g) => s + g.teamScore, 0);
       const oppPts = filtered.reduce((s, g) => s + g.opponentScore, 0);
-      const remaining = computeRemainingCount(team.teamName, condition, upcomingGames, teamIdByName, divisionHistory, season, league);
+      // 残り試合数は、期間指定のときは期間の中の未消化の試合。直近N試合は期間が決まらないので「-」
+      const upcomingInRange =
+        range.kind === "all"
+          ? upcomingGames
+          : range.kind === "dateRange"
+            ? upcomingGames.filter((g) => (!range.start || g.date >= range.start) && (!range.end || g.date <= range.end))
+            : null;
+      const remaining = upcomingInRange ? computeRemainingCount(team.teamName, condition, upcomingInRange, teamIdByName, divisionHistory, season, league) : null;
       return {
         team,
         gamesPlayed: filtered.length,
@@ -326,7 +366,7 @@ export function ConditionalStandingsTable({
     const played = visible.filter((r) => r.gamesPlayed > 0);
     const unplayed = visible.filter((r) => r.gamesPlayed === 0).sort((a, b) => a.team.rank - b.team.rank);
     played.sort(
-      condition.kind === "all"
+      condition.kind === "all" && range.kind === "all"
         ? (a, b) => a.team.rank - b.team.rank
         : (a, b) => b.winPct - a.winPct || b.pointDiff - a.pointDiff || a.team.rank - b.team.rank,
     );
@@ -347,6 +387,7 @@ export function ConditionalStandingsTable({
     selectedTeamIds,
     league,
     opponentLatestWinRates,
+    range,
   ]);
 
   // 「相手の勝率」の条件: 相手の消化試合数が下限に満たない時点の試合は数えない。対象の試合の数を表の上に出す
@@ -357,7 +398,11 @@ export function ConditionalStandingsTable({
     let counted = 0;
     for (const team of teams) {
       if (selectedTeamIds && !selectedTeamIds.has(team.teamId)) continue;
-      for (const g of gameLogsByTeam.get(team.teamId) ?? []) {
+      const inRange = applySituationalRange(
+        (gameLogsByTeam.get(team.teamId) ?? []).filter((g) => g.gameType === "regular").sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey)),
+        range,
+      );
+      for (const g of inRange) {
         if (g.gameType !== "regular") continue;
         total += 1;
         const rec = opponentRecords.get(g.scheduleKey)?.get(g.opponentTeamId);
@@ -365,7 +410,7 @@ export function ConditionalStandingsTable({
       }
     }
     return { total, counted };
-  }, [condition, gameLogsByTeam, opponentRecords, teams, selectedTeamIds]);
+  }, [condition, gameLogsByTeam, opponentRecords, teams, selectedTeamIds, range]);
 
   // 各項目の上位3位（良い数値）のマスの色。表に出ているクラブの中で、当てはまる試合があるクラブだけを比べる。
   // 色の濃さは順位で変える（1位＝いちばん濃い）。良し悪しの無い項目（試合数・試合割合・残り試合数）と順位には付けない。負・失点は少ないほうが良い。連勝/連敗は連勝中の長いほう
@@ -435,6 +480,7 @@ export function ConditionalStandingsTable({
   const savedConditions = composeLabels(
     `${season}シーズン`,
     gameTypeLabels("regular", null),
+    ...(range.kind === "all" ? [] : situationalFilterLabels(rangeFilter)),
     selectedTeamIds === null
       ? multiSelectLabels("対象クラブ", [], "全クラブ")
       : selectedTeamIds.size === 0

@@ -77,6 +77,26 @@ export function matchesForeignCount(
   return mode === "eq" ? c === n : mode === "le" ? c <= n : c >= n;
 }
 
+/**
+ * 外国籍・帰化・アジアの出場人数を、自チームと相手で比べる（設計書457章）。人数の数え方は intlPlayed（392章）と同じ。
+ * どちらかの人数が無い試合（古いデータ・ボックススコアの無い試合・登録区分の台帳が無いシーズン）は undefined（どの区分にも入らない）
+ */
+export type ForeignCompare = "more" | "same" | "fewer";
+export const FOREIGN_COMPARES: readonly ForeignCompare[] = ["more", "same", "fewer"];
+export const FOREIGN_COMPARE_LABELS: Record<ForeignCompare, string> = { more: "相手より多い", same: "相手と同数", fewer: "相手より少ない" };
+export const FOREIGN_COMPARE_MEASURE: ForeignMeasure = "intlPlayed";
+
+export function foreignCompareOf(g: Partial<Pick<TeamGameLog, ForeignFields>>, measure: ForeignMeasure = FOREIGN_COMPARE_MEASURE): ForeignCompare | undefined {
+  const own = foreignMeasureValue(g, measure, "own");
+  const opp = foreignMeasureValue(g, measure, "opp");
+  if (own == null || opp == null) return undefined;
+  return own > opp ? "more" : own < opp ? "fewer" : "same";
+}
+
+export function matchesForeignCompare(g: Partial<Pick<TeamGameLog, ForeignFields>>, value: ForeignCompare, measure: ForeignMeasure = FOREIGN_COMPARE_MEASURE): boolean {
+  return foreignCompareOf(g, measure) === value;
+}
+
 /** 得点（own）または失点（opp）が、n 点以下／以上 */
 export function matchesTeamScore(g: Pick<TeamGameLog, "teamScore" | "opponentScore">, side: "own" | "opp", mode: "le" | "ge", n: number): boolean {
   const v = side === "own" ? g.teamScore : g.opponentScore;
@@ -100,6 +120,9 @@ export function marginAtLeast(g: Pick<TeamGameLog, "teamScore" | "opponentScore"
 
 export const LEAD_LABELS: Record<Lead, string> = { lead: "リード", tie: "同点", behind: "ビハインド" };
 
+/** 人数の比べの行のグループのキー */
+export const FOREIGN_COMPARE_GROUP_KEY = "intlPlayedCompare";
+
 const FOREIGN_GROUP_KEYS: Record<"own" | "opp", Record<ForeignMeasure, string>> = {
   // 最長のオンザコート人数のキーは 392章より前と同じ（foreignPlayerCount・opponentForeignPlayerCount）
   own: { foreignPlayed: "foreignPlayedCount", intlPlayed: "intlPlayedCount", longestOnCourt: "foreignPlayerCount" },
@@ -113,7 +136,7 @@ const FOREIGN_GROUP_KEYS: Record<"own" | "opp", Record<ForeignMeasure, string>> 
 export function foreignSituationalGroups<G extends Partial<Pick<TeamGameLog, ForeignFields>>>(
   sides: readonly ("own" | "opp")[],
 ): { key: string; label: string; rows: { key: string; label: string; predicate: (g: G) => boolean }[] }[] {
-  return sides.flatMap((side) =>
+  const groups = sides.flatMap((side) =>
     FOREIGN_MEASURES.map((measure) => ({
       key: FOREIGN_GROUP_KEYS[side][measure],
       label: `${side === "opp" ? "相手の" : ""}${FOREIGN_MEASURE_LABELS[measure]}`,
@@ -124,4 +147,18 @@ export function foreignSituationalGroups<G extends Partial<Pick<TeamGameLog, For
       })),
     })),
   );
+  // 自チームと相手の人数の比べ（設計書457章）。自チームの視点の行（own）があるときだけ、外国籍・帰化・アジアの相手の人数の行の直後に置く
+  if (!sides.includes("own")) return groups;
+  const compareGroup = {
+    key: FOREIGN_COMPARE_GROUP_KEY,
+    label: `${FOREIGN_MEASURE_LABELS[FOREIGN_COMPARE_MEASURE]}（相手との比較）`,
+    rows: FOREIGN_COMPARES.map((value) => ({
+      key: value,
+      label: FOREIGN_COMPARE_LABELS[value],
+      predicate: (g: G) => matchesForeignCompare(g, value),
+    })),
+  };
+  const anchor = groups.findIndex((gr) => gr.key === FOREIGN_GROUP_KEYS[sides.includes("opp") ? "opp" : "own"][FOREIGN_COMPARE_MEASURE]);
+  groups.splice(anchor < 0 ? groups.length : anchor + 1, 0, compareGroup);
+  return groups;
 }

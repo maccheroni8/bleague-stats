@@ -26,6 +26,11 @@ import {
   FOREIGN_MEASURE_LABELS,
   FOREIGN_MEASURE_MAX,
   matchesForeignCount,
+  matchesForeignCompare,
+  FOREIGN_COMPARES,
+  FOREIGN_COMPARE_LABELS,
+  FOREIGN_COMPARE_MEASURE,
+  type ForeignCompare,
   matchesTeamScore,
   type CountMode,
   type ForeignMeasure,
@@ -80,6 +85,8 @@ export type ConditionalCondition =
    * 省略は最長のオンザコート人数〔392章より前の URL・保存した設定の「foreign-…」〕）。eq＝ちょうど、le＝以下、ge＝以上
    */
   | { kind: "foreign"; mode: CountMode; n: number; measure?: ForeignMeasure }
+  /** 外国籍・帰化・アジアの出場人数が、相手より多い／同数／少ない（設計書457章。どちらかの人数が数えられない試合は入らない） */
+  | { kind: "foreignCompare"; value: ForeignCompare }
   /** 得点（own）・失点（opp）が n 点以下／以上 */
   | { kind: "score"; side: "own" | "opp"; mode: "le" | "ge"; n: number }
   | { kind: "bothScore"; value: "ge" | "lt" }
@@ -155,6 +162,8 @@ export function describeCondition(condition: ConditionalCondition): string {
       return CLUTCH_GAMES_LABEL;
     case "foreign":
       return `${FOREIGN_MEASURE_LABELS[condition.measure ?? "longestOnCourt"]}${condition.n}人${MODE_LABELS[condition.mode]}`;
+    case "foreignCompare":
+      return `${FOREIGN_MEASURE_LABELS[FOREIGN_COMPARE_MEASURE]}が${FOREIGN_COMPARE_LABELS[condition.value]}`;
     case "score":
       return `${condition.side === "own" ? "得点" : "失点"}${condition.n}点${MODE_LABELS[condition.mode]}`;
     case "bothScore":
@@ -186,7 +195,7 @@ export function conditionalStandingsTitle(conditions: readonly ConditionalCondit
   const names = conditions.filter((c) => c.kind !== "all").map(describeCondition);
   if (names.length === 0) return "順位表";
   const joined = names.join("・");
-  const suffix = /(試合|ゲーム)$/.test(joined) ? "" : /た$/.test(joined) ? "試合" : "の試合";
+  const suffix = /(試合|ゲーム)$/.test(joined) ? "" : /(た|多い|少ない)$/.test(joined) ? "試合" : "の試合";
   return `${joined}${suffix}`;
 }
 
@@ -254,6 +263,8 @@ export function applyConditionalCondition(
       return logs.filter((g) => g.clutchGame === true);
     case "foreign":
       return logs.filter((g) => matchesForeignCount(g, condition.mode, condition.n, condition.measure ?? "longestOnCourt"));
+    case "foreignCompare":
+      return logs.filter((g) => matchesForeignCompare(g, condition.value));
     case "score":
       return logs.filter((g) => matchesTeamScore(g, condition.side, condition.mode, condition.n));
     case "bothScore":
@@ -394,7 +405,7 @@ export function buildConditionGroups({ presentDivisions, backToBackStatus, regul
       ],
     },
     // 外国籍の人数（3つの数え方。設計書392章）。最長のオンザコート人数のキーは 392章より前の「foreign-…」のまま（URL・保存した設定を読めるように）
-    ...FOREIGN_CONDITION_KEYS.map(({ measure, prefix }) => ({
+    ...FOREIGN_CONDITION_KEYS.flatMap(({ measure, prefix }) => [{
       label: FOREIGN_MEASURE_LABELS[measure],
       options: [
         ...Array.from({ length: FOREIGN_MEASURE_MAX[measure] + 1 }, (_, n) => ({
@@ -406,7 +417,19 @@ export function buildConditionGroups({ presentDivisions, backToBackStatus, regul
         { key: `${prefix}-le`, label: `${FOREIGN_MEASURE_LABELS[measure]}●人以下`, condition: { kind: "foreign", mode: "le", n: numbers.count, measure } as ConditionalCondition },
         { key: `${prefix}-ge`, label: `${FOREIGN_MEASURE_LABELS[measure]}●人以上`, condition: { kind: "foreign", mode: "ge", n: numbers.count, measure } as ConditionalCondition },
       ],
-    })),
+    },
+    // 自チームと相手の外国籍・帰化・アジアの出場人数の比べ（設計書457章）。392章の同じ数え方の条件のすぐ下
+    ...(measure === FOREIGN_COMPARE_MEASURE
+      ? [{
+          label: `${FOREIGN_MEASURE_LABELS[measure]}（相手との比較）`,
+          options: FOREIGN_COMPARES.map((value) => ({
+            key: `${prefix}-cmp-${value}`,
+            label: `${FOREIGN_MEASURE_LABELS[measure]}が${FOREIGN_COMPARE_LABELS[value]}`,
+            condition: { kind: "foreignCompare", value } as ConditionalCondition,
+          })),
+        }]
+      : []),
+    ]),
     {
       label: "得点・失点",
       options: [

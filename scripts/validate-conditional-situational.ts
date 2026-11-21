@@ -17,11 +17,11 @@ import type { DivisionHistoryFile, StoredGame, TeamGameLog, TeamSummary } from "
 import { applyConditionalCondition, type ConditionalCondition } from "../src/components/ConditionalStandingsTable";
 import { buildSituationalRecordGroups } from "../src/pages/TeamDetailPage";
 import { buildOpponentSeasonWinRates } from "../src/lib/opponentStrength";
-import { FOREIGN_MEASURES, FOREIGN_MEASURE_MAX, foreignMeasureValue, foreignSituationalGroups, type ForeignMeasure } from "../src/lib/situationalRecords";
+import { FOREIGN_MEASURES, FOREIGN_MEASURE_MAX, foreignMeasureValue, foreignSituationalGroups, FOREIGN_COMPARE_GROUP_KEY, type ForeignMeasure } from "../src/lib/situationalRecords";
 import { makeClassifier } from "../shared/registration";
 import { applyBoxscoreNameFills } from "../shared/boxscoreNameFills";
 import type { PlayerGameLog, PlayerMasterEntry, SeasonRegistrationFile } from "../shared/types";
-import type { MarginCondition } from "../src/lib/situational";
+import { applySituationalRange, type MarginCondition, type SituationalRange } from "../src/lib/situational";
 import type { League } from "../src/lib/league";
 
 const DATA = path.resolve("data");
@@ -83,6 +83,9 @@ function conditionFor(group: string, row: string): ConditionalCondition | null {
 const compared = new Map<string, number>();
 const masterById = new Map(((rj(`${DATA}/players-master.json`) ?? []) as PlayerMasterEntry[]).map((p) => [p.playerId, p]));
 const unknownPlayed = { players: 0, games: new Set<string>() };
+/** 人数の比べで除いた試合数（シーズン・リーグごと） */
+const compareExcluded = new Map<string, number>();
+let periodChecked = 0;
 const OWN_GROUP_MEASURE: Record<string, ForeignMeasure> = { foreignPlayedCount: "foreignPlayed", intlPlayedCount: "intlPlayed", foreignPlayerCount: "longestOnCourt" };
 const OPP_GROUP_MEASURE: Record<string, ForeignMeasure> = { opponentForeignPlayedCount: "foreignPlayed", opponentIntlPlayedCount: "intlPlayed", opponentForeignPlayerCount: "longestOnCourt" };
 const FOREIGN_FIELDS = ["foreignPlayedCount", "intlPlayedCount", "opponentForeignPlayedCount", "opponentIntlPlayedCount", "foreignPlayerCount", "opponentForeignPlayerCount"] as const;
@@ -99,6 +102,7 @@ for (const [league, base] of [["premier", ""], ["one", "/one"]] as [League, stri
     for (const f of readdirSync(`${dir}/team-games`)) {
       allTeamLogs.set(f.replace(/\.json(\.gz)?$/, ""), new Map(((rj(`${dir}/team-games/${f}`) ?? []) as TeamGameLog[]).map((g) => [g.scheduleKey, g])));
     }
+    const summary = ((rj(`${dir}/games-summary.json`) ?? []) as { gameType: string; gameEndedFlg: boolean; date: string; homeTeamId: string; awayTeamId: string; homeScore: number; awayScore: number }[]);
     const raws = new Map<string, StoredGame>();
     if (existsSync(`${dir}/games`)) {
       for (const f of readdirSync(`${dir}/games`)) {
@@ -133,7 +137,19 @@ for (const [league, base] of [["premier", ""], ["one", "/one"]] as [League, stri
             const n = Number(row.key.replace(/^(own|opp)/, ""));
             const want = logs.filter(row.predicate).map((g) => g.scheduleKey);
             let got: string[];
-            if (group.key in OWN_GROUP_MEASURE) {
+            if (group.key === FOREIGN_COMPARE_GROUP_KEY) {
+              // 自チームと相手の人数の比べ（457章）: 条件別順位表の条件と同じ試合。さらに、相手チーム自身の試合ログの人数（独立した読み方）でも数え直す
+              const value = row.key as "more" | "same" | "fewer";
+              got = applyConditionalCondition(logs, { kind: "foreignCompare", value }, ctxAll).map((g) => g.scheduleKey);
+              const viaOpponent = logs.filter((g) => {
+                const o = allTeamLogs.get(g.opponentTeamId)?.get(g.scheduleKey);
+                const own = g.intlPlayedCount;
+                const opp = o?.intlPlayedCount;
+                if (own == null || opp == null) return false;
+                return value === "more" ? own > opp : value === "fewer" ? own < opp : own === opp;
+              }).map((g) => g.scheduleKey);
+              check(`${league} ${season} ${teamId} 比べ ${row.key} 相手の試合ログの人数と一致`, viaOpponent.length === got.length && viaOpponent.every((k, i) => k === got[i]), `${viaOpponent.length} ≠ ${got.length}`);
+            } else if (group.key in OWN_GROUP_MEASURE) {
               got = applyConditionalCondition(logs, { kind: "foreign", mode: "eq", n, measure: OWN_GROUP_MEASURE[group.key] }, ctxAll).map((g) => g.scheduleKey);
             } else {
               // 相手の行＝相手チームの試合ログで、自チームの値がその人数
@@ -146,6 +162,31 @@ for (const [league, base] of [["premier", ""], ["one", "/one"]] as [League, stri
             check(`${league} ${season} ${teamId} 成績 ${group.key}/${row.key}`, want.length === got.length && want.every((k, i) => k === got[i]), `チーム詳細 ${want.length} ≠ ${got.length}`);
             compared.set(`成績 ${group.key}/${row.key}`, (compared.get(`成績 ${group.key}/${row.key}`) ?? 0) + want.length);
           }
+        }
+        // 条件別順位表の対象期間（458章）: 期間で絞った試合の勝敗が、試合結果の一覧（games-summary。試合ログとは別の元）の同じ期間の勝敗と一致する
+        {
+          const dates = logs.map((g) => g.date).sort();
+          if (dates.length >= 4) {
+            const mid = dates[Math.floor(dates.length / 2)]!;
+            const quarter = dates[Math.floor(dates.length / 4)]!;
+            const ranges: SituationalRange[] = [{ kind: "dateRange", start: mid, end: "" }, { kind: "dateRange", start: "", end: quarter }, { kind: "dateRange", start: quarter, end: mid }];
+            for (const range of ranges) {
+              if (range.kind !== "dateRange") continue;
+              const inRange = applySituationalRange([...logs].sort((x, y) => x.date.localeCompare(y.date) || x.scheduleKey.localeCompare(y.scheduleKey)), range);
+              const mine = summary.filter((g) => g.gameType === "regular" && g.gameEndedFlg && (g.homeTeamId === teamId || g.awayTeamId === teamId) && (!range.start || g.date >= range.start) && (!range.end || g.date <= range.end));
+              const winsBySummary = mine.filter((g) => (g.homeTeamId === teamId ? g.homeScore > g.awayScore : g.awayScore > g.homeScore)).length;
+              const w = inRange.filter((g) => g.win).length;
+              check(`${league} ${season} ${teamId} 期間 ${range.start || "…"}〜${range.end || "…"}`, inRange.length === mine.length && w === winsBySummary, `試合ログ ${w}-${inRange.length - w} ≠ 試合結果 ${winsBySummary}-${mine.length - winsBySummary}`);
+              periodChecked += 1;
+            }
+          }
+        }
+        // 多い・同数・少ないの合計＝両チームの人数が数えられる試合の数
+        {
+          const counted = logs.filter((g) => g.intlPlayedCount != null && g.opponentIntlPlayedCount != null).length;
+          const sum = (["more", "same", "fewer"] as const).reduce((t, value) => t + applyConditionalCondition(logs, { kind: "foreignCompare", value }, ctxAll).length, 0);
+          check(`${league} ${season} ${teamId} 比べの合計`, sum === counted, `${sum} ≠ ${counted}`);
+          compareExcluded.set(`${league} ${season}`, (compareExcluded.get(`${league} ${season}`) ?? 0) + (logs.length - counted));
         }
         // 3つの数え方の「●人以下／以上」（0〜5人）
         for (const measure of FOREIGN_MEASURES) {
@@ -246,9 +287,10 @@ for (const [league, base] of [["premier", ""], ["one", "/one"]] as [League, stri
     }
   }
 }
-console.log(`\nok ${ok} 件`);
+console.log(`\nok ${ok} 件（対象期間の勝敗の照合 ${periodChecked} 件）`);
 console.log(`個人の試合ログ ${playerLogsCompared} 件を所属チームの試合ログと照合（生データの無い試合 ${noRawGames} は数え直しなし）`);
 console.log(`出場したが区分が分からず数えなかった選手: のべ ${unknownPlayed.players} 人・${unknownPlayed.games.size} 試合${unknownPlayed.games.size > 0 ? `（${[...unknownPlayed.games].slice(0, 10).join("、")}）` : ""}`);
+for (const [k, v] of [...compareExcluded.entries()].filter(([, v]) => v > 0)) console.log(`  人数の比べで除いた試合: ${k} ${v} 試合（延べ）`);
 for (const [k, v] of overMax) console.log(`  上限を超える人数の試合（チームの延べ）: ${k} ${v} 試合`);
 for (const [k, v] of [...compared.entries()].sort()) console.log(`  ${k}: 延べ ${v} 試合`);
 if (failures > 0) {
