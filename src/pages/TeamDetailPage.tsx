@@ -274,7 +274,7 @@ import { fgaShare, foreignShareFromSeconds, teamClassificationShareFromTotals, t
 import { EMPTY_TOTALS, sumTeamGameLogs, type AllTeamsRow } from "../lib/teamStatsColumns";
 import { addGameFlowLog, EMPTY_GAME_FLOW, opponentRunOf, formatGameFlow, GAME_FLOW_LABELS, gameFlowOf, gameFlowValue, sumGameFlow, withGameFlow, type GameFlowKey } from "../lib/gameFlowTotals";
 import { noFlowOf, noFlowTotalsOf, selfCountsOf, selfPct, selfSplitOf, SELF_PCT_DEFS, withNoFlow, type SelfCounts, type SelfShotKind, type ShotMadeSource } from "../lib/selfScoring";
-import { paintColumns, summarizePaintLogs, withPaint, PAINT2_NOTE } from "../lib/teamPaint2";
+import { paintColumns, summarizePaintLogs, withPaint, PAINT2_NOTE, withoutCoverageColumn } from "../lib/teamPaint2";
 import { loadLeaguePaintComplete } from "../lib/teamPaint2Load";
 import { FORCED_TURNOVER_COLUMNS } from "../lib/forcedTurnoverColumns";
 import { categoryNeedsYahoo, type OpponentSplitCategory } from "../lib/opponentSplit";
@@ -1694,7 +1694,7 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
 /** 表のシーズンがすべて2026-27以降（foulSplit）なら、Miscのファウルの列はTF1・TF2・FLAG・DISR、そうでなければTF・UFOUL（新旧の合計） */
 function teamSeasonBoxColumns(tab: SeasonBoxTabKey, foulSplit: boolean): TeamSeasonBoxColumn[] {
   // 「G」は表の「試合数」の列と必ず同じ値（行の試合数）なので、画面の表には出さない（DESIGN.md 462章）。md の書き出しは別に列を持つ
-  return teamSeasonBoxColumnsWithG(tab, foulSplit).filter((c) => c.key !== "g");
+  return withoutCoverageColumn(teamSeasonBoxColumnsWithG(tab, foulSplit).filter((c) => c.key !== "g"));
 }
 
 function teamSeasonBoxColumnsWithG(tab: SeasonBoxTabKey, foulSplit: boolean): TeamSeasonBoxColumn[] {

@@ -21,13 +21,13 @@
   --tier-bot-1: rgba(214, 69, 80, 0.311);
   --tier-bot-2: rgba(214, 69, 80, 0.17);
   --tier-bot-3: rgba(214, 69, 80, 0.094);
-  /* 良し悪しのない項目の色（多い上位3は青・少ない下位3はオレンジ。1位・最下位がいちばん濃い。DESIGN.md 461章） */
-  --count-hi-1: rgba(45, 110, 230, 0.36);
-  --count-hi-2: rgba(45, 110, 230, 0.2);
-  --count-hi-3: rgba(45, 110, 230, 0.11);
-  --count-lo-1: rgba(232, 130, 20, 0.38);
-  --count-lo-2: rgba(232, 130, 20, 0.21);
-  --count-lo-3: rgba(232, 130, 20, 0.115);
+  /* 良し悪しのない項目の色（多い上位3は緑・少ない下位3は赤。1位・最下位がいちばん濃い。良し悪しの緑・赤と同じ色で、「多い・少ない」を表す。DESIGN.md 461・464章） */
+  --count-hi-1: var(--tier-top-1);
+  --count-hi-2: var(--tier-top-2);
+  --count-hi-3: var(--tier-top-3);
+  --count-lo-1: var(--tier-bot-1);
+  --count-lo-2: var(--tier-bot-2);
+  --count-lo-3: var(--tier-bot-3);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -50,13 +50,13 @@
   --tier-bot-1: rgba(240, 98, 110, 0.422);
   --tier-bot-2: rgba(240, 98, 110, 0.24);
   --tier-bot-3: rgba(240, 98, 110, 0.132);
-  /* 良し悪しのない項目の色（多い上位3は青・少ない下位3はオレンジ。1位・最下位がいちばん濃い。DESIGN.md 461章） */
-  --count-hi-1: rgba(90, 150, 255, 0.453);
-  --count-hi-2: rgba(90, 150, 255, 0.26);
-  --count-hi-3: rgba(90, 150, 255, 0.143);
-  --count-lo-1: rgba(255, 165, 50, 0.45);
-  --count-lo-2: rgba(255, 165, 50, 0.26);
-  --count-lo-3: rgba(255, 165, 50, 0.14);
+  /* 良し悪しのない項目の色（多い上位3は緑・少ない下位3は赤。1位・最下位がいちばん濃い。良し悪しの緑・赤と同じ色で、「多い・少ない」を表す。DESIGN.md 461・464章） */
+  --count-hi-1: var(--tier-top-1);
+  --count-hi-2: var(--tier-top-2);
+  --count-hi-3: var(--tier-top-3);
+  --count-lo-1: var(--tier-bot-1);
+  --count-lo-2: var(--tier-bot-2);
+  --count-lo-3: var(--tier-bot-3);
   }
 }
 
@@ -79,13 +79,13 @@
   --tier-bot-1: rgba(240, 98, 110, 0.422);
   --tier-bot-2: rgba(240, 98, 110, 0.24);
   --tier-bot-3: rgba(240, 98, 110, 0.132);
-  /* 良し悪しのない項目の色（多い上位3は青・少ない下位3はオレンジ。1位・最下位がいちばん濃い。DESIGN.md 461章） */
-  --count-hi-1: rgba(90, 150, 255, 0.453);
-  --count-hi-2: rgba(90, 150, 255, 0.26);
-  --count-hi-3: rgba(90, 150, 255, 0.143);
-  --count-lo-1: rgba(255, 165, 50, 0.45);
-  --count-lo-2: rgba(255, 165, 50, 0.26);
-  --count-lo-3: rgba(255, 165, 50, 0.14);
+  /* 良し悪しのない項目の色（多い上位3は緑・少ない下位3は赤。1位・最下位がいちばん濃い。良し悪しの緑・赤と同じ色で、「多い・少ない」を表す。DESIGN.md 461・464章） */
+  --count-hi-1: var(--tier-top-1);
+  --count-hi-2: var(--tier-top-2);
+  --count-hi-3: var(--tier-top-3);
+  --count-lo-1: var(--tier-bot-1);
+  --count-lo-2: var(--tier-bot-2);
+  --count-lo-3: var(--tier-bot-3);
 }
 
 :root[data-theme="light"] {
@@ -8360,7 +8360,7 @@ table.sortable-table.lineup-search-table tbody th {
 .sortable-table td.tier-bot-2 { background-color: var(--tier-bot-2); }
 .sortable-table td.tier-bot-3 { background-color: var(--tier-bot-3); }
 
-/* 良し悪しのない項目の多い・少ない（チーム詳細・全チームスタッツ）。color-mix は保存画像の部品が読めないので使わない */
+/* 良し悪しのない項目の多い・少ない（チーム詳細・全チームスタッツ）。緑・赤。color-mix は保存画像の部品が読めないので使わない */
 .stats-table td.count-hi-1, .sortable-table td.count-hi-1 { background-color: var(--count-hi-1); }
 .stats-table td.count-hi-2, .sortable-table td.count-hi-2 { background-color: var(--count-hi-2); }
 .stats-table td.count-hi-3, .sortable-table td.count-hi-3 { background-color: var(--count-hi-3); }

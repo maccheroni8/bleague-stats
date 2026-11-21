@@ -49,7 +49,7 @@ for (const season of ["2025-26", "2021-22"]) {
       assert(colored.length >= 6 && colored.length <= 12, `${season} ${perspective} ${key}: 色が付いたチーム数 ${colored.length}`);
     }
   }
-  // ④ 良し悪しなし: G は色なし。POSS・PACE・MIN は、多い上位3が青（count-hi-1〜3）・少ない下位3がオレンジ（count-lo-1〜3）。緑・赤（tier-…）は付かない（DESIGN.md 463章）
+  // ④ 良し悪しなし: G は色なし。POSS・PACE・MIN は、多い上位3が count-hi-1〜3（緑・多い）・少ない下位3が count-lo-1〜3（赤・少ない）。良し悪しの tier-… は付かない（DESIGN.md 463章）
   for (const key of ["g", "poss", "pace", "min"]) {
     const cols = withTierColors<AllTeamsRow>(
       [...buildTeamCategoryColumns("traditional", "perGame", "own", true, true, false), ...buildTeamCategoryColumns("advanced", "perGame", "own", true, true, false)],

@@ -1,3 +1,4 @@
+import { withoutCoverageColumn } from "../lib/teamPaint2";
 import { useMemo } from "react";
 import type { League } from "../lib/league";
 import { SeasonLink as Link } from "./SeasonLink";
@@ -212,7 +213,7 @@ export function TeamHeadToHead({
       : category === "advanced"
         ? buildAdvancedColumns(mode, perspective)
         : category === "misc"
-          ? buildMiscColumns(mode, perspective)
+          ? withoutCoverageColumn(buildMiscColumns(mode, perspective))
           : buildScoringColumns(mode, perspective, true);
   }, [category, perspective]);
   const averageColumns = useMemo<Column<AllTeamsRow>[]>(() => {
@@ -222,7 +223,7 @@ export function TeamHeadToHead({
       : category === "advanced"
         ? buildAdvancedColumns(mode, perspective)
         : category === "misc"
-          ? buildMiscColumns(mode, perspective)
+          ? withoutCoverageColumn(buildMiscColumns(mode, perspective))
           : buildScoringColumns(mode, perspective, true);
   }, [category, perspective]);
 

@@ -16,7 +16,7 @@ import type { TeamPerspective } from "../lib/teamStatsColumns";
 export interface TeamCellRank {
   text: string;
   tier: TeamRankResult["tier"];
-  /** 色の意味（良し悪し＝緑・赤、多い・少ない＝青・オレンジ） */
+  /** 色の意味（良し悪し＝緑・赤、多い・少ない＝同じ緑・赤） */
   kind: TeamRankResult["kind"];
   /** 色の濃さ（1＝いちばん濃い。上位は順位、下位はいちばん悪い方からの順位） */
   level: number;
@@ -95,7 +95,7 @@ export function TeamRankScope({
 /** 順位を付けたマスの className の足し分（上位・下位の色） */
 export function rankTierClass(rank: TeamCellRank | undefined): string {
   if (!rank?.tier) return "";
-  // 良し悪しのない項目: 多い上位3は青・少ない下位3はオレンジ（1位・最下位がいちばん濃い）
+  // 良し悪しのない項目: 多い上位3は緑・少ない下位3は赤（1位・最下位がいちばん濃い。多い・少ないを表す）
   if (rank.kind === "count") return ` count-${rank.tier === "top" ? "hi" : "lo"}-${Math.min(3, Math.max(1, rank.level))}`;
   return rank.tier === "top" ? " rank-tier-top" : " rank-tier-bottom";
 }

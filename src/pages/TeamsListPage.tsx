@@ -1,4 +1,4 @@
-import { withPaint, mergePaint, PAINT2_NOTE } from "../lib/teamPaint2";
+import { withPaint, mergePaint, PAINT2_NOTE, withoutCoverageColumn } from "../lib/teamPaint2";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useFoulConditionCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { foulColumnsSplit } from "../lib/ruleChange";
@@ -799,7 +799,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
                 : tab === "advanced"
                   ? buildAdvancedColumns(mode, p)
                   : tab === "misc"
-                    ? buildMiscColumns(mode, p, true, foulSplit)
+                    ? withoutCoverageColumn(buildMiscColumns(mode, p, true, foulSplit))
                     : withoutSelfPctColumns(buildScoringColumns(mode, p, paintSupported)),
             ),
           sampleRows: conditionRows,
@@ -827,7 +827,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
       case "advanced":
         return [...LEADING_COLUMNS, ...maskCols(buildAdvancedColumns(displayMode, teamPerspective))];
       case "misc":
-        return [...LEADING_COLUMNS, ...maskCols(buildMiscColumns(displayMode, teamPerspective, true, foulSplit))];
+        return [...LEADING_COLUMNS, ...maskCols(withoutCoverageColumn(buildMiscColumns(displayMode, teamPerspective, true, foulSplit)))];
       case "scoring":
         return [...LEADING_COLUMNS, ...maskCols(withoutSelfPctColumns(buildScoringColumns(displayMode, teamPerspective, paintSupported)))];
       case "shooting":

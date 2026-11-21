@@ -371,15 +371,7 @@ function buildTeamCompareDefList(
   defs: ComparisonStatDef<TeamCompareColumnData>[],
   extras: ComparisonStatDef<TeamCompareColumnData>[],
 ): ComparisonStatDef<TeamCompareColumnData>[] {
-  if (tabKey === "scoring") {
-    defs.unshift({
-      key: "paint2games",
-      label: PAINT2_COVERAGE,
-      value: () => 0,
-      format: (r) => (r.isLeague ? "-" : paintCoverage(r.logTotals ? paintOf(r.logTotals.totals) : undefined, perspective)),
-      noHighlight: true,
-    });
-  }
+  // 「記録のある試合数」の行は、比較の表では出さない（DESIGN.md 464章。値と順位の計算の仕組みは teamPaint2.ts に残してある）
   if (tabKey === "advanced") {
     // 全チームスタッツと同じ並び: TOV% の次に FTR・OR%
     const at = defs.findIndex((d) => d.key === "tovpct");

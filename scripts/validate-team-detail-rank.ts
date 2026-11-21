@@ -99,8 +99,8 @@ for (const season of ["2025-26", "2021-22"]) {
     const ranks = teamRanksOf(rows, col, "own", true, true)!;
     const tops = [...ranks.values()].filter((r) => r.tier === "top");
     const bottoms = [...ranks.values()].filter((r) => r.tier === "bottom");
-    assert(tops.length >= 3 && tops.every((r) => r.rank <= 3 && r.kind === "count"), `${season} ${key}: 多い上位3が青（kind=count）`);
-    assert(bottoms.length >= 3 && bottoms.every((r) => r.bottomRank <= 3 && r.kind === "count"), `${season} ${key}: 少ない下位3がオレンジ（kind=count）`);
+    assert(tops.length >= 3 && tops.every((r) => r.rank <= 3 && r.kind === "count"), `${season} ${key}: 多い上位3が緑系（kind=count）`);
+    assert(bottoms.length >= 3 && bottoms.every((r) => r.bottomRank <= 3 && r.kind === "count"), `${season} ${key}: 少ない下位3が赤系（kind=count）`);
   }
   // 色つきの項目は countTiers でも緑・赤（kind=quality）のまま
   {

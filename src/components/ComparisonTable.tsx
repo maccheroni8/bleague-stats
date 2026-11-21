@@ -231,7 +231,7 @@ export function ComparisonTable<T>({
       </table>
       {visibleDefs.length === 0 && <p className="empty-message">この条件では、値のある項目がありません</p>}
     </div>
-    {defs.some((d) => d.key === "paint2games") && <p className="page-subtitle">{PAINT2_COMPARE_NOTE}</p>}
+    {defs.some((d) => d.key === "paint2m") && <p className="page-subtitle">{PAINT2_COMPARE_NOTE}</p>}
     {footnotes.map((f) => (
       <p key={f.key} className="result-only-note">
         {RESULT_ONLY_MARK} {name(f.item)}（{f.season}）: {f.note}

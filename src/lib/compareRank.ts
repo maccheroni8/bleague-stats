@@ -35,7 +35,7 @@ export interface TeamRankResult {
   rank: number;
   total: number;
   tier: "top" | "bottom" | null;
-  /** 色の意味。quality＝良し悪し（緑・赤）、count＝良し悪しのない項目の多い・少ない（青・オレンジ。DESIGN.md 461章） */
+  /** 色の意味。quality＝良し悪し（緑・赤）、count＝良し悪しのない項目の多い・少ない（同じ緑・赤。DESIGN.md 461・464章） */
   kind: "quality" | "count";
   /** いちばん悪い方から数えた順位（同じ値は同じ順位）。全チームスタッツの下位3位の濃さに使う */
   bottomRank: number;

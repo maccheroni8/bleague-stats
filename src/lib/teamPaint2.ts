@@ -7,6 +7,9 @@ import { formatDecimal, formatPct, formatSigned } from "./format";
 import type { AllTeamsRow, TeamPerspective, TeamTotals } from "./teamStatsColumns";
 
 export const PAINT2_COVERAGE = "記録のある試合数";
+/** 「記録のある試合数」の列（key）。値と順位の計算の仕組みは残し、画面・保存画像の表からは隠す（DESIGN.md 464章）。md の書き出しには残す */
+export const PAINT2_COVERAGE_KEY = "paint2games";
+export const withoutCoverageColumn = <T extends { key: string }>(columns: readonly T[]): T[] => columns.filter((c) => c.key !== PAINT2_COVERAGE_KEY);
 export const PAINT2_KEYS = ["paint2m", "paint2a", "paint2pct", "mid2m", "mid2a", "mid2pct"] as const;
 export type Paint2Key = (typeof PAINT2_KEYS)[number];
 const PAINT2_LABELS = ["PAINT2M", "PAINT2A", "PAINT2%", "MID2M", "MID2A", "MID2%"];
@@ -245,9 +248,9 @@ export function leaguePaintComplete(t: {
   );
 }
 
-export const PAINT2_NOTE = "記録のある試合数は記録の揃う試合数／全試合数です。内訳の平均・成功率は記録の揃う試合だけで計算します。";
+export const PAINT2_NOTE = "内訳の平均・成功率は、ペイント内外の記録が揃う試合だけで計算します。";
 export const PAINT2_COMPARE_NOTE =
-  "記録のある試合数は記録の揃う試合数／全試合数です。リーグ平均の内訳6項目が「-」の場合は、記録不足、または対象試合数を確認できないためです。";
+  "内訳の平均・成功率は、ペイント内外の記録が揃う試合だけで計算します。リーグ平均の内訳6項目が「-」の場合は、記録不足、または対象試合数を確認できないためです。";
 
 /**
  * リーグ平均の内訳が揃っているかの最終確認。比較用の合算では古いチーム・コーチ行が2P全体に入ることがあり、

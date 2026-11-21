@@ -15,7 +15,7 @@ import type { TeamCellRank } from "./TeamRankScope";
 /** 順位を付けた項目の引き当て。key は Shooting＝列のキー（例: ジャンプショット_2pm）、Forced TOV＝「forced:項目」「committed:項目」 */
 export type SpecialRankLookup = (key: string) => TeamCellRank | undefined;
 
-/** 全チームの順位。teamRanksOf と同じ決め方（表示の文字が同じなら同じ順位・次は飛ばす・6チーム以下は色なし）。tierless なら良し悪しのない項目として青・オレンジの色（kind=count） */
+/** 全チームの順位。teamRanksOf と同じ決め方（表示の文字が同じなら同じ順位・次は飛ばす・6チーム以下は色なし）。tierless なら良し悪しのない項目の色（kind=count） */
 export function ranksOfRows<T extends { teamId: string; gamesPlayed: number }>(
   rows: readonly T[],
   value: (r: T) => number,

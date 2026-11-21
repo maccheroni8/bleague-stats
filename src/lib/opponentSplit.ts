@@ -3,6 +3,7 @@
 // Shooting・Forced TOV だけはスポーツナビ（Yahoo）の記録を、試合ログの試合ごとに引いて足す。
 // 試合の生データは読まない。結果だけの試合（不戦勝など）と中止の試合は試合ログに無いので、スタッツにも勝敗にも入らない。
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
+import { withoutCoverageColumn } from "./teamPaint2";
 import type { OpponentRowBase } from "../components/OpponentSplitTable";
 import type { Column } from "../components/SortableTable";
 import { classifyForcedTurnover } from "../../shared/forcedTurnover";
@@ -129,7 +130,7 @@ export function standardColumns(
     case "advanced":
       return buildAdvancedColumns(mode, perspective);
     case "misc":
-      return buildMiscColumns(mode, perspective, true, opts.foulSplit);
+      return withoutCoverageColumn(buildMiscColumns(mode, perspective, true, opts.foulSplit));
     case "scoring":
       return buildScoringColumns(mode, perspective, opts.paintSupported);
   }

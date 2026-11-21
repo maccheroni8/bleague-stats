@@ -1,3 +1,4 @@
+import { withoutCoverageColumn } from "../lib/teamPaint2";
 import { useCallback, useMemo, useState } from "react";
 import { FilterBar } from "./FilterBar";
 import { ConditionTitle } from "./ConditionTitle";
@@ -236,7 +237,7 @@ export function TeamSituationTab({ season, league }: { season: string; league: L
       case "advanced":
         return [...LEADING, ...stat(buildAdvancedColumns(displayMode, teamPerspective))];
       case "misc":
-        return [...LEADING, ...stat(buildMiscColumns(displayMode, teamPerspective, true, foulSplit))];
+        return [...LEADING, ...stat(withoutCoverageColumn(buildMiscColumns(displayMode, teamPerspective, true, foulSplit)))];
       case "scoring":
         return [...LEADING, ...stat(withoutSelfPctColumns(buildScoringColumns(displayMode, teamPerspective, true)))];
       case "periods":
