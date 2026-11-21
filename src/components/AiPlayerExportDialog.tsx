@@ -5,7 +5,7 @@ import { OPPONENT_KIND_LABELS, ONE_THREE_TERMS_REASON, TERM_CHOICES, type Oppone
 import { LEAGUE_LABELS, type League } from '../lib/league';
 import './AiExportDialog.css';
 
-const OPP_CHOICES: OpponentKind[] = ['all', 'atLeast60'];
+const OPP_CHOICES: OpponentKind[] = ['all', 'atLeast60Latest', 'atLeast60'];
 const TERM_HINTS: Partial<Record<TermKind, string>> = {
   threeTerms: 'リーグ共通の中断期間（11月と2月ごろ）で、開幕〜11月の中断／中断明け〜2月の中断／2月の中断明け〜の3つに分けます。シーズン成績の章は、3つの期間と、参考のシーズン全体の列を並べます。',
   halves: '各チームの試合数の半分で前半戦・後半戦に分けます（奇数は前半戦が1試合多い）。進行中のシーズンは30試合目までを前半戦にします。シーズン成績の章は、2つの期間と、参考のシーズン全体の列を並べます。',
@@ -76,6 +76,7 @@ export default function AiPlayerExportDialog({ season, playerId, league, close }
       <fieldset className="ai-detailed-group"><legend>対戦相手</legend>
         {OPP_CHOICES.map(o => <label key={o}><input type="radio" name="ai-player-opp" checked={opp === o} onChange={() => setOpp(o)} />{OPPONENT_KIND_LABELS[o]}</label>)}
         {opp === 'atLeast60' && <p className="ai-detailed-hint">その試合に入る時点の相手の勝率が6割以上の試合だけを使います（相手が5試合未満の試合は外します）。リーグ内の順位の章は、条件にかかわらずシーズン全体です。</p>}
+        {opp === 'atLeast60Latest' && <p className="ai-detailed-hint">相手のそのシーズンの最新の勝率（終わったシーズンは最終の勝率）が6割以上の試合だけを使います（チーム詳細の概要の「対6割以上（最新勝率）」と同じ）。リーグ内の順位の章は、条件にかかわらずシーズン全体です。</p>}
       </fieldset>
       <fieldset className="ai-detailed-group"><legend>前季との比較</legend>
         <label><input type="checkbox" checked={compare} onChange={e => setCompare(e.target.checked)} />前季全体と比べる</label>

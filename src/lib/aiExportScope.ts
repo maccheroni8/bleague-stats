@@ -3,6 +3,7 @@ import type { GameSummary, TeamGameLog } from '../../shared/types';
 import type { ScheduleFileExtended } from '../../shared/resultOnlyGames';
 import { resultOnlyLogsForTeam } from './resultOnlyGames';
 import { MIN_GAMES_FOR_OPPONENT_WIN_RATE } from './situational';
+import { matchesOpponentSeasonWinRate } from './opponentStrength';
 
 export type TermKind = 'season' | 'threeTerms' | 'halves' | 'recent5';
 export const TERM_KIND_LABELS: Record<TermKind, string> = { season: '1シーズン', threeTerms: '3ターム', halves: '前半戦・後半戦', recent5: '直近5試合' };
@@ -110,6 +111,8 @@ export interface ScopeInput {
   schedule: ScheduleFileExtended;
   /** レギュラーシーズンが終わっているか（isRegularSeasonComplete） */
   complete: boolean;
+  /** 相手の最新勝率（teams.json。buildOpponentSeasonWinRates）。対戦相手「勝率6割以上（最新勝率）」の判定に使う（設計書452章） */
+  latestWinRates?: ReadonlyMap<string, number>;
 }
 
 export function upcomingTeamDates(input: ScopeInput): string[] {
@@ -156,8 +159,11 @@ export function buildTerms(kind: TermKind, input: ScopeInput): { terms: Term[] }
 }
 
 // ---- 対戦相手の絞り込み（段階0の追加） ----
-export type OpponentKind = 'all' | 'atLeast60';
-export const OPPONENT_KIND_LABELS: Record<OpponentKind, string> = { all: '全チーム', atLeast60: '勝率6割以上' };
+// atLeast60＝試合時点の勝率（前からの選択肢）、atLeast60Latest＝最新勝率（設計書452章で追加。名前の付け方は 450章と同じ）
+export type OpponentKind = 'all' | 'atLeast60' | 'atLeast60Latest';
+export const OPPONENT_KIND_LABELS: Record<OpponentKind, string> = { all: '全チーム', atLeast60: '勝率6割以上（試合時点の勝率）', atLeast60Latest: '勝率6割以上（最新勝率）' };
+/** 書き出しのファイル名に入れる言葉（試合時点は前のまま「対6割以上」） */
+export const OPPONENT_KIND_FILE_WORDS: Record<Exclude<OpponentKind, 'all'>, string> = { atLeast60: '対6割以上', atLeast60Latest: '対6割以上_最新勝率' };
 
 /**
  * 相手のその試合に入る時点の勝敗（チームスタッツ・シチュエーション別成績・ランキング等の「対6割以上」の絞り込みと同じ数え方）。
@@ -181,8 +187,14 @@ export function opponentRecordBefore(summaries: readonly GameSummary[], opponent
 export const MIN_OPP_GAMES = MIN_GAMES_FOR_OPPONENT_WIN_RATE;
 
 export type OpponentJudge = 'in' | 'out' | 'tooFew';
-export function judgeOpponent(kind: OpponentKind, summaries: readonly GameSummary[], g: TeamGame): OpponentJudge {
+export function judgeOpponent(kind: OpponentKind, summaries: readonly GameSummary[], g: TeamGame, latestWinRates?: ReadonlyMap<string, number>): OpponentJudge {
   if (kind === 'all') return 'in';
+  // 最新勝率: 相手のそのシーズンの今の勝率（チーム詳細の概要の「対戦相手の強さ」と同じ。共通の部品 opponentStrength.ts）。勝率を出せない相手は判定しない
+  if (kind === 'atLeast60Latest') {
+    const rates = latestWinRates ?? new Map<string, number>();
+    if (!rates.has(g.log.opponentTeamId)) return 'tooFew';
+    return matchesOpponentSeasonWinRate(g.log.opponentTeamId, 'atLeast60', rates) ? 'in' : 'out';
+  }
   const r = opponentRecordBefore(summaries, g.log.opponentTeamId, g.date, g.scheduleKey);
   const n = r.wins + r.losses;
   if (n < MIN_OPP_GAMES) return 'tooFew';
@@ -190,9 +202,9 @@ export function judgeOpponent(kind: OpponentKind, summaries: readonly GameSummar
 }
 
 /** タームを先に決め、そのあとで相手で絞る（タームの境界は絞り込みで動かない） */
-export function filterTermByOpponent(t: Term, kind: OpponentKind, summaries: readonly GameSummary[]): Term & { tooFew: number; excluded: number } {
+export function filterTermByOpponent(t: Term, kind: OpponentKind, summaries: readonly GameSummary[], latestWinRates?: ReadonlyMap<string, number>): Term & { tooFew: number; excluded: number } {
   if (kind === 'all') return { ...t, tooFew: 0, excluded: 0 };
-  const judged = t.games.map(g => [g, judgeOpponent(kind, summaries, g)] as const);
+  const judged = t.games.map(g => [g, judgeOpponent(kind, summaries, g, latestWinRates)] as const);
   const games = judged.filter(([, j]) => j === 'in').map(([g]) => g);
   return { ...makeTerm(t.key, t.label, games, 0, t.rule), tooFew: judged.filter(([, j]) => j === 'tooFew').length, excluded: judged.filter(([, j]) => j !== 'in').length };
 }
@@ -204,7 +216,7 @@ export function filterTermByOpponent(t: Term, kind: OpponentKind, summaries: rea
 export function buildTermsWithOpponent(kind: TermKind, opp: OpponentKind, input: ScopeInput): { terms: (Term & { tooFew: number; excluded: number })[] } | { unavailable: string } {
   if (kind === 'recent5' && opp !== 'all') {
     const all = teamConfirmedGames(input.teamId, input.regularLogs, input.schedule);
-    const judged = all.map(g => [g, judgeOpponent(opp, input.summaries, g)] as const);
+    const judged = all.map(g => [g, judgeOpponent(opp, input.summaries, g, input.latestWinRates)] as const);
     const hits = judged.filter(([, j]) => j === 'in').map(([g]) => g);
     const last = hits.slice(-RECENT_GAMES);
     const rule = `${OPPONENT_KIND_LABELS[opp]}の相手との試合のうち、最後の${RECENT_GAMES}試合${last.length < RECENT_GAMES ? `（${last.length}試合しかない）` : ''}。直近5試合だけは、相手で絞ってから5試合を選ぶ`;
@@ -212,7 +224,7 @@ export function buildTermsWithOpponent(kind: TermKind, opp: OpponentKind, input:
   }
   const r = buildTerms(kind, input);
   if ('unavailable' in r) return r;
-  return { terms: r.terms.map(t => filterTermByOpponent(t, opp, input.summaries)) };
+  return { terms: r.terms.map(t => filterTermByOpponent(t, opp, input.summaries, input.latestWinRates)) };
 }
 
 // ---- 選ぶ画面の選択肢（段階1。準備中の選択肢は選べない形で見せる） ----

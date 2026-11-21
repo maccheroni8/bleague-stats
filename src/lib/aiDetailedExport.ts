@@ -38,7 +38,7 @@ import { teamNameInSeason } from './teamLabel';
 import { previousSeason } from './seasonCompare';
 import { buildSituationalRecordGroups, teamSeasonColumnLabels } from '../pages/TeamDetailPage';
 import {
-  buildTermsWithOpponent, teamConfirmedGames, MIN_OPP_GAMES, OPPONENT_KIND_LABELS, TERM_KIND_LABELS, TIME_SLICE_CHOICES,
+  buildTermsWithOpponent, teamConfirmedGames, MIN_OPP_GAMES, OPPONENT_KIND_FILE_WORDS, OPPONENT_KIND_LABELS, TERM_KIND_LABELS, TIME_SLICE_CHOICES,
   type OpponentKind, type Term, type TermKind, type TimeSlice,
 } from './aiExportScope';
 
@@ -118,7 +118,11 @@ function sliceRow(teamId: string, logs: TeamGameLog[], slice: TimeSlice, source?
   return { team: { teamId, teamName: '' }, gamesPlayed: logs.length, wins, losses: logs.length - wins, totals: logs.length ? sumTeamGameLogs(logs) : { ...EMPTY_TOTALS } };
 }
 
-const OPP_RULE = `その試合に入る時点（その試合は含まない）の相手のレギュラーシーズン勝率が .600 以上。相手の消化試合が${MIN_OPP_GAMES}試合未満の試合は判定せず外す。相手の勝敗はスタッツのある試合で数える（結果だけの試合は相手の勝敗に数えない）。チームスタッツの絞り込み「対6割以上」と同じ`;
+const OPP_RULES: Record<Exclude<OpponentKind, 'all'>, string> = {
+  atLeast60: `その試合に入る時点（その試合は含まない）の相手のレギュラーシーズン勝率が .600 以上。相手の消化試合が${MIN_OPP_GAMES}試合未満の試合は判定せず外す。相手の勝敗はスタッツのある試合で数える（結果だけの試合は相手の勝敗に数えない）。チームスタッツの絞り込み「対6割以上（試合時点の勝率）」と同じ`,
+  // 設計書452章
+  atLeast60Latest: '相手のそのシーズンの最新のレギュラーシーズン勝率（基準日時点。終わったシーズンは最終の勝率。結果だけの試合も相手の勝敗に数える）が .600 以上。同じ相手との試合は、いつ戦ったかに関わらず同じ判定。勝率を出せない相手（まだ試合をしていない）との試合は外す。チーム詳細の概要「シチュエーション別勝敗」の「対6割以上（最新勝率）」と同じ',
+};
 // 自チームだけ（相手・差に意味がない、または言い換えになる列）
 const OWN_ONLY = new Set(['G', 'MIN', 'POSS', 'PACE', 'ORtg', 'DRtg', 'NetRtg', '+/-', 'EFF', 'BSR', '内訳対象']);
 // 構成の章に移す列（得点・失点構成とまとめる）
@@ -149,7 +153,7 @@ const GLOSSARY_TEAM = [
   '得点：外国籍・帰化・アジア など：得点した選手の登録区分（2025-26以前は日本人／外国籍・帰化・アジアの2区分、2026-27以降は3区分の合算）。コート上の人数とは別。',
   '連戦 GAME1／GAME2：同じ相手と中1日以内に続けて行った試合の1試合目が GAME1、2試合目が GAME2（3試合以上続くときは GAME3…）。相手が違う試合や中2日以上空いた試合は連戦に数えない。',
   '100点ゲーム：どちらか一方でも100点以上の試合。地区（対東地区など）：その試合のシーズンの相手の所属地区。土日祝開催：祝日は土日側に入る。',
-  '対戦相手の絞り込みの「勝率6割以上」は、その試合に入る時点の相手の勝率。シチュエーション別勝敗の「対戦相手の強さ」は、相手の今の勝率（別の基準）。',
+  '対戦相手の絞り込みの「勝率6割以上（試合時点の勝率）」は、その試合に入る時点の相手の勝率。「勝率6割以上（最新勝率）」とシチュエーション別勝敗の「対戦相手の強さ」は、相手の今の勝率。',
 ];
 const GLOSSARY_PLAYER = [
   '%PTS・%FGM などの%系と ORtg・DRtg・NetRtg・USG% の分母は、その選手が出た試合のチーム合計。',
@@ -173,7 +177,7 @@ function oppPreRecord(summaries: readonly GameSummary[], g: { log: TeamGameLog; 
 export function detailedTerms(d: DetailedSeason, kind: TermKind, opp: OpponentKind, teamId: string, history: TeamHistoryEntry[], league: League = 'premier'): FTerm[] {
   const complete = isRegularSeasonComplete({ schedule: d.schedule, summaries: d.summaries });
   const names = [d.team.teamName, teamNameInSeason(history, teamId, d.season, d.team.teamName)];
-  const r = buildTermsWithOpponent(kind, opp, { season: d.season, league, teamId, teamNames: names, regularLogs: d.regular, summaries: d.summaries, schedule: d.schedule, complete });
+  const r = buildTermsWithOpponent(kind, opp, { season: d.season, league, teamId, teamNames: names, regularLogs: d.regular, summaries: d.summaries, schedule: d.schedule, complete, latestWinRates: buildOpponentSeasonWinRates(d.teams) });
   if ('unavailable' in r) throw new Error(`このタームは選べません: ${r.unavailable}`);
   return r.terms;
 }
@@ -182,7 +186,7 @@ interface Col { key: string; label: string; rows: Map<TimeSlice, AllTeamsRow>; l
 
 export function detailedFilename(i: DetailedInput, name: string, baseDate: string): string {
   const parts = [name, i.season, ...((i.league ?? 'premier') === 'one' ? ['B.ONE'] : []), i.kind === 'team' ? 'チーム情報' : '選手情報', TERM_KIND_LABELS[i.term], baseDate];
-  if (i.opp !== 'all') parts.splice(parts.length - 1, 0, '対6割以上');
+  if (i.opp !== 'all') parts.splice(parts.length - 1, 0, OPPONENT_KIND_FILE_WORDS[i.opp]);
   return `${parts.join('_')}.md`.replace(/[\\/:*?"<>|\s]+/g, '');
 }
 
@@ -206,7 +210,7 @@ function aboutTable(i: DetailedInput, ctx: { name: string; ended: string; comple
     ['ターム', `${TERM_KIND_LABELS[i.term]}${ctx.terms.length > 1 && i.kind === 'team' ? '（比べやすいよう、最後の列にシーズン全体を参考に付ける）' : ''}`],
     ['時間帯', ctx.slices.length === 1 && ctx.slices[0] === 'game' ? '試合全体（延長を含む）' : ctx.slices.map(s => (s === 'game' ? '試合全体（延長を含む）' : SLICE_LABEL[s])).join('・') + (ctx.slices.some(s => s !== 'game') ? '。前半・後半は延長を含まない。1Q〜4Q・延長の区間は出さない' : '')],
     ...(ctx.split ? [['ファイルの分け方', `10万字を超えるため、時間帯で2つのファイルに分けた。このファイルは「${ctx.split.self}」。もう1つ：${ctx.split.otherFile}（先頭の「この書き出しについて」「対象試合」は同じ）`]] : []),
-    ['対戦相手', i.opp === 'all' ? '全チーム' : `${OPPONENT_KIND_LABELS[i.opp]}（${OPP_RULE}）。${i.term === 'recent5' ? '直近5試合は、相手で絞ってから最後の5試合を選ぶ（ほかのタームは期間を決めてから絞る）' : 'タームを先に決めてから絞る（直近5試合だけは、相手で絞ってから最後の5試合を選ぶ）'}`],
+    ['対戦相手', i.opp === 'all' ? '全チーム' : `${OPPONENT_KIND_LABELS[i.opp]}（${OPP_RULES[i.opp]}）。${i.term === 'recent5' ? '直近5試合は、相手で絞ってから最後の5試合を選ぶ（ほかのタームは期間を決めてから絞る）' : 'タームを先に決めてから絞る（直近5試合だけは、相手で絞ってから最後の5試合を選ぶ）'}`],
     ...ctx.extra,
     ['書き出した日', i.exportedAt],
   ]);
@@ -214,7 +218,7 @@ function aboutTable(i: DetailedInput, ctx: { name: string; ended: string; comple
 
 function gameTable(i: DetailedInput, terms: FTerm[]): string {
   const withOpp = i.opp !== 'all';
-  return table(['ターム', '期間・決め方', `試合（勝敗・勝率）${withOpp ? '※絞り込みのあと' : ''}`, 'スタッツの対象', '結果だけの試合', withOpp ? '相手の条件で外した試合（うち相手が5試合未満で判定できない）' : '今後の予定'], terms.map(t => {
+  return table(['ターム', '期間・決め方', `試合（勝敗・勝率）${withOpp ? '※絞り込みのあと' : ''}`, 'スタッツの対象', '結果だけの試合', withOpp ? (i.opp === 'atLeast60Latest' ? '相手の条件で外した試合（うち相手の勝率を出せない）' : '相手の条件で外した試合（うち相手が5試合未満で判定できない）') : '今後の予定'], terms.map(t => {
     const w = t.games.filter(g => g.win).length;
     const ro = t.games.filter(g => g.resultOnly);
     const games = t.games.length ? `${t.games.length}試合 ${record(w, t.games.length - w)}` : '0試合（対象の試合なし）';
@@ -227,9 +231,10 @@ function gameListTable(i: DetailedInput, terms: FTerm[], seasonTerm: FTerm, team
   const multi = terms.length > 1;
   const list = i.term === 'recent5' ? terms.flatMap(t => t.games) : seasonTerm.games;
   const termOf = (g: { scheduleKey: string }) => terms.find(t => t.games.some(x => x.scheduleKey === g.scheduleKey))?.label ?? '-';
-  return table([...(multi ? ['ターム'] : []), '日付', '相手', '会場', '結果', '相手の勝敗（試合前）'], list.map(g => {
+  const latest = i.opp === 'atLeast60Latest';
+  return table([...(multi ? ['ターム'] : []), '日付', '相手', '会場', '結果', latest ? '相手の勝敗（最新）' : '相手の勝敗（試合前）'], list.map(g => {
     const opp = teamsOf.teams.find(t => t.teamId === g.log.opponentTeamId);
-    return [...(multi ? [termOf(g)] : []), g.date, opp ? teamNameInSeason(history, opp.teamId, i.season, opp.teamName) : g.log.opponentTeamId, g.isHome ? 'ホーム' : 'アウェイ', `${g.win ? '勝' : '敗'} ${g.resultOnly ? '（結果だけ）' : `${g.log.teamScore}-${g.log.opponentScore}`}`, oppPreRecord(teamsOf.summaries, g)];
+    return [...(multi ? [termOf(g)] : []), g.date, opp ? teamNameInSeason(history, opp.teamId, i.season, opp.teamName) : g.log.opponentTeamId, g.isHome ? 'ホーム' : 'アウェイ', `${g.win ? '勝' : '敗'} ${g.resultOnly ? '（結果だけ）' : `${g.log.teamScore}-${g.log.opponentScore}`}`, latest ? (opp ? record(opp.wins, opp.losses) : '-') : oppPreRecord(teamsOf.summaries, g)];
   }));
 }
 
@@ -341,7 +346,7 @@ function buildPart(i: DetailedInput, slices: TimeSlice[], split: SplitInfo | und
     out.push(`# ${name} ${i.season} 選手情報（詳しい版）`, '', '## この書き出しについて', '');
     out.push(aboutTable(i, { name, ended, complete, terms, slices, split, extra: [['対象の選手', `このチームで出場した${i.players.length}人（移籍した選手は、このチームでの試合だけ）`], ['年齢の基準日', `${formatBaseDateLabel(ageBaseDate(i.season)).replace(' 現在', '')}時点（${AGE_BASE_NOTE}）`]] }), '');
     out.push('### チームの試合', '', gameTable(i, terms), '');
-    if (i.opp !== 'all') out.push('#### 対象の試合（相手と、その試合に入る時点の相手の勝敗）', '', gameListTable(i, terms, seasonTerm, cur, i.history), '');
+    if (i.opp !== 'all') out.push(`#### 対象の試合（相手と、${i.opp === 'atLeast60Latest' ? '相手の最新の勝敗' : 'その試合に入る時点の相手の勝敗'}）`, '', gameListTable(i, terms, seasonTerm, cur, i.history), '');
     if (allEmpty) { out.push(...EMPTY_NOTE(i)); return finish(true); }
     out.push(...profileTable(i, terms, complete));
     out.push('### 数字の書き方', '', '- 1試合平均（分母は、その選手がそのターム・時間帯に出場した試合数＝各表の G）。%系（%PTS など）の分母は、その選手が出た試合のチームの合計（今の選手スタッツタブと同じ）。小数は第2位まで、時間は 分:秒。「-」は値が無い。',
@@ -477,7 +482,7 @@ function buildPart(i: DetailedInput, slices: TimeSlice[], split: SplitInfo | und
   out.push(`# ${name} ${i.season} チーム情報（詳しい版）`, '', '## この書き出しについて', '');
   out.push(aboutTable(i, { name, ended, complete, terms, slices, split, extra: [['リーグ順位・リーグ平均', leagueNote()], ['前季との比較', prevCol ? `する（「チームのまとめ」だけ。${i.prev!.season} ${prevName} の前季全体${i.opp === 'all' ? '' : '（前季も同じ相手の条件で絞る）'}と比べる）` : i.compare ? `しない（${lg === 'one' ? 'B.ONE の前季（旧B2）' : '前季'}にこのチームの記録がない${lg === 'one' ? '。前季に別のリーグにいたチームとは比べない' : ''}）` : 'しない']] }), '');
   out.push('### 対象試合', '', gameTable(i, terms.length > 1 ? [...terms, { ...seasonTerm, label: 'シーズン全体（参考）' }] : terms), '');
-  if (i.opp !== 'all') out.push('#### 対象の試合（相手と、その試合に入る時点の相手の勝敗）', '', gameListTable(i, terms, seasonTerm, cur, i.history), '');
+  if (i.opp !== 'all') out.push(`#### 対象の試合（相手と、${i.opp === 'atLeast60Latest' ? '相手の最新の勝敗' : 'その試合に入る時点の相手の勝敗'}）`, '', gameListTable(i, terms, seasonTerm, cur, i.history), '');
   if (allEmpty) { out.push(...EMPTY_NOTE(i)); return finish(true); }
   if (hasGame) out.push(...foreignTimeTable(i, terms));
   out.push('### 数字の書き方', '',
@@ -524,7 +529,7 @@ function buildPart(i: DetailedInput, slices: TimeSlice[], split: SplitInfo | und
 
   // 2. シチュエーション別勝敗（試合の最終勝敗。結果だけの試合は入らない＝今の画面と同じ）
   const withOpp = i.opp !== 'all';
-  out.push('## 2. シチュエーション別勝敗', '', `スタッツのある試合の最終勝敗（今の画面と同じく、結果だけの試合は入らない）。「対戦相手の強さ」の行は概要の表と同じく相手の今季（基準日時点）の勝率で分ける${withOpp ? '（上の絞り込みは試合前の勝率なので、基準が違う）' : ''}。1Q・前半・3Q終了時点は試合ログのクォーター別得点から判定する。月別は出さない（タームと重なる）。`, '');
+  out.push('## 2. シチュエーション別勝敗', '', `スタッツのある試合の最終勝敗（今の画面と同じく、結果だけの試合は入らない）。「対戦相手の強さ」の行は概要の表と同じく相手の今季（基準日時点）の勝率で分ける${withOpp ? (i.opp === 'atLeast60Latest' ? '（上の絞り込み「勝率6割以上（最新勝率）」と同じ基準）' : '（上の絞り込みは試合前の勝率なので、基準が違う）') : ''}。1Q・前半・3Q終了時点は試合ログのクォーター別得点から判定する。月別は出さない（タームと重なる）。`, '');
   const groups = buildSituationalRecordGroups(cur.regular, teamId, buildBackToBackStatus(cur.summaries), buildOpponentSeasonWinRates(cur.teams), cur.division as never, i.season, lg);
   const checkpoint = (g: TeamGameLog, q: number) => {
     const own = (g.periodPoints ?? []).slice(0, q), opp = (g.opponentPeriodPoints ?? []).slice(0, q);

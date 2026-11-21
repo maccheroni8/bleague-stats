@@ -6,7 +6,7 @@ import { LEAGUE_LABELS, type League } from '../lib/league';
 import { ONE_PERIOD_REASON } from '../lib/leagueAvailability';
 
 const KIND_CHOICES: { key: DetailedKind; label: string }[] = [{ key: 'team', label: 'チーム情報' }, { key: 'player', label: '選手情報' }];
-const OPP_CHOICES: OpponentKind[] = ['all', 'atLeast60'];
+const OPP_CHOICES: OpponentKind[] = ['all', 'atLeast60Latest', 'atLeast60'];
 const TERM_HINTS: Partial<Record<TermKind, string>> = {
   threeTerms: 'リーグ共通の中断期間（11月と2月ごろ）で、開幕〜11月の中断／中断明け〜2月の中断／2月の中断明け〜の3つに分けます。チーム情報では最後にシーズン全体の列も付きます。分けられないシーズンは理由を出します。',
   halves: '各チームの試合数の半分で前半戦・後半戦に分けます（奇数は前半戦が1試合多い）。進行中のシーズンは30試合目までを前半戦にします。',
@@ -97,6 +97,7 @@ export function AiDetailedPanel({ season, teamId, league }: { season: string; te
     <fieldset className="ai-detailed-group"><legend>対戦相手</legend>
       {OPP_CHOICES.map(o => <label key={o}><input type="radio" name="ai-detailed-opp" checked={opp === o} onChange={() => setOpp(o)} />{OPPONENT_KIND_LABELS[o]}</label>)}
       {opp === 'atLeast60' && <p className="ai-detailed-hint">その試合に入る時点の相手の勝率が6割以上の試合だけを使います（相手が5試合未満の試合は外します）。{term === 'recent5' ? '直近5試合は、該当する試合の中の最後の5試合です。' : ''}</p>}
+        {opp === 'atLeast60Latest' && <p className="ai-detailed-hint">相手のそのシーズンの最新の勝率（終わったシーズンは最終の勝率）が6割以上の試合だけを使います（チーム詳細の概要の「対6割以上（最新勝率）」と同じ）。{term === 'recent5' ? '直近5試合は、該当する試合の中の最後の5試合です。' : ''}</p>}
     </fieldset>
     {kind === 'team' && <fieldset className="ai-detailed-group"><legend>前季比較</legend>
       <label><input type="checkbox" checked={compare} onChange={e => setCompare(e.target.checked)} />前季全体と比べる（チームのまとめだけ）</label>

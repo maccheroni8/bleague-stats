@@ -9,6 +9,7 @@
 //  7. 段階3：Shooting・Forced TOV（値・順位・リーグ平均＝teams.json／league-average.json、ターム・絞り込み＝記録の生データ、記録の無い試合の人工データ、選手 Shooting＝players.json、記録の無いシーズンの理由）
 //  8. 段階3：B.ONE（読み込みから書き出し・リーグを通している・記録を読みに行かない・3ターム不可・前季の有無・値と順位）
 //  9. 段階3：スポーツナビの記録の読み込み（必要な試合だけ・進み具合・失敗・中止）
+import { buildOpponentSeasonWinRates, matchesOpponentSeasonWinRate } from '../src/lib/opponentStrength';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
@@ -92,7 +93,7 @@ const ids = (xs: { scheduleKey: string }[]) => xs.map(x => x.scheduleKey).join('
 const prevOf = (s: string) => { const y = Number(s.slice(0, 4)) - 1; return `${y}-${String(y + 1).slice(2)}`; };
 
 // ---- 1・2. タームの選び方と対戦相手 ----
-let teamSeasons = 0, judged = 0;
+let teamSeasons = 0, judged = 0, judgedLatest = 0;
 for (const season of seasons) {
   const d = sd(season);
   const rec = buildRecordsBeforeGame(d.summaries);
@@ -100,9 +101,10 @@ for (const season of seasons) {
     teamSeasons++;
     const cur = seasonOf(season, t.teamId);
     const complete = isRegularSeasonComplete({ schedule: d.schedule, summaries: d.summaries });
-    const input = { season, league: 'premier' as const, teamId: t.teamId, teamNames: [t.teamName], regularLogs: cur.regular, summaries: d.summaries, schedule: d.schedule, complete };
+    const latestRates = buildOpponentSeasonWinRates(d.teams);
+    const input = { season, league: 'premier' as const, teamId: t.teamId, teamNames: [t.teamName], regularLogs: cur.regular, summaries: d.summaries, schedule: d.schedule, complete, latestWinRates: latestRates };
     const all = teamConfirmedGames(t.teamId, cur.regular, d.schedule);
-    const one = (k: 'season' | 'recent5', o: 'all' | 'atLeast60') => { const r = buildTermsWithOpponent(k, o, input); if ('unavailable' in r) throw new Error(r.unavailable); return r.terms[0]!; };
+    const one = (k: 'season' | 'recent5', o: 'all' | 'atLeast60' | 'atLeast60Latest') => { const r = buildTermsWithOpponent(k, o, input); if ('unavailable' in r) throw new Error(r.unavailable); return r.terms[0]!; };
     const s = one('season', 'all');
     check(`${season} ${t.teamName} 1シーズンの試合数＝勝＋敗`, s.games.length === t.wins + t.losses, `${s.games.length} vs ${t.wins}+${t.losses}`);
     check(`${season} ${t.teamName} スタッツの対象＝試合数`, s.statLogs.length === t.gamesPlayed, `${s.statLogs.length} vs ${t.gamesPlayed}`);
@@ -118,9 +120,15 @@ for (const season of seasons) {
     const s60 = one('season', 'atLeast60'), r60 = one('recent5', 'atLeast60');
     check(`${season} ${t.teamName} 1シーズン×6割以上＝該当試合`, ids(s60.games) === ids(hits) && s60.games.length + s60.excluded === s.games.length);
     check(`${season} ${t.teamName} 直近5試合×6割以上＝該当試合の最後の5試合（ある分だけ）`, ids(r60.games) === ids(hits.slice(-RECENT_GAMES)));
+    // 最新勝率（452章）: 判定＝チーム詳細の概要の「対6割以上（最新勝率）」（結果だけの試合も同じ判定）
+    const hitsL = all.filter(g => matchesOpponentSeasonWinRate(g.log.opponentTeamId, 'atLeast60', latestRates));
+    const sL = one('season', 'atLeast60Latest'), rL = one('recent5', 'atLeast60Latest');
+    judgedLatest += all.length;
+    check(`${season} ${t.teamName} 1シーズン×6割以上（最新勝率）＝概要と同じ判定の試合・外した＋該当＝全試合`, ids(sL.games) === ids(hitsL) && sL.games.length + sL.excluded === s.games.length);
+    check(`${season} ${t.teamName} 直近5試合×6割以上（最新勝率）＝該当試合の最後の5試合`, ids(rL.games) === ids(hitsL.slice(-RECENT_GAMES)));
   }
 }
-console.log(`タームと対戦相手: ${teamSeasons}チームシーズン・サイトの判定と比べた延べ${judged}試合`);
+console.log(`タームと対戦相手: ${teamSeasons}チームシーズン・サイトの判定と比べた延べ${judged}試合・最新勝率の判定 延べ${judgedLatest}試合`);
 
 // 人工データ: 5試合未満・結果だけの試合・同じ日
 {
@@ -350,7 +358,7 @@ check('1シーズン・試合全体の値がチームスタッツタブ・選手
 
 // ---- 4. 書式・0試合・読み込み ----
 {
-  const combos = [['team', 'season', 'all', false], ['team', 'season', 'atLeast60', true], ['team', 'recent5', 'all', true], ['team', 'recent5', 'atLeast60', true], ['player', 'season', 'all', false], ['player', 'season', 'atLeast60', false], ['player', 'recent5', 'all', false], ['player', 'recent5', 'atLeast60', false]] as const;
+  const combos = [['team', 'season', 'all', false], ['team', 'season', 'atLeast60', true], ['team', 'recent5', 'all', true], ['team', 'recent5', 'atLeast60', true], ['player', 'season', 'all', false], ['player', 'season', 'atLeast60', false], ['player', 'recent5', 'all', false], ['player', 'recent5', 'atLeast60', false], ['team', 'season', 'atLeast60Latest', true], ['team', 'recent5', 'atLeast60Latest', false], ['player', 'season', 'atLeast60Latest', false]] as const;
   let n = 0;
   for (const season of seasons) for (const t of sd(season).teams) for (const [kind, term, opp, compare] of combos) {
     if (season !== '2026-27' && season !== '2025-26' && t.teamId !== sd(season).teams[0]!.teamId) continue;
@@ -362,6 +370,14 @@ check('1シーズン・試合全体の値がチームスタッツタブ・選手
     check(`${season} ${t.teamName} ${kind}・${term}・${opp} にファイル名`, /\.md$/.test(out.filename) && !/\s/.test(out.filename));
   }
   console.log(`書式: ${n}通りで確認`);
+  // 最新勝率（452章）: 決め方・一覧の見出し・ファイル名が最新勝率の書き方になる
+  {
+    const t1 = sd('2026-27').teams[0]!;
+    const md = buildDetailedExport(inputFor('2026-27', t1.teamId, 'team', { term: 'season', opp: 'atLeast60Latest' }));
+    check('最新勝率: 対戦相手の欄・一覧の見出し・ファイル名', md.empty || (md.markdown.includes('勝率6割以上（最新勝率）（相手のそのシーズンの最新') && md.markdown.includes('#### 対象の試合（相手と、相手の最新の勝敗）') && md.markdown.includes('相手の勝敗（最新）') && md.filename.includes('対6割以上_最新勝率')), md.filename);
+    const md2 = buildDetailedExport(inputFor('2026-27', t1.teamId, 'team', { term: 'season', opp: 'atLeast60' }));
+    check('試合時点の勝率: ファイル名は前のまま「対6割以上」・一覧は試合前の勝敗', md2.empty || (md2.filename.includes('対6割以上') && !md2.filename.includes('最新勝率') && md2.markdown.includes('相手の勝敗（試合前）')), md2.filename);
+  }
   const t0 = sd('2026-27').teams[0]!;
   const noRec = inputFor('2026-27', t0.teamId, 'team', { term: 'recent5', opp: 'atLeast60' });
   noRec.cur = { ...noRec.cur, summaries: [] };

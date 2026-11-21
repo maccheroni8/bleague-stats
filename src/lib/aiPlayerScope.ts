@@ -1,5 +1,6 @@
 // 選手詳細の md（AI向け書き出し）：入力の型と、対象期間（ターム・対戦相手）の試合の選び方。
 // ターム・対戦相手の決め方はチーム詳細の「詳しい版」と同じ関数（detailedTerms）を呼ぶ。画面・通信に依存しない純粋な関数だけ（保存キーの対象外）。
+import { buildOpponentSeasonWinRates } from './opponentStrength';
 import type { GameSummary, PlayerCareersFile, PlayerGameLog, PlayerSummary, TeamGameLog, TeamHistoryEntry, TeamSummary, YahooGamePbp } from '../../shared/types';
 import type { ScheduleFileExtended } from '../../shared/resultOnlyGames';
 import type { SeasonRegistrationFile } from '../../shared/registration';
@@ -112,7 +113,7 @@ interface DetailedSeason { season: string; teams: TeamSummaryT[]; team: TeamSumm
 function detailedTerms(d: DetailedSeason, kind: TermKind, opp: OpponentKind, teamId: string, history: TeamHistoryEntry[], league: League) {
   const complete = isRegularSeasonComplete({ schedule: d.schedule, summaries: d.summaries });
   const names = [d.team.teamName, teamNameInSeason(history, teamId, d.season, d.team.teamName)];
-  const r = buildTermsWithOpponent(kind, opp, { season: d.season, league, teamId, teamNames: names, regularLogs: d.regular, summaries: d.summaries, schedule: d.schedule, complete });
+  const r = buildTermsWithOpponent(kind, opp, { season: d.season, league, teamId, teamNames: names, regularLogs: d.regular, summaries: d.summaries, schedule: d.schedule, complete, latestWinRates: buildOpponentSeasonWinRates(d.teams) });
   if ('unavailable' in r) throw new Error(`このタームは選べません: ${r.unavailable}`);
   return r.terms;
 }

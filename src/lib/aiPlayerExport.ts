@@ -5,7 +5,7 @@ import { countDoubleTripleDoubles } from './playerSeasonBoxscore';
 import { formatDecimal } from './format';
 import { normalizePlayerName } from '../../shared/playerName';
 import { isRegularSeasonComplete } from '../../shared/regularSeasonComplete';
-import { OPPONENT_KIND_LABELS, TERM_KIND_LABELS } from './aiExportScope';
+import { OPPONENT_KIND_FILE_WORDS, OPPONENT_KIND_LABELS, TERM_KIND_LABELS } from './aiExportScope';
 import { playerScope, ownTeamMap, type PlayerMdInput, type PlayerMdSeason, type PlayerScope } from './aiPlayerScope';
 import { buildRankLines, RANK_CATEGORY_LABEL, RANK_ELIGIBILITY_TEXT, type RankLine } from './aiPlayerRank';
 import { ctxForLogs, mdTable, statsRows, UsedLabels, CATS, CAT_NAME, record, diffText, prevCtxOf, prevLogsOf } from './aiPlayerCommon';
@@ -33,7 +33,7 @@ export function buildPlayerExport(i: PlayerMdInput): PlayerMdOutput {
   const name = normalizePlayerName(p.name);
   const ended = baseDateOf(i);
   const complete = isRegularSeasonComplete({ schedule: i.cur.schedule, summaries: i.cur.summaries });
-  const filename = `${name}_${i.season}${i.league === 'one' ? '_B.ONE' : ''}_選手情報_${TERM_KIND_LABELS[i.term]}${i.opp !== 'all' ? '_対6割以上' : ''}${i.compare ? '_前季比較' : ''}_${ended}.md`.replace(/[\\/:*?"<>|\s]+/g, '');
+  const filename = `${name}_${i.season}${i.league === 'one' ? '_B.ONE' : ''}_選手情報_${TERM_KIND_LABELS[i.term]}${i.opp !== 'all' ? `_${OPPONENT_KIND_FILE_WORDS[i.opp]}` : ''}${i.compare ? '_前季比較' : ''}_${ended}.md`.replace(/[\\/:*?"<>|\s]+/g, '');
   out.push(`# ${name} ${i.season} 選手情報（詳しい版）`, '');
   if (i.compare) {
     const whole = i.term === 'season' && i.opp === 'all';
