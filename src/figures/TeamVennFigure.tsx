@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchTeams, fetchTeamGameLogs, fetchDivisionHistory, teamLogoUrl } from '../lib/data';
 import { useJsonData } from '../lib/useJsonData';
 import { enumParam, situationalParam, useUrlState, type UrlCodec } from '../lib/urlState';
+import { venueAxis, venueCodec, venueConditionLabel } from '../lib/figureVenue';
 import { gameTypeAxis, situationalAxes, type FilterAxis } from '../lib/filterAxes';
 import { GAME_TYPE_PARAM } from '../lib/urlFilterParams';
 import type { SituationalFilter } from '../lib/situational';
@@ -51,6 +52,7 @@ const SLOT_COLORS = ['venn-a', 'venn-b', 'venn-c'];
 export default function TeamVennFigure({ season, category }: FigureProps) {
   const [filter, setFilter] = useUrlState(rangeCodec, DEFAULT);
   const [gameType, setGameType] = useUrlState(gameCodec, 'regular');
+  const [venue, setVenue] = useUrlState(venueCodec, 'all');
   const [topParam, setTop] = useUrlState(topCodec, String(DEFAULT_VENN_TOP) as `${VennTop}`);
   const [selParam, setSel] = useUrlState(selectionCodec, DEFAULT_VENN_SELECTION as unknown as VennSelection[]);
   const [basis, setBasis] = useUrlState(basisCodec, 'rank');
@@ -66,7 +68,7 @@ export default function TeamVennFigure({ season, category }: FigureProps) {
     }));
     return { teams, divisions, missing: entries.filter(([, l]) => l === null).length, logs: new Map(entries.map(([id, l]) => [id, l ?? []])) };
   }, [season, category]);
-  const rows = useMemo(() => request.data && !request.data.missing ? buildVennRows(request.data.teams, request.data.logs, { category, range: filter.range, gameType }) : [], [request.data, category, filter, gameType]);
+  const rows = useMemo(() => request.data && !request.data.missing ? buildVennRows(request.data.teams, request.data.logs, { category, range: filter.range, gameType, venue }) : [], [request.data, category, filter, gameType, venue]);
   const items = allVennItems(season);
   const boxItems = vennItems(season);
   const hl = useHighlightClubs({ season, category, teams: request.data?.teams ?? [], divisionOf: id => request.data?.divisions?.[category]?.[season]?.[id] });
@@ -77,7 +79,7 @@ export default function TeamVennFigure({ season, category }: FigureProps) {
   const usesWin = selection.some(s => isVennWinItem(s.item));
   const { env, loading: envLoading } = useCondEnv({ season, league: category, teams: request.data?.teams, logs: request.data?.logs, enabled: usesWin && !!request.data && !request.data.missing });
   const condOf = (s: VennSelection): CondSpec => (env && s.cond && condAvailable(env, s.cond) ? s.cond : DEFAULT_COND);
-  const scope = useMemo(() => ({ range: filter.range, gameType }), [filter, gameType]);
+  const scope = useMemo(() => ({ range: filter.range, gameType, venue }), [filter, gameType, venue]);
   const winRecords = useMemo<(Map<string, CondRecord> | null)[]>(() => selection.map(s => env && isVennWinItem(s.item)
     ? condRecords(env, rows.map(r => r.team.teamId), scope, s.item === VENN_WINPCT_COND_ID ? condOf(s) : null) : null),
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -113,9 +115,9 @@ export default function TeamVennFigure({ season, category }: FigureProps) {
   };
   const rangeAxes = situationalAxes(filter, v => setFilter({ range: v.range })).filter(a => a.id === 's.range' || (filter.range.kind === 'dateRange' && (a.id === 's.dateStart' || a.id === 's.dateEnd')))
     .map(a => a.kind === 'select' ? { ...a, options: a.options.filter(o => ['all', 'recent:5', 'recent:10', 'custom'].includes(o.value)) } : { ...a, tier: 'primary' as const });
-  const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), hl.axis];
+  const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), venueAxis(venue, setVenue), hl.axis];
   const [periodLabel] = situationalFilterLabels(filter);
-  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], ...hl.labels];
+  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], ...venueConditionLabel(venue), ...hl.labels];
   const baseDate = { kind: 'season' as const, season, gameType };
   const counts = model ? model.members.map(m => m.length) : [0, 0, 0];
   const tipRow = hover ? byId.get(hover) : undefined;
@@ -130,7 +132,7 @@ export default function TeamVennFigure({ season, category }: FigureProps) {
   const thrInputs = useRef<(NumberTextInputHandle | null)[]>([]);
   const signed = selection.map((s, i) => !isWin[i] && (s.perspective === 'diff' || (thresholds[i] ?? 0) < 0 || /^[+-]/.test(sample[i]!.trim()) || rows.some(r => Number(columns3[i]!.sortValue(r)) < 0)));
   return <section aria-label="ベン図">
-    <FilterBar axes={axes} stateKey="figures:team-venn" onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setTop(String(DEFAULT_VENN_TOP) as `${VennTop}`); setSel([...DEFAULT_VENN_SELECTION]); setBasis('rank'); setThr(NO_THRESHOLDS); hl.setIds([]); setHover(null); }} />
+    <FilterBar axes={axes} stateKey="figures:team-venn" onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setVenue('all'); setTop(String(DEFAULT_VENN_TOP) as `${VennTop}`); setSel([...DEFAULT_VENN_SELECTION]); setBasis('rank'); setThr(NO_THRESHOLDS); hl.setIds([]); setHover(null); }} />
     <div className="venn-pickers">
       {selection.map((s, i) => <div key={i} className={`venn-picker ${SLOT_COLORS[i]}`}>
         <span className="venn-dot" aria-hidden="true" />

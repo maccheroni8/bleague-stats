@@ -40,7 +40,8 @@ import { autoAxis, type TrendVideoTeam } from "../lib/trendVideo";
 import { buildExportFilename, clubSelectionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { formatDecimal, formatPct, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { pendingUpcomingGames } from "../lib/pendingUpcoming";
-import { computeOpponentStrength, computeRemainingOpponentStrength, type OpponentStrength } from "../lib/opponentStrength";
+import { type OpponentStrength } from "../lib/opponentStrength";
+import { computeStandingsOpponentStrengths } from "../lib/standingsOpponentStrength";
 import { resultOnlySummaries, withResultOnlyLogs } from "../lib/resultOnlyGames";
 import { ResultOnlyNote } from "../components/ResultOnlyNote";
 import { safeDiv } from "../../shared/formulas";
@@ -962,18 +963,11 @@ export function StandingsPage({ season }: { season: string }) {
   const upcomingCountByTeamName = schedule ? countUpcomingGamesByTeamName(pendingUpcoming) : null;
   const raceById = new Map((playoffRace?.teams ?? []).map((r) => [r.teamId, r]));
   const standingsTeams = withUnplayedTeams(teams, playoffRace ?? null);
-  // 対戦相手の強さ。結果だけの試合も含めた全試合（星取り・勝敗表と同じ gamesForGrid）で数える。試合の記録を読み込むまでは出さない
-  const opponentStrengthById = gamesForGrid ? computeOpponentStrength(teams, gamesForGrid) : null;
-  // 残りの相手の強さ。まだ試合の記録が無い開催予定（中止・延期で日程が決まっていない試合は載らない）の相手の最新勝率の平均。
-  // 結果だけの試合（不戦勝など）はすでに戦った試合なので数えない。日程を読み込むまでは出さない
-  const remainingOpponentStrengthById = schedule
-    ? computeRemainingOpponentStrength(
-        teams,
-        pendingUpcoming,
-        new Map(standingsTeams.map((t) => [t.teamName, t.teamId])),
-        new Set((schedule.resultOnlyGames ?? []).map((g) => g.scheduleKey)),
-      )
-    : null;
+  // 対戦相手の強さ（ここまで）と残り相手勝率（残り）は図解の散布図と同じ関数で出す（src/lib/standingsOpponentStrength.ts）。
+  // 結果だけの試合も含めた全試合で数え、試合の記録を読み込むまでは出さない。残りは日程を読み込むまでは出さない
+  const strengths = computeStandingsOpponentStrengths({ teams, gameSummaries, schedule, playoffRace });
+  const opponentStrengthById = gamesForGrid ? strengths.sofar : null;
+  const remainingOpponentStrengthById = strengths.remaining;
   // 最多連勝・最多連敗の「継続中」の判定: そのシーズンがまだ終わっていない（今のシーズンで、7・8月のオフではなく、レギュラーシーズンの全試合が終わっていない）
   const seasonRunning =
     !isOffseasonMonth() && !isPastSeason(season) && !(schedule && gameSummaries && isRegularSeasonComplete({ schedule, summaries: gameSummaries }));

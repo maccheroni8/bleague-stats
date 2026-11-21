@@ -148,3 +148,27 @@ export function seedCondWinPctPresets(storage: PresetStorage | null = defaultSto
     return true;
   } catch { return false; }
 }
+
+/** ピタゴラス勝率・相手の強さ（460章）の初期の設定を入れたことの記録（このブラウザ。ほかの記録とは別。あとで消しても、もう一度は入れない） */
+export const PRESET_SEEDED_STRENGTH_KEY = 'bleague-stats:figure-presets-seeded-strength';
+/** 保存した設定に最初から入れる3つ（チームの散布図）。名前は「横軸 × 縦軸」の順（条件付きの勝率の設定と同じ）。params は図の URL の条件と同じ */
+export const STRENGTH_INITIAL_PRESETS: readonly { name: string; figure: string; params: Record<string, string> }[] = [
+  { name: '勝率×ピタゴラス勝率', figure: 'team-shooting', params: { fx: 'winpct.rate', fy: 'strength.pythag' } },
+  { name: 'NetRtg×ここまでの相手の強さ', figure: 'team-shooting', params: { fx: 'advanced.netrtg', fy: 'strength.sofar' } },
+  { name: '勝率×残りの相手の強さ', figure: 'team-shooting', params: { fx: 'winpct.rate', fy: 'strength.remaining' } },
+];
+/** 上の3つの設定を、このブラウザにまだ入れていなければ、保存した設定として1回だけ入れる（同じ図・同じ中身がすでにあれば二重に入れない。保存できない環境では何もしない） */
+export function seedStrengthPresets(storage: PresetStorage | null = defaultStorage(), now = Date.now()): boolean {
+  try {
+    if (!storage || storage.getItem(PRESET_SEEDED_STRENGTH_KEY)) return false;
+    let list = loadPresets(storage);
+    for (const seed of STRENGTH_INITIAL_PRESETS) {
+      const query = presetQuery(new URLSearchParams(seed.params));
+      if (list.some(p => p.entity === 'team' && p.figure === seed.figure && p.query === query)) continue;
+      list = [...list, { id: newPresetId(), name: seed.name, entity: 'team', figure: seed.figure, query, savedAt: now }];
+    }
+    if (!savePresets(list, storage)) return false;
+    storage.setItem(PRESET_SEEDED_STRENGTH_KEY, '1');
+    return true;
+  } catch { return false; }
+}

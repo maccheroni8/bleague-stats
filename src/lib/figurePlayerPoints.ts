@@ -1,6 +1,7 @@
 // 画面専用（図解の選手の散布図）。選手の条件の絞り方・出場率の数え方は USG% × PPP の図と同じ。
 // 値は全選手スタッツと同じ列定義（SEASON_TRADITIONAL_COLUMNS・SEASON_ADVANCED_COLUMNS）で出す。
 import type { Division, PlayerSummary, TeamSeasonRawTotals } from '../../shared/types';
+import { venueFilter, type FigureVenue } from './figureVenue';
 import { filterByGameType } from '../../shared/gameType';
 import { teamTotalsForTransferredPlayer } from '../../shared/transferredTeamTotals';
 import { teamTotalsForPlayedGames } from '../../shared/playedTeamTotals';
@@ -33,7 +34,7 @@ export interface PlayerFigurePoint {
 export function passesRatio(p: Pick<PlayerFigurePoint, 'ratio' | 'games' | 'teamGames' | 'teamId'>, minRatio: number, remaining?: ReadonlyMap<string, number>): boolean {
   return remaining ? isAchievable(p.games, p.teamGames, remaining.get(p.teamId) ?? 0, minRatio / 100) : p.ratio >= minRatio;
 }
-export type PlayerFigureQuery = Omit<ScorerQuery, 'minRatio'>;
+export type PlayerFigureQuery = Omit<ScorerQuery, 'minRatio'> & { /** 全試合／ホーム／アウェイ（省略は全試合）。出場率の分母のチームの試合数も同じ会場で数える */ venue?: FigureVenue };
 
 /** 移籍選手は1選手1点（所属チームは teamIds）。期間は全選手スタッツと同じく、選手の試合ログに適用する。 */
 export function buildPlayerFigurePoints(data: ScorerData, q: PlayerFigureQuery): PlayerFigurePoint[] {
@@ -42,7 +43,7 @@ export function buildPlayerFigurePoints(data: ScorerData, q: PlayerFigureQuery):
   for (const [id, logs] of data.teamLogs) for (const g of logs) ownTeams.set(`${g.scheduleKey}|${g.isHome}`, id);
   const ownTeamOf = (g: { scheduleKey: string; isHome: boolean }) => ownTeams.get(`${g.scheduleKey}|${g.isHome}`);
   const scope = <T extends Parameters<typeof filterGameLogs>[0][number]>(logs: T[]) =>
-    filterByGameType(filterGameLogs(logs, { range: q.range, includePlayoffs: true }, undefined, undefined, undefined, undefined, q.category), q.gameType);
+    filterByGameType(filterGameLogs(logs, { range: q.range, includePlayoffs: true, ...venueFilter(q.venue ?? 'all') }, undefined, undefined, undefined, undefined, q.category), q.gameType);
   const scopedTeams = new Map([...data.teamLogs].map(([id, logs]) => [id, scope(logs)]));
   const points: PlayerFigurePoint[] = [];
   for (const p of data.players) {

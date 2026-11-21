@@ -14,7 +14,7 @@ const major = (v: number, step: number) => Math.abs(v / (step * 2) - Math.round(
  * 図解の散布図の共通の描画（USG% × PPP の図と同じ作り: 方眼・両軸の平均の点線と値・目盛り・吹き出し）。
  * 点の見た目（ロゴ・写真）は renderMarker で渡す。
  */
-export function AxisScatter<T extends ScatterPoint>({ points, xDomain, yDomain, xLabel, yLabel, xTick, yTick, avgX, avgY, avgXText, avgYText, renderMarker, tooltip, className = '', zeroLines = false, countLines, onDismiss }: {
+export function AxisScatter<T extends ScatterPoint>({ points, xDomain, yDomain, xLabel, yLabel, xTick, yTick, avgX, avgY, avgXText, avgYText, renderMarker, tooltip, className = '', zeroLines = false, countLines, onDismiss, xReversed = false, yReversed = false }: {
   points: readonly T[]; xDomain: AxisDomain; yDomain: AxisDomain; xLabel: string; yLabel: string;
   xTick: (v: number) => string; yTick: (v: number) => string;
   avgX: number | null; avgY: number | null; avgXText: string; avgYText: string;
@@ -27,9 +27,11 @@ export function AxisScatter<T extends ScatterPoint>({ points, xDomain, yDomain, 
   countLines?: readonly string[];
   /** 点以外を押したとき（ポップアップを閉じる） */
   onDismiss?: () => void;
+  /** 軸の反転（値の小さいほうが右・上になる。目盛り・平均線・点・吹き出しの位置はすべて下の x・y を通る） */
+  xReversed?: boolean; yReversed?: boolean;
 }) {
-  const x = (v: number) => 100 * (v - xDomain.min) / (xDomain.max - xDomain.min);
-  const y = (v: number) => 100 * (yDomain.max - v) / (yDomain.max - yDomain.min);
+  const x = (v: number) => (xReversed ? 100 * (xDomain.max - v) : 100 * (v - xDomain.min)) / (xDomain.max - xDomain.min);
+  const y = (v: number) => (yReversed ? 100 * (v - yDomain.min) : 100 * (yDomain.max - v)) / (yDomain.max - yDomain.min);
   return <div className={`ratings-chart axis-scatter ${className}`} onPointerDown={e => { if (onDismiss && !(e.target as Element).closest('.ratings-point')) onDismiss(); }}><div className="ratings-plot-wrap">
     <span className="ratings-y-label">↑ {yLabel}</span>
     <div className="ratings-plot">

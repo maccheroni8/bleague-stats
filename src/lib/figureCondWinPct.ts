@@ -2,6 +2,7 @@
 // 「その条件に当てはまる試合だけで数えた勝率」。条件の定義と判定は条件別順位表と同じ部品（conditionalCondition.ts の applyConditionalCondition）で、
 // 結果だけの試合（不戦勝など）も条件別順位表と同じように数える。同じ条件なら条件別順位表と同じ勝敗・勝率になる（validate:figure-cond-winpct）。
 import type { UrlCodec } from "./urlState";
+import { filterByVenue, type FigureVenue } from "./figureVenue";
 import type { DivisionHistoryFile, GameSummary, TeamGameLog } from "../../shared/types";
 import type { ResultOnlyGameEntry } from "../../shared/resultOnlyGames";
 import { filterByGameType, type SeasonGameTypeFilter } from "../../shared/gameType";
@@ -158,11 +159,11 @@ export const condWinLabel = (env: CondEnv, spec: CondSpec) => `勝率（${condLa
 export const condAvailable = (env: CondEnv, spec: CondSpec) => conditionOf(env, spec) !== null;
 
 export interface CondRecord { games: number; wins: number; losses: number; rate: number | null }
-export interface CondScope { range: SituationalRange; gameType: SeasonGameTypeFilter }
+export interface CondScope { range: SituationalRange; gameType: SeasonGameTypeFilter; /** 全試合／ホーム／アウェイ（省略は全試合）。条件の前に会場で絞る */ venue?: FigureVenue }
 
 /** 1チームの、条件に当てはまる試合の勝敗。期間 → 試合区分 → 条件の順（条件別順位表は「レギュラーシーズン全体」に条件を適用するので、既定の期間・試合区分なら同じ）。spec が null なら条件なし */
 export function condRecord(env: CondEnv, teamId: string, scope: CondScope, spec: CondSpec | null): CondRecord {
-  const base = filterByGameType(applySituationalRange(env.logsByTeam.get(teamId) ?? [], scope.range), scope.gameType);
+  const base = filterByVenue(filterByGameType(applySituationalRange(env.logsByTeam.get(teamId) ?? [], scope.range), scope.gameType), scope.venue ?? "all");
   const condition = spec ? conditionOf(env, spec) : ({ kind: "all" } as ConditionalCondition);
   const games = condition
     ? applyConditionalCondition(base, condition, {

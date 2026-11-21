@@ -9,7 +9,7 @@ import "./figures/FigurePresets.css";
 import "./figures/CondPicker.css";
 import "./pages/FiguresPage.css";
 import "./index.css";
-import { seedCondWinPctPresets, seedInitialPresets } from "./lib/figurePresets";
+import { seedCondWinPctPresets, seedInitialPresets, seedStrengthPresets } from "./lib/figurePresets";
 import "./lib/playerSelfColumns";
 import { installStaleReload } from "./lib/staleReload";
 
@@ -19,6 +19,7 @@ installStaleReload();
 // 図の設定の保存に、選手の散布図の3つの設定をこのブラウザで1回だけ入れる（保存できない環境では何もしない）
 seedInitialPresets();
 seedCondWinPctPresets();
+seedStrengthPresets();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

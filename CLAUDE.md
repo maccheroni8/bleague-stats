@@ -218,6 +218,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 455章: **チーム詳細のシーズン別成績の順位を増やした**（良し悪しなしの項目〔MIN・POSS・PACE・構成比など〕にも色なしで多い順の順位〔`teamRanksOf` の `rankAllNeutral`。シーズン別成績の行だけ〕、Shooting・Forced TOV にもランキングと同じ集計で順位〔`TeamSpecialRankScope.tsx`。Forced TOV の「自チームが記録」は色なし〕。順位を付けない項目の一覧は455章）。**画面だけの変更でキー不変**
 - 456章: **チーム詳細の3つの表に「保存」**（シチュエーション別成績・Q別・Q別・延長リード状況。`SavableBlock`。タイトルに表の名前と視点・サブタイトルに条件・ファイル名にも表の名前。全チームスタッツ〔448〜451章〕と同じ書き方）。**画面だけの変更でキー不変**
 - 457章: **デプロイ直後の「表示できませんでした」の防止**（プログラムの読み込みに失敗したときだけ1回だけ自動で読み込み直す。sessionStorage の印〔`bleague-stats:stale-reload-at`・10分〕で続けて読み込み直さない。`src/lib/staleReload.ts`・`lazyPage.ts`・`main.tsx`。検証は `npm run validate:stale-reload`）。**画面だけの変更でキー不変**
+- 458章〜460章: 図解の散布図の**軸の反転**（`fyi`・`fxi`・`pyi`・`pxi`。少ないほど良い項目は `rankDirection.ts` の向きで自動チェック）、散布図・ベン図の**会場（全試合／ホーム／アウェイ。URL `ven`、`src/lib/figureVenue.ts`）**、散布図（チーム）の**ピタゴラス勝率（得点^13.91 ÷ (得点^13.91＋失点^13.91)）・ここまで／残りの相手の強さ**（順位表と同じ関数 `standingsOpponentStrength.ts`。シーズン全体の値）。検証は `npm run validate:figure-strength`。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

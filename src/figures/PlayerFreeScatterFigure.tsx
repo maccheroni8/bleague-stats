@@ -3,6 +3,9 @@ import { teamShortName } from '../../shared/teamNames';
 import { TeamChipList } from '../components/TeamChip';
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from '../../shared/gameType';
 import { enumParam, numberParam, situationalParam, useUrlState, type UrlCodec } from '../lib/urlState';
+import { venueAxis, venueCodec, venueConditionLabel } from '../lib/figureVenue';
+import { defaultInvert, invertCodec, invertedName } from '../lib/figureInvert';
+import { invertAxis } from './axisInvert';
 import { classificationAxis, gameTypeAxis, situationalAxes, type FilterAxis } from '../lib/filterAxes';
 import type { SituationalFilter } from '../lib/situational';
 import { figureClassGroup } from '../lib/figureAge';
@@ -53,6 +56,7 @@ const itemCodec = (key: string, fallback: string): UrlCodec<string> => ({
 });
 const yCodec = itemCodec('py', DEFAULT_PLAYER_FREE_Y);
 const xCodec = itemCodec('px', DEFAULT_PLAYER_FREE_X);
+const invXCodec = invertCodec('pxi'), invYCodec = invertCodec('pyi');
 const modeCodec = enumParam<'perGame' | 'total'>('pam', ['perGame', 'total'], 'perGame', { total: 'tot' });
 const ratioCodec = numberParam('pag', DEFAULT_RATIO, { min: 0, max: 100 });
 
@@ -66,6 +70,9 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
   const [yId, setYId] = useUrlState(yCodec, DEFAULT_PLAYER_FREE_Y);
   const [xId, setXId] = useUrlState(xCodec, DEFAULT_PLAYER_FREE_X);
   const [mode, setMode] = useUrlState(modeCodec, 'perGame');
+  const [venue, setVenue] = useUrlState(venueCodec, 'all');
+  const [invX, setInvX] = useUrlState(invXCodec, false);
+  const [invY, setInvY] = useUrlState(invYCodec, false);
   const [minRatio, setMinRatio] = useUrlState(ratioCodec, DEFAULT_RATIO);
   const [hover, setHover] = useState<string | null>(null);
   const target = useRef<HTMLDivElement>(null), teamLabel = useTeamLabel();
@@ -77,11 +84,11 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
   const xItem = resolvePlayerFreeItem(blocked(xId) ? undefined : xId, season, DEFAULT_PLAYER_FREE_X), yItem = resolvePlayerFreeItem(blocked(yId) ? undefined : yId, season, DEFAULT_PLAYER_FREE_Y);
   const seasonTotals = isPlayerFreeSeasonTotal(xItem) || isPlayerFreeSeasonTotal(yItem);
   const m = mode as 'perGame' | 'total';
-  const base = useMemo(() => request.data ? buildPlayerFigurePoints(request.data, { season, category, range: seasonTotals ? { kind: 'all' } : filter.range, gameType: seasonTotals ? 'regular' : gameType, classification }) : [],
-    [request.data, season, category, filter, gameType, classification, seasonTotals]);
+  const base = useMemo(() => request.data ? buildPlayerFigurePoints(request.data, { season, category, range: seasonTotals ? { kind: 'all' } : filter.range, gameType: seasonTotals ? 'regular' : gameType, classification, venue: seasonTotals ? 'all' : venue }) : [],
+    [request.data, season, category, filter, gameType, classification, seasonTotals, venue]);
   const teams = request.data?.teams ?? [];
   const divisionOf = (id: string) => request.data?.divisions?.[category]?.[season]?.[id];
-  const ach = useFigureAchievable(season, category, { range: filter.range, gameType: seasonTotals ? 'regular' : gameType });
+  const ach = useFigureAchievable(season, category, { range: filter.range, gameType: seasonTotals ? 'regular' : gameType, venue: seasonTotals ? 'all' : venue });
   const ratioPassed = useMemo(() => base.filter(p => passesRatio(p, minRatio, ach.remaining)), [base, minRatio, ach.remaining]);
   const pf = usePlayerFigureFilter({ season, category, teams, divisionOf, ratioPassed, clubKey: 'pcl', legacyDivisionKey: 'dv', axisId: 'pfreeClubs' });
   const eligible = pf.eligible;
@@ -99,24 +106,31 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
   const abbrOf = (id: string, p?: PlayerFigurePoint) => teamShortName(id, teams.find(t => t.teamId === id)?.teamName ?? p?.teamName ?? '');
   const abbr = (p: PlayerFigurePoint) => p.teamIds.map(id => teamShortName(id, teams.find(t => t.teamId === id)?.teamName ?? p.teamName)).join('・');
   const names = (p: PlayerFigurePoint) => p.teamIds.map(id => teamLabel(id, teams.find(t => t.teamId === id)?.teamName ?? p.teamName)).join('・');
-  const yName = yItem.label, xName = xItem.label;
-  const rangeReason = seasonTotals ? 'Shooting・PER はシーズン通算の値のため、期間・試合種別の絞り込みは効きません。' : undefined;
+  const yBase = yItem.label, xBase = xItem.label;
+  // 反転している軸の名前には「（反転）」を付ける（軸の見出し・タイトル・保存画像）。一覧の見出しは項目の名前のまま
+  const yName = invertedName(yBase, invY), xName = invertedName(xBase, invX);
+  const rangeReason = seasonTotals ? 'Shooting・PER はシーズン通算の値のため、期間・試合種別・会場の絞り込みは効きません。' : undefined;
   const rangeAxes = situationalAxes(filter, v => setFilter({ range: v.range })).filter(a => a.id === 's.range' || (filter.range.kind === 'dateRange' && (a.id === 's.dateStart' || a.id === 's.dateEnd')))
     .map(a => a.kind === 'select' ? { ...a, options: a.options.filter(o => ['all', 'recent:5', 'recent:10', 'custom'].includes(o.value)), disabledReason: rangeReason } : { ...a, tier: 'primary' as const, disabledReason: rangeReason });
+  // 項目を選んだら、小さいほど良い項目なら反転のチェックを自動で入れる（そうでなければ外す。あとから手で変えられる）
+  const pickItem = (id: string, setId: (v: string) => void, setInv: (v: boolean) => void) => { const item = playerFreeItems(season).find(i => i.id === id); setId(id); setInv(!!item && defaultInvert(item.key)); };
   const itemAxis = (id: string, label: string, value: string, defaultValue: string, onChange: (v: string) => void): FilterAxis => ({
     kind: 'select', id, label, tier: 'primary', value, defaultValue,
     options: playerFreeItems(season).map(i => { const reason = playerFreeItemBlock(i, players, category, reasons, season); return { value: i.id, label: i.label, group: i.categoryLabel, disabled: !!reason, disabledReason: reason }; }),
     onChange,
   });
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season, { disabledReason: rangeReason }),
-    itemAxis('pfreeY', '縦軸', yItem.id, DEFAULT_PLAYER_FREE_Y, v => setYId(v)),
-    itemAxis('pfreeX', '横軸', xItem.id, DEFAULT_PLAYER_FREE_X, v => setXId(v)),
+    itemAxis('pfreeY', '縦軸', yItem.id, DEFAULT_PLAYER_FREE_Y, v => pickItem(v, setYId, setInvY)),
+    invertAxis({ id: 'pfreeYInvert', label: '縦軸の反転', checked: invY, onChange: setInvY }),
+    itemAxis('pfreeX', '横軸', xItem.id, DEFAULT_PLAYER_FREE_X, v => pickItem(v, setXId, setInvX)),
+    invertAxis({ id: 'pfreeXInvert', label: '横軸の反転', checked: invX, onChange: setInvX }),
+    venueAxis(venue, setVenue, rangeReason),
     { kind: 'select', id: 'pfreeMode', label: '平均／合計', tier: 'primary', value: mode, defaultValue: 'perGame', options: [{ value: 'perGame', label: '1試合平均' }, { value: 'total', label: '合計' }], onChange: v => setMode(v as 'perGame' | 'total') },
     classificationAxis(classification, setClassification, { season }),
     pf.clubAxis, pf.positionAxis, hl.axis,
     ratioEligibilityAxis({ id: 'pfreeRatio', value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio, achievable: ach.axis })];
   const [periodLabel] = situationalFilterLabels(seasonTotals ? { range: { kind: 'all' } } : filter);
-  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[seasonTotals ? 'regular' : gameType], mode === 'total' ? '合計' : '1試合平均', classificationFilterLabel(classification),
+  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[seasonTotals ? 'regular' : gameType], ...(seasonTotals ? [] : venueConditionLabel(venue)), mode === 'total' ? '合計' : '1試合平均', classificationFilterLabel(classification),
     ...pf.labels, ...eligibilityLabels({ gamesRatio: minRatio / 100, achievable: ach.achievable }), ...hl.labels].filter(Boolean);
   const baseDate = { kind: 'season' as const, season, gameType: seasonTotals ? 'regular' as const : gameType };
   const pick = (p: PlayerFigurePoint) => setHover(p.id);
@@ -125,11 +139,11 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
     { key: 'player', label: '選手名（チーム）', align: 'left', sortValue: s => s.p.name, render: s => <button className="ratings-team-button" onClick={() => pick(s.p)}>{playerLabel(s.p.name)}（<TeamChipList ids={s.p.teamIds} labelOf={abbrOf} />）{s.p.teamIds.length > 1 ? '合算' : ''}</button> },
     { key: 'g', label: 'G', sortValue: s => s.p.games },
     { key: 'ratio', label: '出場率', sortValue: s => s.p.ratio, render: s => formatPct100(s.p.ratio) },
-    { key: 'y', label: yName, sortValue: s => s.y, render: s => yCol.text(s.p) },
-    { key: 'x', label: xName, sortValue: s => s.x, render: s => xCol.text(s.p) },
+    { key: 'y', label: yBase, sortValue: s => s.y, render: s => yCol.text(s.p) },
+    { key: 'x', label: xBase, sortValue: s => s.x, render: s => xCol.text(s.p) },
   ];
   return <section aria-label={`${yName} × ${xName}`}>
-    <FilterBar axes={axes} stateKey="figures:player-free-scatter" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setYId(DEFAULT_PLAYER_FREE_Y); setXId(DEFAULT_PLAYER_FREE_X); setMode('perGame'); pf.reset(); setMinRatio(DEFAULT_RATIO); ach.reset(); hl.setIds([]); setHover(null); }} />
+    <FilterBar axes={axes} stateKey="figures:player-free-scatter" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setVenue('all'); setInvX(false); setInvY(false); setYId(DEFAULT_PLAYER_FREE_Y); setXId(DEFAULT_PLAYER_FREE_X); setMode('perGame'); pf.reset(); setMinRatio(DEFAULT_RATIO); ach.reset(); hl.setIds([]); setHover(null); }} />
     {splitClassificationBlocked(figureClassGroup(classification), season) ? <p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p> : request.loading ? <p role="status">選手の試合データを読み込み中…</p> : request.error ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : !items.length ? <p>この条件に該当する選手はいません。</p> : <>
       <p className="figure-count">{items.length}人を表示</p>
       <FigureExportButton targetRef={target} filename={`選手_${yName}_${xName}_${conditions.join('_')}`} baseDate={baseDate} />
@@ -137,12 +151,12 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
         <ConditionTitle title={`${yName} × ${xName}`} exportScope={`${season}シーズン`} conditions={conditions} />
         <AxisScatter points={items} xDomain={xDomain} yDomain={yDomain} xLabel={xName} yLabel={yName}
           xTick={v => freeTickText(v, xKind, xDomain)} yTick={v => freeTickText(v, yKind, yDomain)}
-          avgX={avgX} avgY={avgY} avgXText={avgX === null ? '' : avgText(avgX, xKind)} avgYText={avgY === null ? '' : avgText(avgY, yKind)}
+          xReversed={invX} yReversed={invY} avgX={avgX} avgY={avgY} avgXText={avgX === null ? '' : avgText(avgX, xKind)} avgYText={avgY === null ? '' : avgText(avgY, yKind)}
           countLines={countLines} onDismiss={() => setHover(null)}
           renderMarker={(i, left, top) => <ScorerPhoto key={i.id} point={{ playerId: i.p.playerId, name: i.p.name, division: i.p.division }} season={season} teamId={i.p.lastTeamId}
-            label={`${playerLabel(i.p.name)}：${yName} ${yCol.text(i.p)}、${xName} ${xCol.text(i.p)}`}
+            label={`${playerLabel(i.p.name)}：${yBase} ${yCol.text(i.p)}、${xBase} ${xCol.text(i.p)}`}
             selected={hl.has(i.p.teamIds)} expanded={i.id === hover} left={left} top={top} onSelect={() => pick(i.p)} onDismiss={() => setHover(null)} />}
-          tooltip={tip ? { point: tip, node: <><strong>{playerLabel(tip.p.name)}（{names(tip.p)}）</strong><span>{yName} {yCol.text(tip.p)} / {xName} {xCol.text(tip.p)}</span><span>出場率 {formatPct100(tip.p.ratio)}</span><span>{tip.p.games}試合{tip.p.teamIds.length > 1 ? '・複数チームの合算' : ''}</span></> } : null} />
+          tooltip={tip ? { point: tip, node: <><strong>{playerLabel(tip.p.name)}（{names(tip.p)}）</strong><span>{yBase} {yCol.text(tip.p)} / {xBase} {xCol.text(tip.p)}</span><span>出場率 {formatPct100(tip.p.ratio)}</span><span>{tip.p.games}試合{tip.p.teamIds.length > 1 ? '・複数チームの合算' : ''}</span></> } : null} />
       </ExportTarget>
       <div className="table-scroll scorers-table" tabIndex={0} role="region" aria-label="選手一覧"><SortableTable columns={columns} rows={items} rowKey={s => s.p.id} defaultSortKey="y"
         rowHighlightColor={s => hl.has(s.p.teamIds) ? 'var(--accent)' : undefined} rowHighlightStrength={() => 'half'} /></div>

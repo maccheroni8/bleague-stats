@@ -16,8 +16,10 @@ import { formatDecimal, formatSigned, formatWinPct } from './format';
 import type { SeasonDisplayMode } from './playerSeasonBoxscore';
 import type { Column } from '../components/SortableTable';
 import { niceStep, type AxisDomain } from './figureAxis';
+import { venueFilter, type FigureVenue } from './figureVenue';
+import type { OpponentStrength } from './opponentStrength';
 
-export type FreeCategory = BoxCategoryKey | 'shooting' | 'forcedTurnovers' | 'winpct';
+export type FreeCategory = BoxCategoryKey | 'shooting' | 'forcedTurnovers' | 'winpct' | 'strength';
 export const FREE_CATEGORIES: readonly { key: FreeCategory; label: string }[] = [
   { key: 'traditional', label: CATEGORY_LABELS.traditional },
   { key: 'advanced', label: CATEGORY_LABELS.advanced },
@@ -38,6 +40,8 @@ export interface FreeRow {
   /** Shooting の平均の分母（スポーツナビの記録がある試合数。無ければ試合数） */
   shotGames: number;
   tov?: { forced: TeamForcedTurnovers; committed: TeamForcedTurnovers };
+  /** ここまで・残りの相手の強さ（順位表の「対戦相手の強さ」「残り相手勝率」と同じ値。期間・会場の絞り込みは効かず、シーズン全体の値）。出せないチームは null */
+  strength?: { sofar: number | null; remaining: number | null };
 }
 
 export interface FreeItem { id: string; category: FreeCategory; categoryLabel: string; key: string; label: string }
@@ -47,6 +51,33 @@ export const WINPCT_CATEGORY_LABEL = '勝率';
 export const WINPCT_ITEM_ID = freeItemId('winpct', 'rate');
 export const WINPCT_COND_ITEM_ID = freeItemId('winpct', 'cond');
 export const isWinPctItem = (item: Pick<FreeItem, 'category'>) => item.category === 'winpct';
+/** ピタゴラス勝率・相手の強さの軸（勝率と同じ 0〜1 の率。視点・平均／合計の選択は無い） */
+export const STRENGTH_CATEGORY_LABEL = '勝率の指標・相手の強さ';
+export const PYTHAG_ITEM_ID = freeItemId('strength', 'pythag');
+export const SOFAR_ITEM_ID = freeItemId('strength', 'sofar');
+export const REMAINING_ITEM_ID = freeItemId('strength', 'remaining');
+export const isStrengthItem = (item: Pick<FreeItem, 'category'>) => item.category === 'strength';
+/** 相手の強さの軸か（期間・会場の絞り込みが効かず、日程と順位表の材料を読む） */
+export const isOpponentStrengthItem = (item: Pick<FreeItem, 'id'>) => item.id === SOFAR_ITEM_ID || item.id === REMAINING_ITEM_ID;
+/** 視点（自チーム／opp／+/-）と平均／合計を選ばない軸（勝率・ピタゴラス勝率・相手の強さ） */
+export const isFixedItem = (item: Pick<FreeItem, 'category'>) => item.category === 'winpct' || item.category === 'strength';
+/** ピタゴラス勝率の指数（得点^13.91 ÷ (得点^13.91 + 失点^13.91)）。B.LEAGUE の得点水準に合わせた値 */
+export const PYTHAG_EXPONENT = 13.91;
+export function pythagoreanWinPct(pts: number, oppPts: number): number | null {
+  if (!(pts >= 0) || !(oppPts >= 0) || pts + oppPts <= 0) return null;
+  // 大きな数のべき乗で溢れないよう、比で計算する（a^k / (a^k + b^k) = 1 / (1 + (b/a)^k)）
+  if (pts === 0) return 0;
+  return 1 / (1 + (oppPts / pts) ** PYTHAG_EXPONENT);
+}
+const RATE_AXIS: FreeAxisKind = { unit: 'rate', scale: 1, signed: false, digits: 3 };
+const strengthColumns = (): FreeColumn[] => {
+  const rate = (read: (r: FreeRow) => number | null) => ({ value: read, text: (r: FreeRow) => { const v = read(r); return v === null ? '-' : formatWinPct(v); }, axis: RATE_AXIS });
+  return [
+    { key: 'pythag', label: 'ピタゴラス勝率', ...rate(r => pythagoreanWinPct(r.row.totals.pts, r.row.totals.oppPts)) },
+    { key: 'sofar', label: 'ここまでの相手の強さ', ...rate(r => r.strength?.sofar ?? null) },
+    { key: 'remaining', label: '残りの相手の強さ', ...rate(r => r.strength?.remaining ?? null) },
+  ];
+};
 export const DEFAULT_FREE_X = freeItemId('traditional', '3pa');
 export const DEFAULT_FREE_Y = freeItemId('traditional', '3ppct');
 
@@ -88,6 +119,7 @@ const columnCache = new Map<string, FreeColumn[]>();
 /** その分類・視点・平均／合計の列の一覧（全チームスタッツと同じ式） */
 export function freeColumns(category: FreeCategory, perspective: TeamPerspective, mode: FreeMode, season: string): FreeColumn[] {
   if (category === 'winpct') return [];
+  if (category === 'strength') return strengthColumns();
   const foulSplit = foulColumnsSplit([season]);
   const cacheKey = `${category}:${perspective}:${mode}:${foulSplit}`;
   const cached = columnCache.get(cacheKey);
@@ -130,6 +162,7 @@ export function freeItems(season: string): FreeItem[] {
     const winpct: FreeItem[] = [
       { id: WINPCT_ITEM_ID, category: 'winpct', categoryLabel: WINPCT_CATEGORY_LABEL, key: 'rate', label: '勝率' },
       { id: WINPCT_COND_ITEM_ID, category: 'winpct', categoryLabel: WINPCT_CATEGORY_LABEL, key: 'cond', label: '条件付きの勝率' },
+      ...strengthColumns().map(c => ({ id: freeItemId('strength', c.key), category: 'strength' as const, categoryLabel: STRENGTH_CATEGORY_LABEL, key: c.key, label: c.label })),
     ];
     items = [...winpct, ...FREE_CATEGORIES.flatMap(cat => freeColumns(cat.key, 'own', 'perGame', season).map(c => ({ id: freeItemId(cat.key, c.key), category: cat.key, categoryLabel: cat.label, key: c.key, label: c.label })))];
     itemCache.set(cacheKey, items);
@@ -166,6 +199,10 @@ export interface FreeQuery {
   season: string; category: Category; range: SituationalRange; gameType: SeasonGameTypeFilter;
   /** Shooting を使うとき: 期間・試合種別は効かず、レギュラーシーズン全体の値（全チームスタッツの Shooting と同じ） */
   seasonTotals: boolean;
+  /** 全試合／ホーム／アウェイ（Shooting などシーズン全体の値のときは効かない） */
+  venue?: FigureVenue;
+  /** 相手の強さ（シーズン全体の値。期間・会場の絞り込みは効かない）。渡さなければ相手の強さの軸は「-」 */
+  strength?: { sofar: ReadonlyMap<string, OpponentStrength>; remaining: ReadonlyMap<string, OpponentStrength> | null };
 }
 const ZERO_TOV: TeamForcedTurnovers = { gamesWithData: 0, offensiveFoul: 0, violation24sec: 0, backcourtViolation: 0, violation5sec: 0, violation8sec: 0, otherDead: 0, live: 0 };
 const TOV_KEYS = Object.keys(ZERO_TOV) as (keyof TeamForcedTurnovers)[];
@@ -190,13 +227,15 @@ function averageBreakdown(list: readonly (Breakdown | undefined)[]): Breakdown |
   return out;
 }
 
+const meanOrNull = (vals: (number | null)[]) => { const v = vals.filter((x): x is number => x !== null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
 /** 全チームスタッツと同じ順序: 期間を選び、その後に試合区分を適用して合計する。リーグ平均は各チームの合計の平均（ORtg × DRtg の図と同じ作り） */
 export function buildFreeRows(teams: readonly TeamSummary[], logsByTeam: ReadonlyMap<string, TeamGameLog[]>, divisions: DivisionHistoryFile | null, q: FreeQuery) {
   const range: SituationalRange = q.seasonTotals ? { kind: 'all' } : q.range;
   const gameType: SeasonGameTypeFilter = q.seasonTotals ? 'regular' : q.gameType;
+  const venue: FigureVenue = q.seasonTotals ? 'all' : q.venue ?? 'all';
   const scopedByTeam = new Map<string, TeamGameLog[]>();
   for (const team of teams) {
-    const ranged = filterGameLogs(logsByTeam.get(team.teamId) ?? [], { range, includePlayoffs: true }, undefined, undefined, undefined, undefined, q.category);
+    const ranged = filterGameLogs(logsByTeam.get(team.teamId) ?? [], { range, includePlayoffs: true, ...venueFilter(venue) }, undefined, undefined, undefined, undefined, q.category);
     scopedByTeam.set(team.teamId, filterByGameType(ranged, gameType));
   }
   const scopedTov = scopedTurnovers(scopedByTeam);
@@ -211,6 +250,7 @@ export function buildFreeRows(teams: readonly TeamSummary[], logsByTeam: Readonl
       teamId: team.teamId, teamName: team.teamName, division: divisions?.[q.category]?.[q.season]?.[team.teamId], games: scoped.length,
       row: { team, gamesPlayed: scoped.length, wins: scoped.filter(g => g.win).length, losses: scoped.filter(g => !g.win).length, totals: sumTeamGameLogs(scoped) },
       summary: team.shotTypes ? team : undefined, shotGames: team.shotTypeGames ?? team.gamesPlayed, tov,
+      strength: q.strength ? { sofar: q.strength.sofar.get(team.teamId)?.value ?? null, remaining: q.strength.remaining?.get(team.teamId)?.value ?? null } : undefined,
     });
   }
   if (!rows.length) return { rows, league: null as FreeRow | null };
@@ -222,6 +262,7 @@ export function buildFreeRows(teams: readonly TeamSummary[], logsByTeam: Readonl
     row: { team: { teamId: 'league', teamName: 'リーグ平均' }, gamesPlayed: rows.reduce((s, r) => s + r.games, 0) / rows.length, wins: 0, losses: 0, totals: averageTotals(rows.map(r => r.row.totals)) },
     summary: withShots.length ? { shotTypes: averageBreakdown(withShots.map(r => r.summary!.shotTypes)), opponentShotTypes: averageBreakdown(withShots.map(r => r.summary!.opponentShotTypes)) } as unknown as TeamSummary : undefined,
     shotGames: withShots.length ? withShots.reduce((s, r) => s + r.shotGames, 0) / withShots.length : 0,
+    strength: q.strength ? { sofar: meanOrNull(rows.map(r => r.strength?.sofar ?? null)), remaining: meanOrNull(rows.map(r => r.strength?.remaining ?? null)) } : undefined,
     tov: withTov.length ? { forced: scaleTov(sumOf(t => t.forced), 1 / withTov.length), committed: scaleTov(sumOf(t => t.committed), 1 / withTov.length) } : undefined,
   };
   return { rows, league };

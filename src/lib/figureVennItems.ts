@@ -1,6 +1,7 @@
 // 画面専用（図解「ベン図」）。選べる項目は、ランキング（チーム・シーズン成績）で選べる Traditional・Advanced・Misc・Scoring の項目。
 // 値・向き（higherIsBetter）・表示値は、全チームスタッツ／ランキングと同じ列定義をそのまま使う。
 import type { Category, TeamGameLog } from '../../shared/types';
+import { venueFilter, type FigureVenue } from './figureVenue';
 import { filterByGameType, type SeasonGameTypeFilter } from '../../shared/gameType';
 import { filterGameLogs, type SituationalRange } from './situational';
 import {
@@ -104,10 +105,10 @@ export function resolveVennSelection(input: readonly VennSelection[], season: st
 }
 
 /** 全チームスタッツと同じ順序: 期間を選び、その後に試合区分を適用して合計する（試合が0のチームは除く）。 */
-export function buildVennRows(teams: readonly { teamId: string; teamName: string }[], logsByTeam: ReadonlyMap<string, TeamGameLog[]>, q: { category: Category; range: SituationalRange; gameType: SeasonGameTypeFilter }): AllTeamsRow[] {
+export function buildVennRows(teams: readonly { teamId: string; teamName: string }[], logsByTeam: ReadonlyMap<string, TeamGameLog[]>, q: { category: Category; range: SituationalRange; gameType: SeasonGameTypeFilter; venue?: FigureVenue }): AllTeamsRow[] {
   const rows: AllTeamsRow[] = [];
   for (const team of teams) {
-    const ranged = filterGameLogs(logsByTeam.get(team.teamId) ?? [], { range: q.range, includePlayoffs: true }, undefined, undefined, undefined, undefined, q.category);
+    const ranged = filterGameLogs(logsByTeam.get(team.teamId) ?? [], { range: q.range, includePlayoffs: true, ...venueFilter(q.venue ?? 'all') }, undefined, undefined, undefined, undefined, q.category);
     const scoped = filterByGameType(ranged, q.gameType);
     if (!scoped.length) continue;
     rows.push({ team, gamesPlayed: scoped.length, wins: scoped.filter(g => g.win).length, losses: scoped.filter(g => !g.win).length, totals: sumTeamGameLogs(scoped) });

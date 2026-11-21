@@ -10,8 +10,12 @@ import { situationalFilterLabels } from '../lib/conditionLabels';
 import { DIVISION_RATING_COLORS } from '../lib/figureRatings';
 import {
   buildFreeRows, DEFAULT_FREE_X, DEFAULT_FREE_Y, freeAxisDomain, freeCategoryBlock, freeColumn, freeItemName, freeItems, freeTickText,
-  inferFreeAxis, isWinPctItem, resolveFreeItem, WINPCT_COND_ITEM_ID, WINPCT_ITEM_ID, type FreeColumn, type FreeItem, type FreeRow,
+  inferFreeAxis, isFixedItem, isOpponentStrengthItem, isWinPctItem, resolveFreeItem, WINPCT_COND_ITEM_ID, WINPCT_ITEM_ID, type FreeColumn, type FreeItem, type FreeRow,
 } from '../lib/figureTeamFree';
+import { venueAxis, venueCodec, venueConditionLabel } from '../lib/figureVenue';
+import { defaultInvert, invertCodec, invertedName } from '../lib/figureInvert';
+import { invertAxis } from './axisInvert';
+import { useOpponentStrengths } from './useOpponentStrengths';
 import {
   condAvailable, condCodec, condRecords, condWinLabel, DEFAULT_COND, MIN_GAMES_MAX, minGamesCodec, parseCondSpec, rateText, recordText, sameCond, condSpecToText, type CondEnv, type CondRecord, type CondSpec,
 } from '../lib/figureCondWinPct';
@@ -49,6 +53,7 @@ const itemCodec = (key: string, legacyKey: string, legacy: Record<string, string
   read: p => p.get(key) ?? legacy[p.get(legacyKey) ?? ''],
   write: (p, v) => { if (v !== fallback) p.set(key, v); },
 });
+const invXCodec = invertCodec('fxi'), invYCodec = invertCodec('fyi');
 const xCodec = itemCodec('fx', 'shx', LEGACY_X, DEFAULT_FREE_X);
 const yCodec = itemCodec('fy', 'shy', LEGACY_Y, DEFAULT_FREE_Y);
 type Persp = 'own' | 'opp' | 'diff';
@@ -98,6 +103,9 @@ export default function TeamFreeScatterFigure({ season, category }: FigureProps)
   const [condX, setCondX] = useUrlState(condXCodec, DEFAULT_COND);
   const [condY, setCondY] = useUrlState(condYCodec, DEFAULT_COND);
   const [minGames, setMinGames] = useUrlState(minGamesCodec, 0);
+  const [venue, setVenue] = useUrlState(venueCodec, 'all');
+  const [invX, setInvX] = useUrlState(invXCodec, false);
+  const [invY, setInvY] = useUrlState(invYCodec, false);
   const [hover, setHover] = useState<string | null>(null);
   const target = useRef<HTMLDivElement>(null), teamLabel = useTeamLabel();
   const request = useJsonData(async () => {
@@ -112,24 +120,28 @@ export default function TeamFreeScatterFigure({ season, category }: FigureProps)
   // URL の項目が選べない（古い・B.ONE で出せない）ときは、初期の項目で描く
   const xItem = resolveFreeItem(blocked(xId) ? undefined : xId, season, DEFAULT_FREE_X), yItem = resolveFreeItem(blocked(yId) ? undefined : yId, season, DEFAULT_FREE_Y);
   const seasonTotals = xItem.category === 'shooting' || yItem.category === 'shooting';
+  // 相手の強さは、順位表と同じ材料を読んで同じ関数で出す（シーズン全体の値。期間・会場の絞り込みは効かない）
+  const usesStrength = isOpponentStrengthItem(xItem) || isOpponentStrengthItem(yItem);
+  const strengths = useOpponentStrengths(season, category, usesStrength);
   // 勝率の軸（条件なし・条件付き）は、条件別順位表と同じ材料（結果だけの試合を含む）で数える
   const usesWin = isWinPctItem(xItem) || isWinPctItem(yItem);
   const { env, loading: envLoading } = useCondEnv({ season, league: category, teams: request.data?.teams, logs: request.data?.logs, enabled: usesWin && !!request.data && !request.data.missing });
   const specOf = (spec: CondSpec) => (env && condAvailable(env, spec) ? spec : DEFAULT_COND);
   const cx = specOf(condX), cy = specOf(condY);
-  const scope = useMemo(() => ({ range: seasonTotals ? { kind: 'all' as const } : filter.range, gameType: seasonTotals ? 'regular' as const : gameType }), [seasonTotals, filter, gameType]);
+  const scope = useMemo(() => ({ range: seasonTotals ? { kind: 'all' as const } : filter.range, gameType: seasonTotals ? 'regular' as const : gameType, venue: seasonTotals ? 'all' as const : venue }), [seasonTotals, filter, gameType, venue]);
   const teamIds = useMemo(() => (request.data?.teams ?? []).map(t => t.teamId), [request.data]);
   const recordsFor = (item: FreeItem, spec: CondSpec) => (!env || !isWinPctItem(item) ? null : condRecords(env, teamIds, scope, item.id === WINPCT_COND_ITEM_ID ? spec : null));
   const recX = useMemo(() => recordsFor(xItem, cx), [env, teamIds, scope, xItem.id, condSpecToText(cx)]);
   const recY = useMemo(() => recordsFor(yItem, cy), [env, teamIds, scope, yItem.id, condSpecToText(cy)]);
   const winName = (item: FreeItem, spec: CondSpec, e: CondEnv | null) => (item.id === WINPCT_COND_ITEM_ID && e ? condWinLabel(e, spec) : item.label);
-  const model = useMemo(() => request.data && !request.data.missing ? buildFreeRows(request.data.teams, request.data.logs, request.data.divisions, { season, category, range: filter.range, gameType, seasonTotals }) : null,
-    [request.data, season, category, filter, gameType, seasonTotals]);
+  const model = useMemo(() => request.data && !request.data.missing ? buildFreeRows(request.data.teams, request.data.logs, request.data.divisions, { season, category, range: filter.range, gameType, seasonTotals, venue, strength: strengths.data ? { sofar: strengths.data.sofar, remaining: strengths.data.remaining } : undefined }) : null,
+    [request.data, season, category, filter, gameType, seasonTotals, venue, strengths.data]);
   const hl = useHighlightClubs({ season, category, teams: request.data?.teams ?? [], divisionOf: id => request.data?.divisions?.[category]?.[season]?.[id] });
   const fm = mode as 'perGame' | 'total';
   const xWin = isWinPctItem(xItem), yWin = isWinPctItem(yItem);
+  const xFixed = isFixedItem(xItem), yFixed = isFixedItem(yItem);
   const xCol = xWin ? winColumn(xItem, winName(xItem, cx, env), recX) : freeColumn(xItem, persp.x, fm, season)!, yCol = yWin ? winColumn(yItem, winName(yItem, cy, env), recY) : freeColumn(yItem, persp.y, fm, season)!;
-  const px: Persp = xWin ? 'own' : persp.x, py: Persp = yWin ? 'own' : persp.y;
+  const px: Persp = xFixed ? 'own' : persp.x, py: Persp = yFixed ? 'own' : persp.y;
   const rows = model?.rows ?? [];
   const xKind = inferFreeAxis(xCol, rows), yKind = inferFreeAxis(yCol, rows);
   // 条件付きの勝率の軸は、その条件の試合数が下限に届かないチームの点を出さない（試合が0のチームは勝率が無いので出ない）
@@ -150,12 +162,16 @@ export default function TeamFreeScatterFigure({ season, category }: FigureProps)
   const avgX = leagueValue(xCol, xKind, xWin, 'x'), avgY = leagueValue(yCol, yKind, yWin, 'y');
   const xDomain = freeAxisDomain([...points.map(p => p.x), avgX], xKind, px === 'diff'), yDomain = freeAxisDomain([...points.map(p => p.y), avgY], yKind, py === 'diff');
   const tip = points.find(p => p.id === hover);
-  const yName = yWin ? winName(yItem, cy, env) : freeItemName(yItem, persp.y), xName = xWin ? winName(xItem, cx, env) : freeItemName(xItem, persp.x);
+  const yBase = yWin ? winName(yItem, cy, env) : freeItemName(yItem, py), xBase = xWin ? winName(xItem, cx, env) : freeItemName(xItem, px);
+  // 反転している軸の名前には「（反転）」を付ける（軸の見出し・タイトル・保存画像）。一覧の見出しは項目の名前のまま
+  const yName = invertedName(yBase, invY), xName = invertedName(xBase, invX);
   const detailOf = (col: typeof xCol, r: FreeRow) => (col.detail ? col.detail(r) : col.text(r));
   const unitText = (kind: typeof xKind, p: Persp) => kind.unit === 'percent' ? (p === 'diff' ? '（差・ポイント）' : '') : '';
-  const rangeReason = seasonTotals ? 'Shooting はレギュラーシーズン全体の値のため、期間・試合種別の絞り込みは効きません。' : undefined;
+  const rangeReason = seasonTotals ? 'Shooting はレギュラーシーズン全体の値のため、期間・試合種別・会場の絞り込みは効きません。' : undefined;
   const rangeAxes = situationalAxes(filter, v => setFilter({ range: v.range })).filter(a => a.id === 's.range' || (filter.range.kind === 'dateRange' && (a.id === 's.dateStart' || a.id === 's.dateEnd')))
     .map(a => a.kind === 'select' ? { ...a, options: a.options.filter(o => ['all', 'recent:5', 'recent:10', 'custom'].includes(o.value)), disabledReason: rangeReason } : { ...a, tier: 'primary' as const, disabledReason: rangeReason });
+  // 項目を選んだら、小さいほど良い項目なら反転のチェックを自動で入れる（そうでなければ外す。あとから手で変えられる）
+  const pickItem = (id: string, persp: Persp, setId: (v: string) => void, setInv: (v: boolean) => void) => { const item = freeItems(season).find(i => i.id === id); setId(id); setInv(!!item && !isFixedItem(item) && defaultInvert(item.key, persp === 'opp' ? 'opp' : 'own')); };
   const itemAxis = (id: string, label: string, value: string, defaultValue: string, onChange: (v: string) => void): FilterAxis => ({
     kind: 'select', id, label, tier: 'primary', value, defaultValue,
     options: freeItems(season).map(i => { const reason = freeCategoryBlock(i.category, request.data?.teams ?? null, category, reasons); return { value: i.id, label: i.label, group: i.categoryLabel, disabled: !!reason, disabledReason: reason }; }),
@@ -170,38 +186,41 @@ export default function TeamFreeScatterFigure({ season, category }: FigureProps)
     content: <EligibilitySlider label="条件の試合数" value={minGames} min={0} max={MIN_GAMES_MAX} step={1} format={v => `${v}試合`} onChange={setMinGames} />,
   };
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season, { disabledReason: rangeReason }),
-    itemAxis('freeY', '縦軸', yItem.id, DEFAULT_FREE_Y, v => setYId(v)), ...(yWin ? [] : [perspAxis('freeYPersp', '縦軸の視点', persp.y, v => setPersp(p => ({ ...p, y: v })))]),
-    itemAxis('freeX', '横軸', xItem.id, DEFAULT_FREE_X, v => setXId(v)), ...(xWin ? [] : [perspAxis('freeXPersp', '横軸の視点', persp.x, v => setPersp(p => ({ ...p, x: v })))]),
+    itemAxis('freeY', '縦軸', yItem.id, DEFAULT_FREE_Y, v => pickItem(v, persp.y, setYId, setInvY)), ...(yFixed ? [] : [perspAxis('freeYPersp', '縦軸の視点', persp.y, v => { setPersp(p => ({ ...p, y: v })); setInvY(defaultInvert(yItem.key, v === 'opp' ? 'opp' : 'own')); })]),
+    invertAxis({ id: 'freeYInvert', label: '縦軸の反転', checked: invY, onChange: setInvY }),
+    itemAxis('freeX', '横軸', xItem.id, DEFAULT_FREE_X, v => pickItem(v, persp.x, setXId, setInvX)), ...(xFixed ? [] : [perspAxis('freeXPersp', '横軸の視点', persp.x, v => { setPersp(p => ({ ...p, x: v })); setInvX(defaultInvert(xItem.key, v === 'opp' ? 'opp' : 'own')); })]),
+    invertAxis({ id: 'freeXInvert', label: '横軸の反転', checked: invX, onChange: setInvX }),
+    venueAxis(venue, setVenue, rangeReason),
     ...(usesCond ? [minGamesAxis] : []),
     { kind: 'select', id: 'freeMode', label: '平均／合計', tier: 'primary', value: mode, defaultValue: 'perGame', options: [{ value: 'perGame', label: '1試合平均' }, { value: 'total', label: '合計' }], onChange: v => setMode(v as 'perGame' | 'total') },
     hl.axis];
   const [periodLabel] = situationalFilterLabels(seasonTotals ? { range: { kind: 'all' } } : filter);
-  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[seasonTotals ? 'regular' : gameType], ...(xWin && yWin ? [] : [mode === 'total' ? '合計' : '1試合平均']), ...(usesCond && minGames > 0 ? [`条件の試合数 ${minGames}試合以上`] : []), ...hl.labels];
+  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[seasonTotals ? 'regular' : gameType], ...(xFixed && yFixed ? [] : [mode === 'total' ? '合計' : '1試合平均']), ...(seasonTotals ? [] : venueConditionLabel(venue)), ...(usesStrength ? ['相手の強さはシーズン全体の値'] : []), ...(usesCond && minGames > 0 ? [`条件の試合数 ${minGames}試合以上`] : []), ...hl.labels];
   const baseDate = { kind: 'season' as const, season, gameType: seasonTotals ? 'regular' as const : gameType };
   const columns: Column<FreeRow>[] = [
     { key: 'team', label: 'チーム', align: 'left', sortValue: p => p.teamName, render: p => <button className="ratings-team-button" onClick={() => setHover(p.teamId)}><TeamLogo teamId={p.teamId} size={20} /><ResponsiveTeamName teamId={p.teamId} name={p.teamName} /></button> },
     { key: 'g', label: 'G', sortValue: p => p.games },
-    { key: 'y', label: yName, sortValue: p => yCol.value(p) ?? Number.NaN, render: p => detailOf(yCol, p) },
-    { key: 'x', label: xName, sortValue: p => xCol.value(p) ?? Number.NaN, render: p => detailOf(xCol, p) },
+    { key: 'y', label: yBase, sortValue: p => yCol.value(p) ?? Number.NaN, render: p => detailOf(yCol, p) },
+    { key: 'x', label: xBase, sortValue: p => xCol.value(p) ?? Number.NaN, render: p => detailOf(xCol, p) },
   ];
   const pointRows = points.map(p => p.team);
   return <section aria-label={`${yName} × ${xName}`}>
-    <FilterBar axes={axes} stateKey="figures:team-free-scatter" onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setYId(DEFAULT_FREE_Y); setXId(DEFAULT_FREE_X); setPersp(DEFAULT_PERSP); setMode('perGame'); setCondX(DEFAULT_COND); setCondY(DEFAULT_COND); setMinGames(0); hl.setIds([]); setHover(null); }} />
+    <FilterBar axes={axes} stateKey="figures:team-free-scatter" onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setYId(DEFAULT_FREE_Y); setXId(DEFAULT_FREE_X); setPersp(DEFAULT_PERSP); setVenue('all'); setInvX(false); setInvY(false); setMode('perGame'); setCondX(DEFAULT_COND); setCondY(DEFAULT_COND); setMinGames(0); hl.setIds([]); setHover(null); }} />
     {env && usesCond && <div className="cond-pickers">
       {yItem.id === WINPCT_COND_ITEM_ID && <CondPicker env={env} spec={cy} label="縦軸" onChange={setCondY} />}
       {xItem.id === WINPCT_COND_ITEM_ID && <CondPicker env={env} spec={cx} label="横軸" onChange={setCondX} />}
     </div>}
-    {request.loading || (usesWin && envLoading && !request.error) ? <p role="status">読み込み中…</p> : request.error || request.data?.missing ? <p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p> : !points.length || !model?.league ? <p className="empty-message">この条件で表示できるチームがありません。</p> : <>
+    {request.loading || (usesStrength && strengths.loading) || (usesWin && envLoading && !request.error) ? <p role="status">読み込み中…</p> : request.error || request.data?.missing ? <p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p> : !points.length || !model?.league ? <p className="empty-message">この条件で表示できるチームがありません。</p> : <>
       <FigureExportButton targetRef={target} filename={`${yName}_${xName}_${conditions.join('_')}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="ratings-export axis-scatter-export" baseDate={baseDate}>
         <ConditionTitle title={`${yName} × ${xName}`} exportScope={`${season}シーズン`} conditions={conditions} />
-        <AxisScatter points={points} xDomain={xDomain} yDomain={yDomain} xLabel={`${xName}${unitText(xKind, px)}`} yLabel={`${yName}${unitText(yKind, py)}`} zeroLines={px === 'diff' || py === 'diff'}
+        <AxisScatter points={points} xDomain={xDomain} yDomain={yDomain} xLabel={`${xName}${unitText(xKind, px)}`} yLabel={`${yName}${unitText(yKind, py)}`} zeroLines={px === 'diff' || py === 'diff'} xReversed={invX} yReversed={invY}
           countLines={usesCond ? [`表示 ${points.length}チーム`, ...(excluded > 0 ? [minGames > 0 ? `条件の試合数が${minGames}試合未満のチームは除く（${excluded}チーム）` : `条件の試合が無いチームは除く（${excluded}チーム）`] : [])] : undefined}
           xTick={v => freeTickText(v, xKind, xDomain)} yTick={v => freeTickText(v, yKind, yDomain)}
           avgX={avgX} avgY={avgY} avgXText={xWin ? (avgX === null ? '-' : rateText(avgX)) : xCol.text(model.league)} avgYText={yWin ? (avgY === null ? '-' : rateText(avgY)) : yCol.text(model.league)} onDismiss={() => setHover(null)}
-          renderMarker={(p, left, top) => <TeamLogoPoint key={p.id} teamId={p.team.teamId} teamName={p.team.teamName} division={p.team.division} emphasized={hl.has([p.team.teamId])} label={`${teamLabel(p.team.teamId, p.team.teamName)}：${yName} ${detailOf(yCol, p.team)}、${xName} ${detailOf(xCol, p.team)}`}
+          renderMarker={(p, left, top) => <TeamLogoPoint key={p.id} teamId={p.team.teamId} teamName={p.team.teamName} division={p.team.division} emphasized={hl.has([p.team.teamId])} label={`${teamLabel(p.team.teamId, p.team.teamName)}：${yBase} ${detailOf(yCol, p.team)}、${xBase} ${detailOf(xCol, p.team)}`}
             expanded={hover === p.id} left={left} top={top} onSelect={() => setHover(p.id)} onDismiss={() => setHover(null)} />}
-          tooltip={tip ? { point: tip, node: <><strong>{teamLabel(tip.team.teamId, tip.team.teamName)}</strong><span>{yName} {detailOf(yCol, tip.team)} / {xName} {detailOf(xCol, tip.team)}</span>{!usesWin && <span>{tip.team.games}試合</span>}</> } : null} />
+          tooltip={tip ? { point: tip, node: <><strong>{teamLabel(tip.team.teamId, tip.team.teamName)}</strong><span>{yBase} {detailOf(yCol, tip.team)} / {xBase} {detailOf(xCol, tip.team)}</span>{!usesWin && <span>{tip.team.games}試合</span>}</> } : null} />
       </ExportTarget>
       <div className="table-scroll" tabIndex={0} role="region" aria-label="チーム一覧"><SortableTable columns={columns} rows={pointRows} rowKey={p => p.teamId} defaultSortKey="y" statScope="team"
         rowHighlightColor={p => hover === p.teamId || hl.has([p.teamId]) ? 'var(--accent)' : undefined} rowHighlightStrength={() => 'half'} /></div>
