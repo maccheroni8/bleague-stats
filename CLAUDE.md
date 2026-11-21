@@ -215,6 +215,9 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 447章: **ゲーム差の表記は小数第1位**（0.5・1.0。首位は「-」）。整形は `standingsTeams.ts` の `formatGamesBehind` の1か所（年間スケジュールタブだけ別に `formatDecimal(gb, 1)`）。
 - 450章: **相手の強さは「最新勝率」と「試合時点の勝率」の2つをどこでも選べる**（名前「対5割以上（最新勝率）」「対5割以上（試合時点の勝率）」・同じ区切りを隣り合わせ）。計算は `opponentStrength.ts`（試合時点の `buildRecordsBeforeGame` もここ。`OpponentRecords` に最新勝率 `latestWinRates` を添えて渡す・`buildOpponentRecords`・`useOpponentRecords`）。URL は試合時点 `opw`（前のまま）・最新 `opl`。新しい行のキーは `latest_…`／`atGame_…`（「-」は全チームスタッツの `sit` が受け付けない）。md の書き出しの「対戦相手」も 452章で両方選べる（`atLeast60`＝試合時点・`atLeast60Latest`＝最新。判定は `aiExportScope.ts` の `judgeOpponent`）。
 - 453章・454章: **外国籍・帰化・アジアの出場人数が相手より多い／同数／少ない**の条件（`situationalRecords.ts` の `foreignCompareOf`・`matchesForeignCompare`。条件別順位表・チーム詳細・個人詳細・全チームスタッツのシチュエーション別・図解の条件付きの勝率で共通。**画面だけの変更でキー不変**）と、条件別順位表の**対象期間**（`rng`。期間を先に適用してから条件。保存画像のサブタイトルに入る）。検証は `validate:conditional-situational`
+- 455章: **チーム詳細のシーズン別成績の順位を増やした**（良し悪しなしの項目〔MIN・POSS・PACE・構成比など〕にも色なしで多い順の順位〔`teamRanksOf` の `rankAllNeutral`。シーズン別成績の行だけ〕、Shooting・Forced TOV にもランキングと同じ集計で順位〔`TeamSpecialRankScope.tsx`。Forced TOV の「自チームが記録」は色なし〕。順位を付けない項目の一覧は455章）。**画面だけの変更でキー不変**
+- 456章: **チーム詳細の3つの表に「保存」**（シチュエーション別成績・Q別・Q別・延長リード状況。`SavableBlock`。タイトルに表の名前と視点・サブタイトルに条件・ファイル名にも表の名前。全チームスタッツ〔448〜451章〕と同じ書き方）。**画面だけの変更でキー不変**
+- 457章: **デプロイ直後の「表示できませんでした」の防止**（プログラムの読み込みに失敗したときだけ1回だけ自動で読み込み直す。sessionStorage の印〔`bleague-stats:stale-reload-at`・10分〕で続けて読み込み直さない。`src/lib/staleReload.ts`・`lazyPage.ts`・`main.tsx`。検証は `npm run validate:stale-reload`）。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

@@ -11,6 +11,10 @@ import "./pages/FiguresPage.css";
 import "./index.css";
 import { seedCondWinPctPresets, seedInitialPresets } from "./lib/figurePresets";
 import "./lib/playerSelfColumns";
+import { installStaleReload } from "./lib/staleReload";
+
+// プログラムの読み込みに失敗したとき（デプロイ直後に前の版のファイルが無い）だけ、1回だけ自動で読み込み直す（DESIGN.md 457章）
+installStaleReload();
 
 // 図の設定の保存に、選手の散布図の3つの設定をこのブラウザで1回だけ入れる（保存できない環境では何もしない）
 seedInitialPresets();

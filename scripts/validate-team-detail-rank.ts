@@ -81,6 +81,23 @@ for (const season of ["2025-26", "2021-22"]) {
       if (col) assert.equal(teamRanksOf(rows, col, "own"), null, `${key} は順位を付けない`);
     }
   }
+  // シーズン別成績（rankAllNeutral）: 良し悪しなしの項目も、色なしで多い順の順位を出す（DESIGN.md 455章）
+  for (const [category, key] of [["traditional", "min"], ["advanced", "poss"], ["advanced", "pace"]] as const) {
+    const col = buildTeamCategoryColumns(category, "perGame", "own", true, true, false).find((c) => c.key === key)!;
+    const ranks = teamRanksOf(rows, col, "own", true);
+    assert(ranks && ranks.size > 0, `${season} ${key}: rankAllNeutral で順位が付く`);
+    assert([...ranks!.values()].every((r) => r.tier === null), `${season} ${key}: 色は付けない`);
+    const best = Math.max(...[...ranks!.keys()].map((id) => Number(col.sortValue(rows.find((x) => x.team.teamId === id)!))));
+    const first = [...ranks!].filter(([, r]) => r.rank === 1).map(([id]) => Number(col.sortValue(rows.find((x) => x.team.teamId === id)!)));
+    assert(first.every((v) => Math.abs(v - best) < 1e-9), `${season} ${key}: 多い順の1位`);
+  }
+  // 色つきの項目（PTS）は rankAllNeutral でも変わらない
+  {
+    const col = buildTeamCategoryColumns("traditional", "perGame", "own", true, true, false).find((c) => c.key === "pts")!;
+    const a = teamRanksOf(rows, col, "own")!;
+    const b = teamRanksOf(rows, col, "own", true)!;
+    assert([...a].every(([id, r]) => b.get(id)?.rank === r.rank && b.get(id)?.tier === r.tier), `${season} pts: rankAllNeutral でも同じ`);
+  }
   // 色なしで順位だけ出す項目: 多い順（1位が最大）。opp でも多い順
   for (const perspective of ["own", "opp"] as TeamPerspective[]) {
     const col = buildTeamCategoryColumns("misc", "perGame", perspective, true, true, false).find((c) => c.key === "benchPts")!;

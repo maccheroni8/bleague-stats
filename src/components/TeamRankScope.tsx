@@ -36,6 +36,7 @@ export function TeamRankScope({
   classFilter = "all",
   gameType = "regular",
   enabled,
+  rankAllNeutral = false,
   children,
 }: {
   season: string;
@@ -49,6 +50,8 @@ export function TeamRankScope({
   classFilter?: string;
   gameType?: SeasonGameTypeFilter;
   enabled: boolean;
+  /** 良し悪しなしの項目にも、色なしで多い順の順位を出す（シーズン別成績。DESIGN.md 455章） */
+  rankAllNeutral?: boolean;
   children: (lookup: TeamRankLookup) => ReactNode;
 }) {
   const paramsOf = (category: BoxscoreTabKey): TeamRankingParams => ({
@@ -67,7 +70,7 @@ export function TeamRankScope({
   const first = useTeamSeasonRanking(season, paramsOf(categories[0]), { enabled, skipConditionItems: true, league, foulIndex: categories[0] === "misc" });
   const second = useTeamSeasonRanking(season, paramsOf(categories[1] ?? categories[0]), { enabled: enabled && categories.length > 1, skipConditionItems: true, league, foulIndex: categories[1] === "misc" });
   const sources = [first, second];
-  const cache = useMemo(() => new Map<string, Map<string, TeamRankResult> | null>(), [first.columns, first.boxRows, second.columns, second.boxRows, perspective]);
+  const cache = useMemo(() => new Map<string, Map<string, TeamRankResult> | null>(), [first.columns, first.boxRows, second.columns, second.boxRows, perspective, rankAllNeutral]);
   const lookup: TeamRankLookup = (col) => {
     if (!enabled) return undefined;
     for (let i = 0; i < categories.length; i++) {
@@ -76,7 +79,7 @@ export function TeamRankScope({
       const column = matchRankColumn(source.columns, col);
       if (!column) continue;
       const cacheKey = `${i}:${column.key}`;
-      if (!cache.has(cacheKey)) cache.set(cacheKey, teamRanksOf(source.boxRows, column, perspective));
+      if (!cache.has(cacheKey)) cache.set(cacheKey, teamRanksOf(source.boxRows, column, perspective, rankAllNeutral));
       const result = cache.get(cacheKey)?.get(teamId);
       return result ? { text: rankText(result.rank), tier: result.tier } : undefined;
     }

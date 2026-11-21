@@ -49,10 +49,12 @@ export function teamRanksOf(
   rows: readonly AllTeamsRow[],
   column: Column<AllTeamsRow>,
   perspective: TeamPerspective,
+  /** true なら、良し悪しなしの項目も色なしで多い順の順位を出す（チーム詳細のシーズン別成績。DESIGN.md 455章） */
+  rankAllNeutral = false,
 ): Map<string, TeamRankResult> | null {
   const direction = rankDirectionOf(column.key, perspective);
-  // 良し悪しなしは順位も出さない。ただし isRankOnlyKey の項目は、多い順の順位だけ出す（色なし）
-  const rankOnly = direction === "neutral" && isRankOnlyKey(column.key);
+  // 良し悪しなしは順位も出さない。ただし isRankOnlyKey の項目（rankAllNeutral のときは良し悪しなしのすべて）は、多い順の順位だけ出す（色なし）
+  const rankOnly = direction === "neutral" && (rankAllNeutral || isRankOnlyKey(column.key));
   if (direction === "neutral" && !rankOnly) return null;
   const higherIsBetter = direction !== "lower";
   const value = (r: AllTeamsRow) => Number(column.sortValue(r));

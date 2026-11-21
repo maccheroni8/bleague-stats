@@ -149,6 +149,8 @@ import {
   type MarginCondition,
 } from "../lib/situational";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
+import { SavableBlock } from "../components/SavableBlock";
+import { perspectiveFilePart, perspectiveTitleSuffix, type TitlePerspective } from "../lib/titlePerspective";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import { OnCourtShareNote } from "../components/OnCourtShareNote";
 import { OnOffNote } from "../components/OnOffNote";
@@ -162,6 +164,7 @@ import {
   composeLabels,
   displayModeLabels,
   eligibilityLabels,
+  buildExportFilename,
   gameTypeLabels,
   joinLabels,
   perspectiveLabels,
@@ -278,6 +281,7 @@ import { JAPANESE_DEEMED_NOTE, splitClassificationSeason } from "../lib/classifi
 import { hasUnclassifiedRows, SPLIT_CLASS_LABELS } from "../lib/teamClassSplit";
 import { buildSeasonClassRow, classRowLabel, seasonClassFormatters, seasonSplitClasses } from "../lib/teamSeasonClassSplit";
 import { buildSeasonPeriodRow, seasonPeriodCell, seasonPeriodFormatters, unavailableSeasonPeriodLabels, useTeamPeriodSources } from "../lib/teamSeasonPeriod";
+import { TeamSpecialRankScope } from "../components/TeamSpecialRankScope";
 import { TeamRankScope, TeamRankText, rankTierClass, type TeamRankLookup } from "../components/TeamRankScope";
 import { buildTeamPeriodRowValues, indexUnavailableKeys, withIndexUnavailableColumns } from "../lib/teamSituationalPeriod";
 import {
@@ -357,7 +361,7 @@ function SeasonPeriodNotes({
   );
 }
 
-function TeamSeasonForcedTurnoversTable({ rows }: { rows: SeasonRecord[] }) {
+function TeamSeasonForcedTurnoversTable({ rows, teamId, league, rankOn, displayMode }: { rows: SeasonRecord[]; teamId: string; league: League; rankOn: boolean; displayMode: SeasonDisplayMode }) {
   return (
     <div className="table-scroll">
       <table className="stats-table">
@@ -385,17 +389,27 @@ function TeamSeasonForcedTurnoversTable({ rows }: { rows: SeasonRecord[] }) {
                 </tr>
               );
             }
-            return (["forced", "committed"] as const).map((kind) => (
-              <tr key={`${r.season}-${kind}`} className={kind === "committed" ? "season-row-cont" : undefined}>
-                <td className="align-left">{r.season}</td>
-                <td className="align-left">{FORCED_TURNOVER_ROW_LABELS[kind]}</td>
-                {FORCED_TURNOVER_COLUMNS.map((col) => (
-                  <td key={col.key} className="align-right">
-                    {col.value(kind === "forced" ? forced : committed)}
-                  </td>
-                ))}
-              </tr>
-            ));
+            return (
+              <TeamSpecialRankScope key={r.season} season={r.season} league={league} teamId={teamId} kind="forcedTurnovers" mode={displayMode} enabled={rankOn}>
+                {(rankOf) =>
+                  (["forced", "committed"] as const).map((kind) => (
+                    <tr key={`${r.season}-${kind}`} className={kind === "committed" ? "season-row-cont" : undefined}>
+                      <td className="align-left">{r.season}</td>
+                      <td className="align-left">{FORCED_TURNOVER_ROW_LABELS[kind]}</td>
+                      {FORCED_TURNOVER_COLUMNS.map((col) => {
+                        const rank = col.key === "gamesWithData" ? undefined : rankOf(`${kind}:${col.key}`);
+                        return (
+                          <td key={col.key} className={`align-right${rankTierClass(rank)}`}>
+                            {col.value(kind === "forced" ? forced : committed)}
+                            <TeamRankText rank={rank} />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))
+                }
+              </TeamSpecialRankScope>
+            );
           })}
         </tbody>
       </table>
@@ -408,7 +422,7 @@ function TeamSeasonForcedTurnoversTable({ rows }: { rows: SeasonRecord[] }) {
  * シュートタイプ別の集計はYahoo PBP由来で2023-24シーズン以降のみのため、それ以前は非対応の行を出す。
  * 列は全シーズンに現れたシュートタイプの和集合。平均/合計トグルはシーズンの試合数で割る/割らない
  */
-function TeamSeasonShotTypeTable({ rows, displayMode }: { rows: SeasonRecord[]; displayMode: SeasonDisplayMode }) {
+function TeamSeasonShotTypeTable({ rows, displayMode, teamId, league, rankOn }: { rows: SeasonRecord[]; displayMode: SeasonDisplayMode; teamId: string; league: League; rankOn: boolean }) {
   const keys = sortShotTypeKeys([...new Set(rows.flatMap((r) => Object.keys(r.team.shotTypes ?? {})))]);
   const digits = displayMode === "total" ? 0 : 2;
   return (
@@ -453,7 +467,10 @@ function TeamSeasonShotTypeTable({ rows, displayMode }: { rows: SeasonRecord[]; 
               );
             }
             const factor = displayMode === "total" || r.team.gamesPlayed <= 0 ? 1 : 1 / r.team.gamesPlayed;
-            return (["twoPoint", "threePoint"] as const).map((split) => {
+            return (
+              <TeamSpecialRankScope key={r.season} season={r.season} league={league} teamId={teamId} kind="shooting" mode={displayMode} enabled={rankOn}>
+                {(rankOf) =>
+                  (["twoPoint", "threePoint"] as const).map((split) => {
               const total = scaleShotTypeCounts(
                 Object.values(breakdown).reduce((acc, c) => sumShotTypeCounts(acc, c[split]), { made: 0, attempted: 0 }),
                 factor,
@@ -476,9 +493,15 @@ function TeamSeasonShotTypeTable({ rows, displayMode }: { rows: SeasonRecord[]; 
                     const c = scaleShotTypeCounts(counts[split], factor);
                     return (
                       <Fragment key={key}>
-                        <td className="align-right">{formatShotTypeMade(c, digits)}</td>
-                        <td className="align-right">{formatShotTypeAttempted(c, digits)}</td>
-                        <td className="align-right">{formatShotTypePct(c)}</td>
+                        {([["m", formatShotTypeMade(c, digits)], ["a", formatShotTypeAttempted(c, digits)], ["pct", formatShotTypePct(c)]] as const).map(([part, text]) => {
+                          const rank = text === "-" ? undefined : rankOf(`${key}_${split === "twoPoint" ? "2p" : "3p"}${part}`);
+                          return (
+                            <td key={part} className={`align-right${rankTierClass(rank)}`}>
+                              {text}
+                              <TeamRankText rank={rank} />
+                            </td>
+                          );
+                        })}
                       </Fragment>
                     );
                   })}
@@ -487,7 +510,10 @@ function TeamSeasonShotTypeTable({ rows, displayMode }: { rows: SeasonRecord[]; 
                   <td className="align-right">{formatShotTypePct(total)}</td>
                 </tr>
               );
-            });
+            })
+                }
+              </TeamSpecialRankScope>
+            );
           })}
         </tbody>
       </table>
@@ -3949,6 +3975,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     ...eligibilityLabels({ gamesRatio: teamLeadersGamesRatio, achievable: teamLeadersAchievable }),
   );
   const situationalRecordConditions = composeLabels(seasonLabel, gameTypeLabels(situationalRecordGameType, season));
+  const situationalRecordSaveConditions = composeLabels(gameTypeLabels(situationalRecordGameType, season));
   // 「チーム内リーダー」の掲載基準（出場率）。ランキングページと同じ popover＋EligibilitySlider
   const teamLeadersEligibilitySummary = eligibilityLabels({ gamesRatio: teamLeadersGamesRatio, achievable: teamLeadersAchievable }).join(LABEL_SEPARATOR);
   const teamLeadersEligibilityAxis: FilterAxis = {
@@ -3982,14 +4009,28 @@ export function TeamDetailPage({ season }: { season: string }) {
     ),
   };
   // 「シチュエーション別成績」: 行がシチュエーション自体のため、S軸（詳細フィルタ）は持たない
+  // 保存画像のタイトルに表の名前と視点を入れ、サブタイトルには効いている条件だけを置く（全チームスタッツと同じ書き方。DESIGN.md 456章）
   const situationalTeamConditions = composeLabels(
-    seasonLabel,
-    teamBoxCategoryLabel(situationalTeamBoxTab),
     displayModeLabels(situationalTeamDisplayMode),
     gameTypeLabels(situationalTeamGameType, season),
-    situationalTeamBoxTab !== "shooting" && perspectiveLabels(situationalTeamPerspective),
     situationalTeamBoxTab !== "periods" && periodLabels(situationalTeamPeriodOption),
   );
+  const situationalTeamTitlePerspective: TitlePerspective = situationalTeamBoxTab === "shooting" ? "own" : situationalTeamPerspective;
+  const situationalTeamTitle = `${season}シーズン ${team.teamName}　シチュエーション別成績：${teamBoxCategoryLabel(situationalTeamBoxTab)}${perspectiveTitleSuffix(situationalTeamTitlePerspective)}`;
+  const situationalTeamSaveFilename = buildExportFilename([
+    `${season}シーズン`,
+    team.teamName,
+    "シチュエーション別成績",
+    `${teamBoxCategoryLabel(situationalTeamBoxTab)}タブ`,
+    ...(perspectiveFilePart(situationalTeamTitlePerspective) ? [perspectiveFilePart(situationalTeamTitlePerspective)!] : []),
+    ...situationalTeamConditions,
+  ]);
+  const situationalTeamSaveReason =
+    (situationalIndexMode ? situationalPeriodLoading : statsRawGamesLoading && situationalTeamBoxTab !== "periods") || (situationalTeamBoxTab === "shooting" && teamYahooPbpLoading)
+      ? "記録を読み込み中です。"
+      : (situationalTeamBoxTab === "periods" ? situationalPeriodGroups.length === 0 : situationalTeamGroups.length === 0)
+        ? "保存できる表がありません。"
+        : undefined;
   // フィルタバー（DESIGN.md 105章 B4）。ショットチャート専用の絞り込み（旧・チームスタッツの共有バーから独立させた。118章）
   const teamShotChartFilterAxes: FilterAxis[] = [
     gameTypeAxis(teamShotChartGameType, setTeamShotChartGameType, season),
@@ -4331,13 +4372,24 @@ export function TeamDetailPage({ season }: { season: string }) {
             {situationalRecordRawExpanded ? "▼ " : "▶ "}
             Q別・延長リード状況
           </h3>
-          {situationalRecordRawExpanded && <ConditionLine conditions={situationalRecordConditions} />}
           {!situationalRecordRawExpanded ? null : statsRawGamesLoading || !situationalRecordRawGamesReady ? (
-            <p className="loading">読み込み中...</p>
+            <>
+              <ConditionLine conditions={situationalRecordConditions} />
+              <p className="loading">読み込み中...</p>
+            </>
           ) : situationalRecordRawGroups.length === 0 ? (
-            <p className="empty-message">対象試合がありません</p>
+            <>
+              <ConditionLine conditions={situationalRecordConditions} />
+              <p className="empty-message">対象試合がありません</p>
+            </>
           ) : (
             <>
+              <SavableBlock
+                filename={buildExportFilename([`${season}シーズン`, team.teamName, "Q別・延長リード状況", ...situationalRecordSaveConditions])}
+                baseDate={{ kind: "season", season, gameType: situationalRecordGameType }}
+                className="export-target-standings"
+              >
+              <ConditionTitle title={`${season}シーズン ${team.teamName}　Q別・延長リード状況`} exportScope={`${season}シーズン`} conditions={situationalRecordSaveConditions} />
               <div className="table-scroll">
                 <table className="stats-table situational-record-table">
                   <thead>
@@ -4371,6 +4423,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   </tbody>
                 </table>
               </div>
+              </SavableBlock>
               <GlossaryNote anchor={GLOSSARY_ANCHORS.situational} label="シチュエーション別成績" />
             </>
           )}
@@ -4919,7 +4972,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               {STREAKS_CATEGORY_LABEL}
             </button>
           </div>
-          {(seasonBoxTab === "traditional" || seasonBoxTab === "advanced" || seasonBoxTab === "misc" || seasonBoxTab === "scoring") && (
+          {(seasonBoxTab === "traditional" || seasonBoxTab === "advanced" || seasonBoxTab === "misc" || seasonBoxTab === "scoring" || seasonBoxTab === "shooting" || seasonBoxTab === "forcedTurnovers") && (
             <label className="compare-rank-toggle">
               <input type="checkbox" checked={showTeamRank} onChange={(e) => setShowTeamRank(e.target.checked)} /> 順位を表示
             </label>
@@ -4930,9 +4983,9 @@ export function TeamDetailPage({ season }: { season: string }) {
           ) : !seasonHistoryDesc || seasonHistoryDesc.length === 0 ? (
             <p className="empty-message">シーズン別成績がありません</p>
           ) : seasonBoxTab === "shooting" ? (
-            <TeamSeasonShotTypeTable rows={seasonHistoryDesc} displayMode={seasonBoxDisplayMode} />
+            <TeamSeasonShotTypeTable rows={seasonHistoryDesc} displayMode={seasonBoxDisplayMode} teamId={team.teamId} league={league} rankOn={showTeamRank && tab === "teamStats"} />
           ) : seasonBoxTab === "forcedTurnovers" ? (
-            <TeamSeasonForcedTurnoversTable rows={seasonHistoryDesc} />
+            <TeamSeasonForcedTurnoversTable rows={seasonHistoryDesc} teamId={team.teamId} league={league} rankOn={showTeamRank && tab === "teamStats"} displayMode={seasonBoxDisplayMode} />
           ) : seasonBoxTab === "foreignPlayers" ? (
             <>
               <TeamSeasonForeignChart rows={seasonHistoryDesc} rules={seasonRulesForTrend ?? null} league={league} periodShares={seasonForeignPeriodShares} />
@@ -5167,6 +5220,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                               period={seasonBoxPeriodValue}
                               classFilter={SPLIT_CLASS_LABELS[cls]}
                               enabled={seasonRankOn && ready}
+                              rankAllNeutral
                             >
                               {(rankOf) => (
                             <tr className="season-class-row">
@@ -5201,6 +5255,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                         perspective={seasonBoxPerspective}
                         period={seasonBoxPeriodValue}
                         enabled={seasonRankOn && enabled}
+                        rankAllNeutral
                       >
                         {children}
                       </TeamRankScope>
@@ -5304,7 +5359,6 @@ export function TeamDetailPage({ season }: { season: string }) {
             </>
           )}
 
-          <ConditionTitle section title="シチュエーション別成績" conditions={situationalTeamConditions} />
           {(situationalIndexMode ? situationalPeriodLoading : statsRawGamesLoading && situationalTeamBoxTab !== "periods") && (
             <p className="loading">読み込み中...</p>
           )}
@@ -5350,6 +5404,13 @@ export function TeamDetailPage({ season }: { season: string }) {
               {CATEGORY_LABELS.periods}
             </button>
           </div>
+          <SavableBlock
+            filename={situationalTeamSaveFilename}
+            baseDate={{ kind: "season", season, gameType: situationalTeamGameType }}
+            className="export-target-standings"
+            unavailableReason={situationalTeamSaveReason}
+          >
+          <ConditionTitle title={situationalTeamTitle} exportScope={`${season}シーズン`} conditions={situationalTeamConditions} />
           {situationalTeamBoxTab === "periods" ? (
             situationalPeriodGroups.length === 0 ? (
               <p className="empty-message">該当する試合がありません</p>
@@ -5519,6 +5580,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             </p>
           )}
 
+          </SavableBlock>
           <GlossaryNote anchor={GLOSSARY_ANCHORS.situational} label="シチュエーション別成績" />
 
           <h2

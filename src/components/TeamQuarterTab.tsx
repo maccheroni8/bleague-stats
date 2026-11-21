@@ -5,7 +5,8 @@ import { FilterBar } from "./FilterBar";
 import { RuleChangeFootnote } from "./RuleChangeFootnote";
 import { StatHeaderLabel } from "./StatHeaderLabel";
 import { BOXSCORE_TABS, type BoxscoreTabKey } from "./BoxscoreTable";
-import { composeLabels, displayModeLabels, gameTypeLabels } from "../lib/conditionLabels";
+import { buildExportFilename, composeLabels, displayModeLabels, gameTypeLabels } from "../lib/conditionLabels";
+import { SavableBlock } from "./SavableBlock";
 import { displayModeAxis, gameTypeAxis } from "../lib/filterAxes";
 import { formatWinPct } from "../lib/format";
 import type { SeasonDisplayMode } from "../lib/playerSeasonBoxscore";
@@ -79,6 +80,9 @@ export function TeamQuarterTab({
   // 数字の下の順位と、上位3位・下位3位の色（その区間・試合区分・平均／合計での、リーグの全チームの中の順位。DESIGN.md 406章）
   const [showRank, setShowRank] = useState(true);
   const categoryLabel = BOXSCORE_TABS.find((t) => t.key === category)?.label ?? "";
+  // 保存画像: タイトルに表の名前（カテゴリ）、サブタイトルに効いている条件、ファイル名にも表の名前（DESIGN.md 456章）
+  const saveTitle = `${season}シーズン ${teamName}　Q別：${categoryLabel}`;
+  const saveFilename = buildExportFilename([`${season}シーズン`, teamName, "Q別", `${categoryLabel}タブ`, ...conditions]);
 
   let body;
   if (logsLoading || !logs || sourceLoading) {
@@ -98,6 +102,20 @@ export function TeamQuarterTab({
     const otRow = rows.find((r) => r.value === "ot");
     body = (
       <>
+        <div className="tab-bar-with-toggle compare-category-bar">
+          <div className="tab-bar">
+            {BOXSCORE_TABS.filter((t) => QUARTER_TAB_KEYS.includes(t.key)).map((t) => (
+              <button key={t.key} className={`tab-button${category === t.key ? " active" : ""}`} onClick={() => onCategoryChange(t.key)} type="button">
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <label className="compare-rank-toggle">
+            <input type="checkbox" checked={showRank} onChange={(e) => setShowRank(e.target.checked)} /> 順位を表示
+          </label>
+        </div>
+        <SavableBlock filename={saveFilename} baseDate={{ kind: "season", season, gameType }} className="export-target-standings">
+        <ConditionTitle title={saveTitle} exportScope={`${season}シーズン`} conditions={conditions} />
         <div className="table-scroll">
           <table className="stats-table">
             <thead>
@@ -136,19 +154,6 @@ export function TeamQuarterTab({
               })}
             </tbody>
           </table>
-        </div>
-        <ConditionTitle section title={`${season}シーズン Q別：${categoryLabel}`} conditions={conditions} />
-        <div className="tab-bar-with-toggle compare-category-bar">
-          <div className="tab-bar">
-            {BOXSCORE_TABS.filter((t) => QUARTER_TAB_KEYS.includes(t.key)).map((t) => (
-              <button key={t.key} className={`tab-button${category === t.key ? " active" : ""}`} onClick={() => onCategoryChange(t.key)} type="button">
-                {t.label}
-              </button>
-            ))}
-          </div>
-          <label className="compare-rank-toggle">
-            <input type="checkbox" checked={showRank} onChange={(e) => setShowRank(e.target.checked)} /> 順位を表示
-          </label>
         </div>
         <div className="table-scroll">
           <table className="stats-table">
@@ -197,13 +202,13 @@ export function TeamQuarterTab({
         {otRow?.status === "empty" && <p className="page-subtitle">この条件では延長のあった試合がありません。</p>}
         {hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
         {hasManualBoxscoreSeason([season]) && <p className="page-subtitle">{MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
+        </SavableBlock>
       </>
     );
   }
 
   return (
     <div className="team-tab-panel">
-      <ConditionTitle section title={`${season}シーズン Q別：得点・失点とレーティング`} conditions={conditions} />
       <FilterBar simple stateKey={`team:${teamId}:quarterFilter`} axes={axes} />
       {body}
     </div>
