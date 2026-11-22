@@ -1274,7 +1274,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
           <ExportTarget
             ref={exportRef}
             baseDate={{ kind: "season", season, gameType }}
-            className={`export-target-compact export-target-rankings-player export-target-teamcol${comparison ? " export-target-compare" : ""}${related ? " export-target-related" : ""}`}
+            className={`export-target-compact export-target-rankings-player export-target-teamcol${comparison ? " export-target-compare" : ""}${related ? " export-target-related" : ""}${related && related.labels.length >= 3 ? " export-target-related3" : ""}`}
           >
             <ConditionTitle
               title={playerTitle.title}
@@ -1314,9 +1314,8 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" placeholder season={season} teamId={clubOf(p).teamId} />}
               teamCol={{
                 abbr: (p) => teamShortName(clubOf(p).teamId, clubOf(p).teamName),
-                games: gamesDividedBy,
-                // PC幅・保存画像は名前の下にポジション（と継続・移籍）だけ。チーム・試合数は専用の列に出す
-                subWide: (p) => [category === "profile" ? positionText(p) : p.position, moveText(p)].filter(Boolean).join("・") || undefined,
+                // PC幅・保存画像は名前の下の行を出さない（名前を大きくするため。ポジション・試合数は出さない）。前シーズン比較のときだけ「継続」「移籍」を添える
+                subWide: (p) => moveText(p),
               }}
               nameLineFirst
               exportKeepSub={!!comparison}

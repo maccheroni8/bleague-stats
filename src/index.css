@@ -8650,13 +8650,11 @@ table.sortable-table.lineup-search-table tbody th {
  * 並び: 順位｜写真｜名前（下にポジション）｜チーム（チームの色の札）｜G｜補足（FGM/FGA など）｜値。
  * 写真なしの保存画像は、写真と名前の下の行を出さず、幅を詰める。スマホ幅は今までどおり名前の下の行にチーム・ポジション・試合数
  * -------------------------------------------------------------------------- */
-.rankings-table .rank-team-col,
-.rankings-table .rank-games-col {
+.rankings-table .rank-team-col {
   display: none;
 }
 
-.export-wide .rankings-table .rank-team-col,
-.export-wide .rankings-table .rank-games-col {
+.export-wide .rankings-table .rank-team-col {
   display: table-cell;
 }
 
@@ -8678,33 +8676,31 @@ table.sortable-table.lineup-search-table tbody th {
 }
 
 .export-wide table.rankings-table-compact th.rank-team-head {
-  width: 92px;
+  width: var(--export-rank-team-width);
   padding-left: 4px;
   padding-right: 4px;
   text-align: center;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
 }
 
+/* チームの色の札。行の高さいっぱいに広げ、上下・左右に少しだけ余白を残して、行の線にかからないようにする（保存画像だけ塗る。画面は文字のまま）。
+ * 札は td の中に絶対配置で置く（行の高さは名前・写真の側で決まる） */
 .export-wide table.rankings-table-compact td.rank-team-cell {
-  padding-left: 4px;
-  padding-right: 4px;
-  text-align: center;
-  white-space: nowrap;
+  position: relative;
+  padding: 0;
 }
 
 .export-wide .rankings-table .rank-team-chip {
-  display: block;
+  position: absolute;
+  inset: 1.5px 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   box-sizing: border-box;
-  padding: 2px 4px;
-  border-radius: 4px;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.5;
-  text-align: center;
+  border-radius: 6px;
+  font-size: var(--export-rank-team);
+  font-weight: 400;
+  line-height: 1;
   white-space: nowrap;
-  overflow: hidden;
 }
 
 .export-rendering .rank-team-chip[style*="--team-color"] {
@@ -8712,66 +8708,98 @@ table.sortable-table.lineup-search-table tbody th {
   color: var(--team-ink, #ffffff);
 }
 
-.export-wide table.rankings-table-compact th.rank-games-head {
-  width: 48px;
-  padding-left: 4px;
-  padding-right: 4px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
+/* 表の見出しの行は、薄い青灰色の帯に濃い字（順位表などの図の見出しの行と同じ作り）。字は大きめ・列の中央 */
+.export-wide table.rankings-table-teamcol.rankings-table-compact thead tr th {
+  background: #eef1f6;
+  color: #22304a;
+  font-size: var(--export-rank-head);
+  font-weight: 700;
 }
 
-.export-wide table.rankings-table-compact td.rank-games-cell {
-  padding-left: 4px;
-  padding-right: 4px;
-  font-size: 14px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
+.export-wide table.rankings-table-teamcol.rankings-table-compact thead tr th *,
+[data-design="v2"] .export-rendering table.rankings-table-teamcol.rankings-table-compact thead tr th[aria-sort],
+.export-rendering table.rankings-table-teamcol.rankings-table-compact thead tr th[aria-sort] {
+  color: #22304a;
+}
+
+/* 数字の太さ（写真なしは細め） */
+.export-wide table.rankings-table-teamcol.rankings-table-compact td.rank-value {
+  font-weight: var(--export-rank-value-weight);
+}
+
+/* 値の列・補足の列は、見出しも数字も列の中央にそろえる（見出しが右に寄って数字から離れないように） */
+.export-wide table.rankings-table-teamcol.rankings-table-compact:not(.rankings-table-compare) th.rank-val-head,
+.export-wide table.rankings-table-teamcol.rankings-table-compact:not(.rankings-table-compare) td.rank-value {
+  width: var(--export-rank-value-width);
+  padding-left: 8px;
+  padding-right: 8px;
+  text-align: center;
 }
 
 .export-wide table.rankings-table-teamcol th.rank-related-head {
-  width: 130px;
-  text-align: right;
+  width: var(--export-rank-related-width);
+  padding-left: 8px;
+  padding-right: 8px;
+  text-align: center;
   white-space: nowrap;
 }
 
 .export-wide table.rankings-table-teamcol td.rank-related {
-  font-size: 14px;
+  padding-left: 8px;
+  padding-right: 8px;
+  text-align: center;
+  font-size: var(--export-rank-related);
 }
 
 /* 字の大きさと幅。基準はいちばん長い名前「ハーパー・ジャン・ローレンス・ジュニア」が1行に収まること（これより長い名前は字を小さくする仕組み〔NameText の lineFirst〕に任せる） */
 .export-wide.export-target-rankings-player.export-target-teamcol {
-  --export-rank-name: 22px;
-  --export-rank-value: 22px;
-  --export-rank-width: 820px;
-}
-
-.export-wide.export-target-rankings-player.export-target-teamcol.export-target-related {
-  --export-rank-width: 950px;
-}
-
-.export-wide.export-target-rankings-player.export-target-teamcol.export-target-compare {
-  --export-rank-width: 1000px;
-}
-
-.export-wide.export-target-rankings-player.export-target-teamcol.export-target-compare.export-target-related {
-  --export-rank-width: 1100px;
-}
-
-.export-rendering.export-plain.export-target-rankings-player.export-target-teamcol {
-  --export-rank-width: 750px;
-}
-
-.export-rendering.export-plain.export-target-rankings-player.export-target-teamcol.export-target-related {
+  --export-rank-name: 28px;
+  --export-rank-value: 30px;
+  --export-rank-team: 25px;
+  --export-rank-head: 21px;
+  --export-rank-related: 24px;
+  --export-rank-related-width: 190px;
+  --export-rank-value-weight: 500;
+  --export-rank-team-width: 124px;
+  --export-rank-value-width: 150px;
   --export-rank-width: 880px;
 }
 
+.export-wide.export-target-rankings-player.export-target-teamcol.export-target-related {
+  --export-rank-width: 1070px;
+}
+
+.export-wide.export-target-rankings-player.export-target-teamcol.export-target-compare {
+  --export-rank-width: 1050px;
+}
+
+.export-wide.export-target-rankings-player.export-target-teamcol.export-target-compare.export-target-related {
+  --export-rank-width: 1240px;
+}
+
+.export-rendering.export-plain.export-target-rankings-player.export-target-teamcol {
+  --export-rank-name: 20px;
+  --export-rank-value: 22px;
+  --export-rank-team: 17px;
+  --export-rank-head: 16px;
+  --export-rank-related: 19px;
+  --export-rank-related-width: 160px;
+  --export-rank-value-weight: 500;
+  --export-rank-team-width: 100px;
+  --export-rank-value-width: 120px;
+  --export-rank-width: 660px;
+}
+
+.export-rendering.export-plain.export-target-rankings-player.export-target-teamcol.export-target-related {
+  --export-rank-width: 810px;
+}
+
 .export-rendering.export-plain.export-target-rankings-player.export-target-teamcol.export-target-compare {
-  --export-rank-width: 930px;
+  --export-rank-width: 830px;
 }
 
 .export-rendering.export-plain.export-target-rankings-player.export-target-teamcol.export-target-compare.export-target-related {
-  --export-rank-width: 1060px;
+  --export-rank-width: 980px;
 }
 
 .rankings-table .rank-related-item {
@@ -9924,4 +9952,23 @@ table.sortable-table.tts-table th {
 .export-rendering.export-target-pies {
   width: 900px;
   max-width: none;
+}
+
+/* 補足が3つ並ぶ項目（USG%・TOV%・eFG%・TS%・PPS の一部。「FGA / FTA / TOV」）は、補足の列を広げる */
+.export-wide.export-target-rankings-player.export-target-teamcol.export-target-related3 {
+  --export-rank-related-width: 280px;
+  --export-rank-width: 1160px;
+}
+
+.export-wide.export-target-rankings-player.export-target-teamcol.export-target-related3.export-target-compare {
+  --export-rank-width: 1330px;
+}
+
+.export-rendering.export-plain.export-target-rankings-player.export-target-teamcol.export-target-related3 {
+  --export-rank-related-width: 225px;
+  --export-rank-width: 875px;
+}
+
+.export-rendering.export-plain.export-target-rankings-player.export-target-teamcol.export-target-related3.export-target-compare {
+  --export-rank-width: 1045px;
 }

@@ -105,9 +105,9 @@ export interface RankedListProps<T> {
   related?: { labels: string[]; of: (row: T) => string[] | undefined };
   /**
    * 個人のランキング用（DESIGN.md 470章）。指定すると、PC幅（.export-wide。保存画像も同じ）は名前の右に「チーム」の列（略称・チームの色で塗る）と
-   * 「G」の列（gamesCol）を置き、名前の下には subLabelWide（ポジション・継続／移籍）だけを小さく出す。スマホ幅は今までどおり subLabel（チーム・ポジション・試合数）
+   * セル全体をチームの色で塗る。名前の下には subWide（ポジション・試合数・継続／移籍）を小さく出す。スマホ幅は今までどおり subLabel（チーム・ポジション・試合数）
    */
-  teamCol?: { abbr: (row: T) => string | undefined; games: (row: T) => number | undefined; subWide?: (row: T) => ReactNode };
+  teamCol?: { abbr: (row: T) => string | undefined; subWide?: (row: T) => ReactNode };
   /** 表の名前を1行にする（長い名前は保存画像で字を小さくする仕組み。DESIGN.md 419章） */
   nameLineFirst?: boolean;
 }
@@ -238,10 +238,9 @@ export function RankedList<T>({
             <th className="align-right">#</th>
             <th className="align-left">名前</th>
             {teamCol && <th className="rank-team-col rank-team-head">チーム</th>}
-            {teamCol && <th className="align-right rank-games-col rank-games-head">G</th>}
-            {related && <th className="align-right rank-related-col rank-related-head">{related.labels.join("/")}</th>}
+            {related && <th className="align-right rank-related-col rank-related-head">{related.labels.join(" / ")}</th>}
             <th
-              className={`align-right${compare ? " rank-cur-head" : ""}`}
+              className={`align-right${compare ? " rank-cur-head" : ""}${teamCol ? " rank-val-head" : ""}`}
               title={statDescription(def.label, statScope)}
               onClick={sortable ? toggleSortDir : undefined}
               aria-sort={sortable && !bySortDiff ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
@@ -284,7 +283,6 @@ export function RankedList<T>({
             const relatedValues = related?.of(row);
             const wideSub = teamCol?.subWide?.(row);
             const teamAbbrCell = teamCol?.abbr(row);
-            const teamGames = teamCol?.games(row);
             // スマホ幅で、名前の下の行の末尾に続ける（「3PM 1.8／3PA 5.0」。PC幅・保存画像では列に出すので隠す）
             const relatedInline =
               related && relatedValues ? (
@@ -378,9 +376,8 @@ export function RankedList<T>({
                     </span>
                   </td>
                 )}
-                {teamCol && <td className="align-right rank-games-col rank-games-cell">{teamGames ?? "-"}</td>}
                 {related && (
-                  <td className="align-right rank-related-col rank-related">{relatedValues ? relatedValues.join("/") : "-"}</td>
+                  <td className="align-right rank-related-col rank-related">{relatedValues ? relatedValues.join(" / ") : "-"}</td>
                 )}
                 <td className="align-right rank-value">{renderValue ? renderValue(row) : def.format(row)}</td>
                 {compare && (
