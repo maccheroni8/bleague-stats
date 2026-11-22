@@ -19,7 +19,7 @@ export function playerGameRecordRankingUrl(opts: { scope: RecordsScope; gameType
 }
 
 /** 名前の下の行: 日付（シーズン）・当時のチーム・対戦相手（ポジションで絞り込んでいるときは当時のポジション） */
-export function PlayerGameRecordLine({ e, season, showPosition = false }: { e: PlayerRecordRow; season: string; showPosition?: boolean }) {
+export function PlayerGameRecordLine({ e, season, showPosition = false, withoutTeam = false }: { e: PlayerRecordRow; season: string; showPosition?: boolean; withoutTeam?: boolean }) {
   const narrow = useNarrow();
   const date = narrow ? e.date.replace(/-/g, "/").slice(2) : e.date;
   const position = showPosition && e.position ? `${e.position}${e.positionFallback ? "＊" : ""}` : null;
@@ -29,7 +29,7 @@ export function PlayerGameRecordLine({ e, season, showPosition = false }: { e: P
         {date}（{season}）
       </span>
       {narrow ? " " : "　"}
-      <ResponsiveTeamName teamId={e.teamId} name={e.teamName} always nowrap chip /> {e.isHome ? "vs" : "@"}{" "}
+      {!withoutTeam && <ResponsiveTeamName teamId={e.teamId} name={e.teamName} always nowrap chip />}{withoutTeam ? "" : " "}{e.isHome ? "vs" : "@"}{" "}
       <ResponsiveTeamName teamId={e.opponentTeamId} name={e.opponentTeamName} always nowrap chip />
       {position && <span className="record-date-nowrap">　{position}</span>}
     </>

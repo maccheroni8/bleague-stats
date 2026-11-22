@@ -7,7 +7,8 @@ import { isRookieFilter, splitSeasonsOnly, withRookie, SPLIT_CLASSIFICATION_FIRS
 import { ClassificationNotes } from "./ClassificationNotes";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
-import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels } from "../lib/conditionLabels";
+import { buildExportFilename, classTitleLabel, classificationConditionLabels, composeLabels, gameTypeLabels } from "../lib/conditionLabels";
+import { teamShortName } from "../../shared/teamNames";
 import { classificationAxis, rookieAxis, gameTypeAxis, simpleSelectAxis, statItemAxis, type FilterAxis } from "../lib/filterAxes";
 import { DEFAULT_GAME_RECORD_CONDITIONS, cleanGameConditionsForSeason, gameRecordConditionLabels, gameRecordConditionsParam } from "../lib/gameRecordConditions";
 import { gameRecordAdvancedAxes, gameRecordPrimaryAxes } from "../lib/gameRecordAxes";
@@ -46,15 +47,21 @@ import { useLastTeamCheck } from "../lib/lastTeam";
  */
 const RANK_TOP_N = 20;
 
-function ClutchLine({ r, allTime, last }: { r: ClutchRow; allTime: boolean; last: boolean }) {
+function ClutchLine({ r, allTime, last, withoutTeam = false }: { r: ClutchRow; allTime: boolean; last: boolean; withoutTeam?: boolean }) {
   const span = r.firstSeason === r.lastSeason ? r.lastSeason : `${r.firstSeason}〜${r.lastSeason}`;
   return (
     <>
       <span className="record-date-nowrap">
         FG {r.fg}・FT {r.ft}
       </span>
-      {"　"}
-      <LastTeamName teamId={r.teamId} name={r.teamName} last={last} />
+      {withoutTeam ? (
+        last && <span className="record-date-nowrap">　最終所属</span>
+      ) : (
+        <>
+          {"　"}
+          <LastTeamName teamId={r.teamId} name={r.teamName} last={last} />
+        </>
+      )}
       {allTime && <span className="record-date-nowrap">　{span}</span>}
     </>
   );
@@ -110,14 +117,15 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
   };
   const conditionLabels = composeLabels(
     activeOn && ACTIVE_LABEL,
-    group !== "all" && classificationLabels(group),
+    group !== "all" && classificationConditionLabels(group),
     gameTypeLabels(gameType, seasonForTitle),
     gameRecordConditionLabels(conditions, teamName, true),
   );
   const measureLabel = CLUTCH_MEASURE_LABELS[measure];
   const windowLabel = CLUTCH_WINDOW_LABELS[window];
-  const title = `${allTime ? "通算" : `${season}シーズン`} ${measureLabel}（第4Q・延長の${windowLabel}）`;
-  const filename = buildExportFilename(["勝負所", allTime ? "通算" : season, measureLabel, windowLabel, ...conditionLabels]);
+  const classTitle = classTitleLabel(group);
+  const title = `${allTime ? "通算" : `${season}シーズン`} ${classTitle ? `${classTitle} ` : ""}${measureLabel}（第4Q・延長の${windowLabel}）`;
+  const filename = buildExportFilename(["勝負所", allTime ? "通算" : season, measureLabel, windowLabel, ...(classTitle ? [classTitle] : []), ...conditionLabels]);
   const entries = result?.rows;
   const failure = index.error ?? rookies.error ?? active.error ?? current.error;
 
@@ -184,7 +192,7 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
             baseDate={baseDateOf(allTime, season, gameType)}
             ranking={{ media: "写真", unit: "名", top: RANK_TOP_N }}
           />
-          <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-player" baseDate={baseDateOf(allTime, season, gameType)}>
+          <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-player export-target-teamcol" baseDate={baseDateOf(allTime, season, gameType)}>
             <ConditionTitle title={title} conditions={conditionLabels} />
             <PlayerNamePool names={entries.map((e) => e.playerName)}>
               <RankedList
@@ -192,13 +200,19 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
                 def={{ key: `clutch:${measure}:${window}`, label: measureLabel, value: (e) => e.value, format: (e) => String(e.value), higherIsBetter: true }}
                 tieKey={(e) => String(e.value)}
                 rowKey={(e) => e.playerId}
-                name={(e) => <ResponsivePlayerName name={e.playerName} />}
+                name={(e) => <ResponsivePlayerName name={e.playerName} lineFirst />}
                 subLabel={(e) => <ClutchLine r={e} allTime={allTime} last={isLast(e.lastSeason, [e.playerId])} />}
                 linkTo={(e) => `/players/${e.playerId}?season=${e.lastSeason}`}
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}
                 chipColor={(e) => teamChipColor(e.teamId, teamColors)}
                 avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder season={allTime ? null : e.lastSeason} teamId={e.teamId} />}
                 exportKeepSub
+                teamCol={{
+                  abbr: (e) => teamShortName(e.teamId, e.teamName),
+                  // 名前の下は「FG・FT」（と最終所属・通算のシーズン）。チームはチームの列に出す
+                  subWide: (e) => <ClutchLine r={e} allTime={allTime} last={isLast(e.lastSeason, [e.playerId])} withoutTeam />,
+                }}
+                nameLineFirst
                 limit={RANK_TOP_N}
                 tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
                 sortable={false}

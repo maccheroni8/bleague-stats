@@ -8,6 +8,7 @@ import type { StreakGame, ThresholdAgeRow, ThresholdAgeWhich, ThresholdCountRow,
 import { PlayerNamePool } from "./PlayerNamePool";
 import { PlayerPhoto } from "./PlayerPhoto";
 import { RankedList } from "./RankedList";
+import { teamShortName } from "../../shared/teamNames";
 import { ResponsivePlayerName } from "./ResponsivePlayerName";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";
 import { LastTeamName } from "./LastTeamName";
@@ -18,15 +19,21 @@ const RANK_TOP_N = 20;
 
 type Colors = Record<string, TeamColors> | undefined;
 
-function CountLine({ r, sort, allTime, last }: { r: ThresholdCountRow; sort: ThresholdCountSort; allTime: boolean; last: boolean }) {
+function CountLine({ r, sort, allTime, last, withoutTeam = false }: { r: ThresholdCountRow; sort: ThresholdCountSort; allTime: boolean; last: boolean; withoutTeam?: boolean }) {
   const span = r.firstSeason === r.lastSeason ? r.lastSeason : `${r.firstSeason}〜${r.lastSeason}`;
   return (
     <>
       <span className="record-date-nowrap">
         {sort === "count" ? `出場${r.games}試合・達成率${formatPct(r.rate)}` : `${r.count}試合／出場${r.games}試合`}
       </span>
-      {"　"}
-      <LastTeamName teamId={r.teamId} name={r.teamName} last={last} />
+      {withoutTeam ? (
+        last && <span className="record-date-nowrap">　最終所属</span>
+      ) : (
+        <>
+          {"　"}
+          <LastTeamName teamId={r.teamId} name={r.teamName} last={last} />
+        </>
+      )}
       {allTime && <span className="record-date-nowrap">　{span}</span>}
     </>
   );
@@ -57,13 +64,19 @@ export function ThresholdCountList({
         }}
         tieKey={(e) => String(e.value)}
         rowKey={(e) => e.playerId}
-        name={(e) => <ResponsivePlayerName name={e.playerName} />}
+        name={(e) => <ResponsivePlayerName name={e.playerName} lineFirst />}
         subLabel={(e) => <CountLine r={e} sort={sort} allTime={allTime} last={isLast(e.lastSeason, [e.playerId])} />}
         linkTo={(e) => `/players/${e.playerId}?season=${e.lastSeason}`}
         teamColor={(e) => teamColors?.[e.teamId]?.primary}
         chipColor={(e) => teamChipColor(e.teamId, teamColors)}
         avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder season={allTime ? null : e.lastSeason} teamId={e.teamId} />}
         exportKeepSub
+        teamCol={{
+          abbr: (e) => teamShortName(e.teamId, e.teamName),
+          // 名前の下は出場試合数・達成率（と最終所属・通算のシーズン）。チームはチームの列に出す
+          subWide: (e) => <CountLine r={e} sort={sort} allTime={allTime} last={isLast(e.lastSeason, [e.playerId])} withoutTeam />,
+        }}
+        nameLineFirst
         limit={RANK_TOP_N}
         tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
         sortable={false}
@@ -74,7 +87,7 @@ export function ThresholdCountList({
 }
 
 /** 連続の開始・終了の試合1つ: 「開始 2017-04-29（2016-17） 新潟 @ 三遠　PTS 12」 */
-function StreakGameLine({ label, g, ongoing }: { label: string; g: StreakGame; ongoing?: boolean }) {
+function StreakGameLine({ label, g, ongoing, withoutTeam = false }: { label: string; g: StreakGame; ongoing?: boolean; withoutTeam?: boolean }) {
   const narrow = useNarrow();
   const date = narrow ? g.date.replace(/-/g, "/").slice(2) : g.date;
   return (
@@ -83,7 +96,7 @@ function StreakGameLine({ label, g, ongoing }: { label: string; g: StreakGame; o
         {label} {date}（{g.season}）
       </span>
       {narrow ? " " : "　"}
-      <ResponsiveTeamName teamId={g.teamId} name={g.teamName} always nowrap chip /> {g.isHome ? "vs" : "@"}{" "}
+      {!withoutTeam && <ResponsiveTeamName teamId={g.teamId} name={g.teamName} always nowrap chip />}{withoutTeam ? "" : " "}{g.isHome ? "vs" : "@"}{" "}
       <ResponsiveTeamName teamId={g.opponentTeamId} name={g.opponentTeamName} always nowrap chip />
       {g.detail && <span className="record-date-nowrap">　{g.detail}</span>}
       {ongoing && <span className="threshold-ongoing">継続中</span>}
@@ -99,7 +112,7 @@ export function ThresholdStreakList({ rows, ongoingOnly, teamColors }: { rows: T
         def={{ key: `threshold:streak:${ongoingOnly ? "ongoing" : "best"}`, label: "連続", value: (e) => e.value, format: (e) => String(e.value), higherIsBetter: true }}
         tieKey={(e) => String(e.value)}
         rowKey={(e) => e.playerId}
-        name={(e) => <ResponsivePlayerName name={e.playerName} />}
+        name={(e) => <ResponsivePlayerName name={e.playerName} lineFirst />}
         subLabel={(e) => (
           <>
             <StreakGameLine label="開始" g={e.start} />
@@ -111,6 +124,17 @@ export function ThresholdStreakList({ rows, ongoingOnly, teamColors }: { rows: T
         chipColor={(e) => teamChipColor(e.teamId, teamColors)}
         avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder season={e.end.season} teamId={e.teamId} />}
         exportKeepSub
+        teamCol={{
+          abbr: (e) => teamShortName(e.teamId, e.end.teamName),
+          // 名前の下は連続の開始・終了の試合（日付・対戦相手）。自チームはチームの列に出す
+          subWide: (e) => (
+            <>
+              <StreakGameLine label="開始" g={e.start} withoutTeam />
+              <StreakGameLine label="終了" g={e.end} ongoing={e.ongoing} withoutTeam />
+            </>
+          ),
+        }}
+        nameLineFirst
         limit={RANK_TOP_N}
         tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
         unit="人"
@@ -138,7 +162,7 @@ export function ThresholdAgeList({ rows, which, teamColors }: { rows: ThresholdA
         }}
         tieKey={(e) => String(e.value)}
         rowKey={(e) => e.playerId}
-        name={(e) => <ResponsivePlayerName name={e.playerName} />}
+        name={(e) => <ResponsivePlayerName name={e.playerName} lineFirst />}
         subLabel={(e) => (
           <>
             <span className="record-date-nowrap">
@@ -156,6 +180,21 @@ export function ThresholdAgeList({ rows, which, teamColors }: { rows: ThresholdA
         chipColor={(e) => teamChipColor(e.teamId, teamColors)}
         avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder season={e.season} teamId={e.teamId} />}
         exportKeepSub
+        teamCol={{
+          abbr: (e) => teamShortName(e.teamId, e.teamName),
+          // 名前の下は達成した試合（日付・対戦相手・項目の値）。自チームはチームの列に出す
+          subWide: (e) => (
+            <>
+              <span className="record-date-nowrap">
+                {e.date}（{e.season}）
+              </span>
+              {"　"}
+              {e.isHome ? "vs" : "@"} <ResponsiveTeamName teamId={e.opponentTeamId} name={e.opponentTeamName} always nowrap chip />
+              {e.detail && <span className="record-date-nowrap">　{e.detail}</span>}
+            </>
+          ),
+        }}
+        nameLineFirst
         limit={RANK_TOP_N}
         tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
         unit="人"

@@ -5,7 +5,8 @@ import type { PlayerGameRecordDef } from "../../shared/playerGameRecords";
 import type { TeamColors } from "../../shared/types";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
-import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
+import { buildExportFilename, classTitleLabel, classificationConditionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
+import { teamShortName } from "../../shared/teamNames";
 import { fetchLeaguePlayerGameRecordTable, fetchPlayerGameRecords } from "../lib/data";
 import type { PlayerRecordPartGroup } from "../lib/leagueRecordParts";
 import { useLeague } from "../lib/league";
@@ -231,7 +232,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const conditionLabels = composeLabels(
     gameRecordPeriodLabel(periodParam),
     activeOn && ACTIVE_LABEL,
-    group !== "all" && classificationLabels(group),
+    group !== "all" && classificationConditionLabels(group),
     positionLabels,
     gameTypeLabels(gameType, seasonForTitle),
     roleLabels(role, null),
@@ -239,8 +240,10 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   );
   const modeLabel = mode === "worst" ? "ワースト" : "記録";
   const defJa = statJa(def.label);
-  const title = allTime ? `歴代 個人1試合${modeLabel} ${defJa}ランキング` : `${season}シーズン 個人1試合${modeLabel} ${defJa}ランキング`;
-  const filename = buildExportFilename([`個人1試合${modeLabel}`, allTime ? "歴代" : season, defJa, ...conditionLabels]);
+  const classTitle = classTitleLabel(group);
+  const classPart = classTitle ? `${classTitle} ` : "";
+  const title = allTime ? `歴代 ${classPart}個人1試合${modeLabel} ${defJa}ランキング` : `${season}シーズン ${classPart}個人1試合${modeLabel} ${defJa}ランキング`;
+  const filename = buildExportFilename([`個人1試合${modeLabel}`, allTime ? "歴代" : season, defJa, ...(classTitle ? [classTitle] : []), ...conditionLabels]);
   const minNote = playerGameRecordMinMadeNote(def.key, period ? { key: period, label: period === "ot" ? "延長" : period === "clutch" ? "クラッチ" : period === "h1" ? "前半" : period === "h2" ? "後半" : `${period.slice(1)}Q` } : undefined);
   const seasonOf = (e: PlayerRecordRow) => e.season ?? season;
   const periodNotes = period && result ? { overtime: period === "ot", shortGames: result.periodShortGames ?? 0, noRecordGames: result.periodNoRecordGames ?? 0, noPlusMinus: result.excludedNoPlusMinus ?? 0 } : undefined;
@@ -349,7 +352,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
             baseDate={baseDateOf(allTime, season, gameType)}
             ranking={{ media: "写真", unit: "件", top: RANK_TOP_N }}
           />
-          <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-player" baseDate={baseDateOf(allTime, season, gameType)}>
+          <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-player export-target-teamcol" baseDate={baseDateOf(allTime, season, gameType)}>
             <ConditionTitle title={title} conditions={conditionLabels} statConditions={statConditionsTitle(statConditions, PLAYER_STAT_CONDITION_ITEMS)} />
             <PlayerNamePool names={entries.map((e) => e.playerName)}>
               <RankedList
@@ -364,7 +367,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
                 renderValue={(e) => <RecordValue text={formatPlayerGameRecordValue(def, e.value)} fraction={playerGameRecordFraction(e)} />}
                 tieKey={tieKeyWithMade}
                 rowKey={(e) => `${e.scheduleKey}-${e.playerId}`}
-                name={(e) => <ResponsivePlayerName name={e.playerName} />}
+                name={(e) => <ResponsivePlayerName name={e.playerName} lineFirst />}
                 subLabel={(e) => <PlayerGameRecordLine e={e} season={seasonOf(e)} showPosition={positions.length > 0} />}
                 linkTo={(e) => `/players/${e.playerId}?season=${seasonOf(e)}`}
                 subLinkTo={(e) => `/games/${e.scheduleKey}?season=${seasonOf(e)}`}
@@ -372,6 +375,12 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
                 chipColor={(e) => teamChipColor(e.teamId, teamColors)}
                 avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder season={seasonOf(e)} teamId={e.teamId} />}
                 exportKeepSub
+                teamCol={{
+                  abbr: (e) => teamShortName(e.teamId, e.teamName),
+                  // 名前の下は「日付（シーズン） vs 対戦相手」（自チームはチームの列に出す）
+                  subWide: (e) => <PlayerGameRecordLine e={e} season={seasonOf(e)} showPosition={positions.length > 0} withoutTeam />,
+                }}
+                nameLineFirst
                 limit={RANK_TOP_N}
                 tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
                 unit="試合"

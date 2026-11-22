@@ -336,13 +336,25 @@ export function RankedList<T>({
                               {abbr}
                             </span>
                             {subLabel &&
-                              (subTo ? (
-                                <Link to={subTo} className="cell-link rank-sublabel">
-                                  {subLabel(row)}
-                                </Link>
-                              ) : (
-                                <span className="rank-sublabel">{subLabel(row)}</span>
-                              ))}
+                              (() => {
+                                // 個人の表（teamCol）は、スマホ幅は今までの行・PC幅と保存画像は subWide（チームを列に出した行）を出す
+                                const content = teamCol ? (
+                                  <>
+                                    <span className="rank-sub-narrow">{subLabel(row)}</span>
+                                    {wideSub && <span className="rank-sub-wide">{wideSub}</span>}
+                                  </>
+                                ) : (
+                                  subLabel(row)
+                                );
+                                const cls = `rank-sublabel${teamCol && !wideSub ? " rank-sub-wide-empty" : ""}`;
+                                return subTo ? (
+                                  <Link to={subTo} className={`cell-link ${cls}`}>
+                                    {content}
+                                  </Link>
+                                ) : (
+                                  <span className={cls}>{content}</span>
+                                );
+                              })()}
                           </span>
                         </span>
                       );

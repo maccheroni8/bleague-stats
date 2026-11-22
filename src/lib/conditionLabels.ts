@@ -165,6 +165,18 @@ export function classificationLabels(filter: PlayerGroupFilter): string[] {
   return labels;
 }
 
+/**
+ * 保存画像のタイトルの頭に付ける登録区分名（「日本人 スティールランキング」。DESIGN.md 470・471章）。区分を選んでいないとき・ルーキーだけのときは undefined
+ */
+export function classTitleLabel(filter: PlayerGroupFilter): string | undefined {
+  return filter !== "all" && classPartOf(filter) !== "all" ? classificationFilterLabel(filter) : undefined;
+}
+
+/** classificationLabels から「登録区分: …」を除いたもの（区分名はタイトルの頭に付けるので、条件の行には書かない。ルーキーは残す） */
+export function classificationConditionLabels(filter: PlayerGroupFilter): string[] {
+  return classificationLabels(filter).filter((l) => !l.startsWith("登録区分:"));
+}
+
 export interface EligibilityLabelInput {
   /** 出場率の下限（0〜1） */
   gamesRatio: number;

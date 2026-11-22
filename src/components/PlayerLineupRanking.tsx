@@ -8,7 +8,7 @@ import { isRookieFilter, withRookie, splitSeasonsOnly, SPLIT_CLASSIFICATION_FIRS
 import { ClassificationNotes } from "./ClassificationNotes";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { selectedPositionLabels } from "../lib/classificationFilter";
-import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels, multiSelectLabels, periodLabels } from "../lib/conditionLabels";
+import { buildExportFilename, classTitleLabel, classificationConditionLabels, composeLabels, gameTypeLabels, multiSelectLabels, periodLabels } from "../lib/conditionLabels";
 import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
 import { classificationAxis, rookieAxis, gameTypeAxis, multiSelectAxis, simpleSelectAxis, type FilterAxis } from "../lib/filterAxes";
 import { formatDecimal, formatInteger, formatSigned } from "../lib/format";
@@ -115,11 +115,11 @@ function SideLine({ label, s, narrow }: { label: string; s: LineupSide; narrow: 
   );
 }
 
-function RowLine({ row, unit, allTime, narrow }: { row: LineupRow; unit: LineupUnit; allTime: boolean; narrow: boolean }) {
+function RowLine({ row, unit, allTime, narrow, withoutTeam = false }: { row: LineupRow; unit: LineupUnit; allTime: boolean; narrow: boolean; withoutTeam?: boolean }) {
   const span = row.firstSeason === row.lastSeason ? row.lastSeason : `${row.firstSeason}〜${row.lastSeason}`;
   return (
     <>
-      <ResponsiveTeamName teamId={row.teamId} name={row.teamName} always nowrap chip />
+      {!withoutTeam && <ResponsiveTeamName teamId={row.teamId} name={row.teamName} always nowrap chip />}
       {narrow ? (
         // スマホ幅: 空白を nowrap の外に出し、「チーム名」「シーズン」「試合数」の間で折り返せるようにする（通算でチーム名が長いと値の列にかかる）
         <>
@@ -134,8 +134,8 @@ function RowLine({ row, unit, allTime, narrow }: { row: LineupRow; unit: LineupU
         </>
       ) : (
         <>
-          {allTime && <span className="record-date-nowrap">　{span}</span>}
-          <span className="record-date-nowrap">　{row.on.games}試合</span>
+          {allTime && <span className="record-date-nowrap">{withoutTeam ? "" : "　"}{span}</span>}
+          <span className="record-date-nowrap">{withoutTeam && !allTime ? "" : "　"}{row.on.games}試合</span>
         </>
       )}
       <br />
@@ -244,7 +244,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   const positionLabels = positions.length > 0 ? multiSelectLabels("ポジション", selectedPositionLabels(POSITION_OPTIONS, positions), "全ポジション") : [];
   const conditionLabels = composeLabels(
     activeOn && ACTIVE_LABEL,
-    group !== "all" && classificationLabels(group),
+    group !== "all" && classificationConditionLabels(group),
     positionLabels,
     gameTypeLabels(gameType, seasonForTitle),
     periodOption.periods !== null && periodLabels(periodOption),
@@ -255,8 +255,9 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   // タイトル・ファイル名には日本語名（表の見出しは略称のまま）
   const metricJa = statJa(metricLabel);
   const unitText = unit === "onoff" ? `On/Off ${metricJa}差（On−Off）` : `${LINEUP_UNIT_LABELS[unit]}の組み合わせ ${metricJa}`;
-  const title = `${scopeText} ${unitText}`;
-  const filename = buildExportFilename(["On/Off・組み合わせ", LINEUP_UNIT_LABELS[unit], metricJa, allTime ? "通算" : season, ...conditionLabels]);
+  const classTitle = classTitleLabel(group);
+  const title = `${scopeText} ${classTitle ? `${classTitle} ` : ""}${unitText}`;
+  const filename = buildExportFilename(["On/Off・組み合わせ", LINEUP_UNIT_LABELS[unit], metricJa, allTime ? "通算" : season, ...(classTitle ? [classTitle] : []), ...conditionLabels]);
   const failure = lineup.error ?? careerError ?? rookies.error ?? active.error ?? current.error;
 
   const shareRange = LINEUP_SHARE_RANGE[unit];
@@ -393,7 +394,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
           />
           <ExportTarget
             ref={exportRef}
-            className={`export-target-compact export-target-rankings-player${unit === "onoff" ? "" : " export-target-pairs"}${unit === "trio" ? " export-target-trio" : ""}`}
+            className={`export-target-compact export-target-rankings-player export-target-teamcol${unit === "onoff" ? "" : " export-target-pairs"}${unit === "trio" ? " export-target-trio" : ""}`}
             baseDate={baseDateOf(allTime, season, gameType)}
           >
             <ConditionTitle title={title} conditions={conditionLabels} />
@@ -410,7 +411,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
                 rowKey={(r) => r.key}
                 name={(r) =>
                   unit === "onoff" ? (
-                    <ResponsivePlayerName name={r.players[0]!.name} />
+                    <ResponsivePlayerName name={r.players[0]!.name} lineFirst />
                   ) : (
                     <span className={unit === "trio" ? "pair-people pair-people-trio" : "pair-people"}>
                       {r.players.map((p, i) => (
@@ -432,6 +433,11 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
                 teamColor={(r) => teamColors?.[r.teamId]?.primary}
                 chipColor={(r) => teamChipColor(r.teamId, teamColors)}
                 exportKeepSub
+                teamCol={{
+                  abbr: (r) => teamShortName(r.teamId, r.teamName),
+                  // PC幅・保存画像は名前だけ（On／Off の細かい数字は出さない。スマホ幅は今までどおり名前の下の行）
+                  subWide: () => undefined,
+                }}
                 limit={RANK_TOP_N}
                 tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
                 unit={unit === "onoff" ? "人" : "組"}

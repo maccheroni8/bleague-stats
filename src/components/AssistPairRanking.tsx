@@ -23,6 +23,7 @@ import { FilterBar } from "./FilterBar";
 import { PlayerNamePool } from "./PlayerNamePool";
 import { PlayerPhoto } from "./PlayerPhoto";
 import { RankedList } from "./RankedList";
+import { teamShortName } from "../../shared/teamNames";
 import { ResponsivePlayerName } from "./ResponsivePlayerName";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";
 
@@ -34,7 +35,7 @@ import { ResponsiveTeamName } from "./ResponsiveTeamName";
  */
 const RANK_TOP_N = 20;
 
-function PairLine({ r, unit }: { r: PairRow; unit: "game" | "season" | "career" }) {
+function PairLine({ r, unit, withoutTeam = false }: { r: PairRow; unit: "game" | "season" | "career"; withoutTeam?: boolean }) {
   const narrow = useNarrow();
   const parts = `2P×${r.n2}・3P×${r.n3}・FT×${r.nf}`;
   if (unit === "game") {
@@ -45,7 +46,7 @@ function PairLine({ r, unit }: { r: PairRow; unit: "game" | "season" | "career" 
           {date}（{r.season}）
         </span>
         {narrow ? " " : "　"}
-        <ResponsiveTeamName teamId={r.teamId} name={r.teamName} always nowrap chip /> {r.isHome ? "vs" : "@"} <ResponsiveTeamName teamId={r.opponentTeamId!} name={r.opponentTeamName!} always nowrap chip />
+        {!withoutTeam && <ResponsiveTeamName teamId={r.teamId} name={r.teamName} always nowrap chip />}{withoutTeam ? "" : " "}{r.isHome ? "vs" : "@"} <ResponsiveTeamName teamId={r.opponentTeamId!} name={r.opponentTeamName!} always nowrap chip />
         <span className="record-date-nowrap">　{parts}</span>
       </>
     );
@@ -56,8 +57,12 @@ function PairLine({ r, unit }: { r: PairRow; unit: "game" | "season" | "career" 
       <span className="record-date-nowrap">{r.games}試合</span>
       {"　"}
       <span className="record-date-nowrap">{parts}</span>
-      {"　"}
-      <ResponsiveTeamName teamId={r.teamId} name={r.teamName} always nowrap chip />
+      {!withoutTeam && (
+        <>
+          {"　"}
+          <ResponsiveTeamName teamId={r.teamId} name={r.teamName} always nowrap chip />
+        </>
+      )}
       {unit === "career" && <span className="record-date-nowrap">　{span}</span>}
     </>
   );
@@ -170,7 +175,7 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
             baseDate={baseDateOf(unit !== "season", season, gameType)}
             ranking={{ media: "写真", unit: "組", top: RANK_TOP_N }}
           />
-          <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-player export-target-pairs" baseDate={baseDateOf(unit !== "season", season, gameType)}>
+          <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-player export-target-teamcol export-target-pairs" baseDate={baseDateOf(unit !== "season", season, gameType)}>
             <ConditionTitle title={title} conditions={conditionLabels} />
             <PlayerNamePool names={among}>
               <RankedList
@@ -193,6 +198,11 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}
                 chipColor={(e) => teamChipColor(e.teamId, teamColors)}
                 exportKeepSub
+                teamCol={{
+                  // 得点した選手のチーム。名前の下は試合（日付・対戦相手）か試合数と内訳
+                  abbr: (e) => teamShortName(e.teamId, e.teamName),
+                  subWide: (e) => <PairLine r={e} unit={unit} withoutTeam />,
+                }}
                 limit={RANK_TOP_N}
                 tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
                 unit={unit === "game" ? "試合" : "組"}

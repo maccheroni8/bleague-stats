@@ -6,7 +6,7 @@ import { isRookieFilter, splitSeasonsOnly, withRookie, SPLIT_CLASSIFICATION_FIRS
 import { ClassificationNotes } from "./ClassificationNotes";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
-import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
+import { buildExportFilename, classTitleLabel, classificationConditionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { selectedPositionLabels } from "../lib/classificationFilter";
 import { classificationAxis, rookieAxis, gameTypeAxis, multiSelectAxis, simpleSelectAxis, type FilterAxis } from "../lib/filterAxes";
 import { currentSeason } from "../lib/season";
@@ -136,7 +136,7 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
   const positionLabels = positions.length > 0 ? multiSelectLabels("ポジション", selectedPositionLabels(POSITION_OPTIONS, positions), "全ポジション") : [];
   const conditionLabels = composeLabels(
     activeOn && ACTIVE_LABEL,
-    group !== "all" && classificationLabels(group),
+    group !== "all" && classificationConditionLabels(group),
     positionLabels,
     gameTypeLabels(gameType, seasonForTitle),
     gameRecordConditionLabels(conditions, teamName, false),
@@ -152,8 +152,9 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
         : sort === "rate"
           ? "達成率"
           : "達成試合数";
-  const title = `${scopeText} ${unitText}（${thresholdText}）`;
-  const filename = buildExportFilename(["達成記録", unitText, scopeText, thresholdText, ...conditionLabels]);
+  const classTitle = classTitleLabel(group);
+  const title = `${scopeText} ${classTitle ? `${classTitle} ` : ""}${unitText}（${thresholdText}）`;
+  const filename = buildExportFilename(["達成記録", unitText, scopeText, thresholdText, ...(classTitle ? [classTitle] : []), ...conditionLabels]);
   // 通算の達成率の掲載基準の文（選んだ試合種別に合わせる。例: 「ポストシーズンの通算の出場試合数が20試合以上の選手だけです」）
   const careerRateBasis = `${gameTypeLabels(gameType, null)[0]}の通算の出場試合数が${THRESHOLD_CAREER_MIN_GAMES[gameType]}試合以上の選手だけです`;
   const failure = index.error ?? rookies.error ?? active.error ?? current.error ?? rosters.error;
@@ -318,7 +319,7 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
             baseDate={baseDateOf(allTime, season, gameType)}
             ranking={{ media: "写真", unit: "名", top: 20 }}
           />
-          <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-player" baseDate={baseDateOf(allTime, season, gameType)}>
+          <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-player export-target-teamcol" baseDate={baseDateOf(allTime, season, gameType)}>
             <ConditionTitle title={title} conditions={conditionLabels} />
             {result.kind === "age" ? (
               <>
