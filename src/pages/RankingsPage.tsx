@@ -17,7 +17,7 @@ import { useCompareCleanup, useFoulConditionCleanup, useFoulStatKeyCleanup, useR
 import { COMPARE_LABEL, COMPARE_PARAM, buildCompare, compareUnsupportedReason, previousSeason } from "../lib/seasonCompare";
 import { postseasonLabel } from "../../shared/gameType";
 import { isPastSeason } from "../lib/season";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLeague, type League } from "../lib/league";
 import {
   ONE_RANKING_ALLTIME_REASON,
@@ -803,6 +803,8 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
  * （PlayersListPage.tsxの「全選手スタッツ」タブと同じ「フィルタ選択時のみ取得する」遅延方式）
  */
 function PlayerRankingSection({ season, league, teamColors }: { season: string; league: League; teamColors: Record<string, TeamColors> | undefined }) {
+  // 前シーズン比較で「差」で並べているときの向き（RankedList から受け取る。保存画像のサブタイトルに書く）
+  const [diffSortDir, setDiffSortDir] = useState<"asc" | "desc" | null>(null);
   const exportRef = useRef<HTMLDivElement>(null);
 
   // ブラウザバック等でページが一度アンマウント・再マウントされても、直前のフィルタ条件を
@@ -1038,6 +1040,8 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
     composeLabels(
       playerCategoryLabel,
       compareActive && COMPARE_LABEL,
+      // 前シーズン比較で「差」を並べ替えの基準にしているとき（保存画像でも分かるように）
+      compareActive && diffSortDir ? (diffSortDir === "desc" ? "差の大きい順" : "差の小さい順") : [],
       // Career は、そのシーズンの登録選手を、そのシーズン終了時点の累計で並べる（通算記録の「歴代」と区別する。DESIGN.md 193章）
       category === "career" ? "シーズン終了時点の累計" : [],
       // 登録区分は選手名の下に書かないので、指定したときはタイトルの下の行に書く（「全選手」は書かない。DESIGN.md 170章）
@@ -1318,6 +1322,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
                 subWide: (p) => moveText(p),
               }}
               nameLineFirst
+              onDiffSort={setDiffSortDir}
               exportKeepSub={!!comparison}
               limit={PLAYER_RANK_TOP_N}
               compact

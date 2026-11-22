@@ -8759,6 +8759,7 @@ table.sortable-table.lineup-search-table tbody th {
   --export-rank-head: 21px;
   --export-rank-related: 24px;
   --export-rank-related-width: 190px;
+  --export-rank-compare-width: 128px;
   --export-rank-value-weight: 500;
   --export-rank-team-width: 124px;
   --export-rank-value-width: 150px;
@@ -8770,11 +8771,11 @@ table.sortable-table.lineup-search-table tbody th {
 }
 
 .export-wide.export-target-rankings-player.export-target-teamcol.export-target-compare {
-  --export-rank-width: 1050px;
+  --export-rank-width: 1122px;
 }
 
 .export-wide.export-target-rankings-player.export-target-teamcol.export-target-compare.export-target-related {
-  --export-rank-width: 1240px;
+  --export-rank-width: 1312px;
 }
 
 .export-rendering.export-plain.export-target-rankings-player.export-target-teamcol {
@@ -8784,6 +8785,7 @@ table.sortable-table.lineup-search-table tbody th {
   --export-rank-head: 16px;
   --export-rank-related: 19px;
   --export-rank-related-width: 160px;
+  --export-rank-compare-width: 100px;
   --export-rank-value-weight: 500;
   --export-rank-team-width: 100px;
   --export-rank-value-width: 120px;
@@ -8795,11 +8797,11 @@ table.sortable-table.lineup-search-table tbody th {
 }
 
 .export-rendering.export-plain.export-target-rankings-player.export-target-teamcol.export-target-compare {
-  --export-rank-width: 830px;
+  --export-rank-width: 845px;
 }
 
 .export-rendering.export-plain.export-target-rankings-player.export-target-teamcol.export-target-compare.export-target-related {
-  --export-rank-width: 980px;
+  --export-rank-width: 995px;
 }
 
 .rankings-table .rank-related-item {
@@ -9961,7 +9963,7 @@ table.sortable-table.tts-table th {
 }
 
 .export-wide.export-target-rankings-player.export-target-teamcol.export-target-related3.export-target-compare {
-  --export-rank-width: 1330px;
+  --export-rank-width: 1402px;
 }
 
 .export-rendering.export-plain.export-target-rankings-player.export-target-teamcol.export-target-related3 {
@@ -9970,5 +9972,41 @@ table.sortable-table.tts-table th {
 }
 
 .export-rendering.export-plain.export-target-rankings-player.export-target-teamcol.export-target-related3.export-target-compare {
-  --export-rank-width: 1045px;
+  --export-rank-width: 1060px;
+}
+
+/* 前シーズン比較の「前季」「差」は、補足の列（FGM / FGA）と同じ大きさ（見出しも同じ）。今季の値（並べている項目）は、これらより大きいまま */
+.export-wide table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare td.rank-prev,
+.export-wide table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare td.rank-diff {
+  font-size: var(--export-rank-related);
+  font-weight: 500;
+  text-align: center;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.export-wide table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare th.rank-prev-head,
+.export-wide table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare th.rank-diff-head {
+  width: var(--export-rank-compare-width);
+  text-align: center;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.export-wide table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare th.rank-cur-head,
+.export-wide table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare td.rank-value {
+  text-align: center;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+/* 差で並べているとき（前シーズン比較の「差」の見出しで並べ替えたとき）は、今季の値と差の大きさを入れ替える（差がいちばん大きい数字になる） */
+.export-wide table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare.rank-sort-diff td.rank-diff {
+  font-size: var(--export-rank-value);
+  font-weight: var(--export-rank-value-weight);
+}
+
+.export-wide table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare.rank-sort-diff td.rank-value {
+  font-size: var(--export-rank-related);
+  font-weight: 500;
 }

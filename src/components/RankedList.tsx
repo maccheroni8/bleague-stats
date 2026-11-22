@@ -110,6 +110,8 @@ export interface RankedListProps<T> {
   teamCol?: { abbr: (row: T) => string | undefined; subWide?: (row: T) => ReactNode };
   /** 表の名前を1行にする（長い名前は保存画像で字を小さくする仕組み。DESIGN.md 419章） */
   nameLineFirst?: boolean;
+  /** 前シーズン比較で「差」で並べているとき、その向き（"desc"＝大きい順・"asc"＝小さい順）を親に知らせる（差で並べていなければ null）。保存画像のサブタイトルに書くため */
+  onDiffSort?: (dir: "asc" | "desc" | null) => void;
 }
 
 /** defの向き（higherIsBetter）から導く、そのdefにとって「正しい」既定のソート方向 */
@@ -147,6 +149,7 @@ export function RankedList<T>({
   related,
   teamCol,
   nameLineFirst,
+  onDiffSort,
 }: RankedListProps<T>) {
   const unit = unitProp ?? (statScope === "team" ? "チーム" : "人");
   // 呼び出し側が文字列を渡す表（シーズン成績など）も、名前の共通の改行を通す。
@@ -174,6 +177,12 @@ export function RankedList<T>({
     }
   }, [def]);
   const bySortDiff = !!compare && sortBy === "diff";
+
+  useEffect(() => {
+    onDiffSort?.(bySortDiff ? sortDir : null);
+    return () => onDiffSort?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bySortDiff, sortDir]);
 
   const factor = sortDir === "asc" ? 1 : -1;
   const sortedValues = bySortDiff
@@ -231,7 +240,7 @@ export function RankedList<T>({
   return (
     <div className="table-scroll">
       <table
-        className={`sortable-table rankings-table${compact ? " rankings-table-compact" : ""}${compare ? " rankings-table-compare" : ""}${exportKeepSub ? " rank-keep-sub" : ""}${teamCol ? " rankings-table-teamcol" : ""}`}
+        className={`sortable-table rankings-table${compact ? " rankings-table-compact" : ""}${compare ? " rankings-table-compare" : ""}${exportKeepSub ? " rank-keep-sub" : ""}${teamCol ? " rankings-table-teamcol" : ""}${bySortDiff ? " rank-sort-diff" : ""}`}
       >
         <thead>
           <tr>
