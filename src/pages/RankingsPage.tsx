@@ -68,6 +68,7 @@ import {
   isRookieFilter,
   withRookie,
   classPartOf,
+  classificationFilterLabel,
   positionFilterOptions,
   selectedPositionLabels,
   SPLIT_CLASSIFICATION_UNAVAILABLE_REASON,
@@ -156,12 +157,19 @@ interface RankingTitleInfo {
   filename: string;
 }
 
-function makeRankingTitle(kind: "チーム" | "個人", season: string, statLabel: string, conditions: string[]): RankingTitleInfo {
+function makeRankingTitle(
+  kind: "チーム" | "個人",
+  season: string,
+  statLabel: string,
+  conditions: string[],
+  /** 個人で登録区分を選んでいるとき、タイトルの頭に付ける区分名（「日本人 スティールランキング」。DESIGN.md 470章） */
+  classLabel?: string,
+): RankingTitleInfo {
   return {
     // 見出しは「2026-27シーズン 得点ランキング」。個人／チームの別と件数は書かない（行を見れば分かる。DESIGN.md 239章）
-    title: `${season}シーズン ${statLabel}ランキング`,
+    title: `${season}シーズン ${classLabel ? `${classLabel} ` : ""}${statLabel}ランキング`,
     conditions,
-    filename: buildExportFilename([`${kind}ランキング`, season, statLabel, ...conditions]),
+    filename: buildExportFilename([`${kind}ランキング`, season, statLabel, ...(classLabel ? [classLabel] : []), ...conditions]),
   };
 }
 
@@ -968,10 +976,13 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
   // その選手の試合数（名前の下の行・写真なしの保存画像の名前の横に入れる。「6試合」）。前季と比べているときは、すぐ隣に
   // 「継続」（前季の最後のチームと今季の今のチームが同じ）か「移籍」（違う）を添える。シーズン途中の移籍は、どちらも最後に所属したチームで比べる
   const prevTeamByPlayer = useMemo(() => new Map(prevRanking.rows.map((r) => [r.playerId, r.teamId])), [prevRanking.rows]);
+  const moveText = (p: PlayerSummary) => {
+    const prevTeam = compareActive ? prevTeamByPlayer.get(p.playerId) : undefined;
+    return prevTeam === undefined ? undefined : prevTeam === p.teamId ? "継続" : "移籍";
+  };
   const gamesText = (p: PlayerSummary) => {
     const g = gamesDividedBy(p);
-    const prevTeam = compareActive ? prevTeamByPlayer.get(p.playerId) : undefined;
-    const move = prevTeam === undefined ? undefined : prevTeam === p.teamId ? "継続" : "移籍";
+    const move = moveText(p);
     return [g === undefined ? undefined : `${g}試合`, move].filter(Boolean).join("・") || undefined;
   };
 
@@ -1030,7 +1041,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
       // Career は、そのシーズンの登録選手を、そのシーズン終了時点の累計で並べる（通算記録の「歴代」と区別する。DESIGN.md 193章）
       category === "career" ? "シーズン終了時点の累計" : [],
       // 登録区分は選手名の下に書かないので、指定したときはタイトルの下の行に書く（「全選手」は書かない。DESIGN.md 170章）
-      classificationLabels(selectedClassification),
+      classificationLabels(selectedClassification).filter((l) => !l.startsWith("登録区分:")),
       // ポジションは選択肢が9つだけなので、選んだものを省略せずに全部書く（「他N」にしない。DESIGN.md 178章）
       multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positions), "全ポジション", Infinity),
       // 平均/合計は初期値（平均）でも必ず書く（画像だけ見ても分かるように。初期値を書かないルールの例外。DESIGN.md 179章）。
@@ -1039,6 +1050,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
       playerScopeLabels,
       registeredTarget ? "登録選手" : overtimeActive ? (subsetEligibilityLabel(period) ?? OVERTIME_ELIGIBILITY_LABEL) : eligibilityLabels({ gamesRatio, achievable, extra: extraRule, extraThreshold }),
     ),
+    selectedClassification !== "all" && classPartOf(selectedClassification) !== "all" ? classificationFilterLabel(selectedClassification) : undefined,
   );
 
   // フィルタバー（DESIGN.md 105章）。掲載基準（出場率＋項目固有の追加基準）はスライダーを
@@ -1262,7 +1274,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
           <ExportTarget
             ref={exportRef}
             baseDate={{ kind: "season", season, gameType }}
-            className={`export-target-compact export-target-rankings-player${comparison ? " export-target-compare" : ""}${related ? " export-target-related" : ""}`}
+            className={`export-target-compact export-target-rankings-player export-target-teamcol${comparison ? " export-target-compare" : ""}${related ? " export-target-related" : ""}`}
           >
             <ConditionTitle
               title={playerTitle.title}
@@ -1300,7 +1312,14 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
               teamColor={(p) => teamColors?.[clubOf(p).teamId]?.primary}
               chipColor={(p) => teamChipColor(clubOf(p).teamId, teamColors)}
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" placeholder season={season} teamId={clubOf(p).teamId} />}
-              exportTeam={(p) => [teamShortName(clubOf(p).teamId, clubOf(p).teamName), gamesText(p)].filter(Boolean).join("・")}
+              teamCol={{
+                abbr: (p) => teamShortName(clubOf(p).teamId, clubOf(p).teamName),
+                games: gamesDividedBy,
+                // PC幅・保存画像は名前の下にポジション（と継続・移籍）だけ。チーム・試合数は専用の列に出す
+                subWide: (p) => [category === "profile" ? positionText(p) : p.position, moveText(p)].filter(Boolean).join("・") || undefined,
+              }}
+              nameLineFirst
+              exportKeepSub={!!comparison}
               limit={PLAYER_RANK_TOP_N}
               compact
             />

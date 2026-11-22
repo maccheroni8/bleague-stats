@@ -103,6 +103,13 @@ export interface RankedListProps<T> {
    * スマホ幅は名前の下の行の末尾に「3PM 1.8／3PA 5.0」と続ける。of が undefined を返した行は出さない
    */
   related?: { labels: string[]; of: (row: T) => string[] | undefined };
+  /**
+   * 個人のランキング用（DESIGN.md 470章）。指定すると、PC幅（.export-wide。保存画像も同じ）は名前の右に「チーム」の列（略称・チームの色で塗る）と
+   * 「G」の列（gamesCol）を置き、名前の下には subLabelWide（ポジション・継続／移籍）だけを小さく出す。スマホ幅は今までどおり subLabel（チーム・ポジション・試合数）
+   */
+  teamCol?: { abbr: (row: T) => string | undefined; games: (row: T) => number | undefined; subWide?: (row: T) => ReactNode };
+  /** 表の名前を1行にする（長い名前は保存画像で字を小さくする仕組み。DESIGN.md 419章） */
+  nameLineFirst?: boolean;
 }
 
 /** defの向き（higherIsBetter）から導く、そのdefにとって「正しい」既定のソート方向 */
@@ -138,12 +145,14 @@ export function RankedList<T>({
   recordTextOf,
   tieExpandMax,
   related,
+  teamCol,
+  nameLineFirst,
 }: RankedListProps<T>) {
   const unit = unitProp ?? (statScope === "team" ? "チーム" : "人");
   // 呼び出し側が文字列を渡す表（シーズン成績など）も、名前の共通の改行を通す。
   const renderName = (row: T): ReactNode => {
     const text = name(row);
-    return typeof text === "string" ? <NameText name={text} kind={statScope === "team" ? "team" : "player"} /> : text;
+    return typeof text === "string" ? <NameText name={text} kind={statScope === "team" ? "team" : "player"} lineFirst={nameLineFirst} /> : text;
   };
   // 列見出しクリックでの昇順/降順切り替え（SortableTable.tsxと同じクリックパターン）。
   // ソート方向は「値の大小」ではなく「良い/悪い」の向き（def.higherIsBetter）を基準にした
@@ -222,13 +231,15 @@ export function RankedList<T>({
   return (
     <div className="table-scroll">
       <table
-        className={`sortable-table rankings-table${compact ? " rankings-table-compact" : ""}${compare ? " rankings-table-compare" : ""}${exportKeepSub ? " rank-keep-sub" : ""}`}
+        className={`sortable-table rankings-table${compact ? " rankings-table-compact" : ""}${compare ? " rankings-table-compare" : ""}${exportKeepSub ? " rank-keep-sub" : ""}${teamCol ? " rankings-table-teamcol" : ""}`}
       >
         <thead>
           <tr>
             <th className="align-right">#</th>
             <th className="align-left">名前</th>
-            {related && <th className="align-right rank-related-col rank-related-head">{related.labels.join("／")}</th>}
+            {teamCol && <th className="rank-team-col rank-team-head">チーム</th>}
+            {teamCol && <th className="align-right rank-games-col rank-games-head">G</th>}
+            {related && <th className="align-right rank-related-col rank-related-head">{related.labels.join("/")}</th>}
             <th
               className={`align-right${compare ? " rank-cur-head" : ""}`}
               title={statDescription(def.label, statScope)}
@@ -271,6 +282,9 @@ export function RankedList<T>({
               </span>
             ) : null;
             const relatedValues = related?.of(row);
+            const wideSub = teamCol?.subWide?.(row);
+            const teamAbbrCell = teamCol?.abbr(row);
+            const teamGames = teamCol?.games(row);
             // スマホ幅で、名前の下の行の末尾に続ける（「3PM 1.8／3PA 5.0」。PC幅・保存画像では列に出すので隠す）
             const relatedInline =
               related && relatedValues ? (
@@ -334,7 +348,15 @@ export function RankedList<T>({
                             {renderName(row)}
                             {abbr}
                           </span>
-                          {subLabel ? (
+                          {subLabel && teamCol ? (
+                            <span className={`rank-sublabel${wideSub ? "" : " rank-sub-wide-empty"}`}>
+                              <span className="rank-sub-narrow">
+                                {subLabel(row)}
+                                {relatedInline}
+                              </span>
+                              {wideSub && <span className="rank-sub-wide">{wideSub}</span>}
+                            </span>
+                          ) : subLabel ? (
                             <span className="rank-sublabel">
                               {subLabel(row)}
                               {relatedInline}
@@ -349,8 +371,16 @@ export function RankedList<T>({
                     <ExternalLinkIcon href={externalLinkTo(row)!} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
                   )}
                 </td>
+                {teamCol && (
+                  <td className="rank-team-col rank-team-cell">
+                    <span className="rank-team-chip" style={fillStyle}>
+                      {teamAbbrCell ?? "-"}
+                    </span>
+                  </td>
+                )}
+                {teamCol && <td className="align-right rank-games-col rank-games-cell">{teamGames ?? "-"}</td>}
                 {related && (
-                  <td className="align-right rank-related-col rank-related">{relatedValues ? relatedValues.join("／") : "-"}</td>
+                  <td className="align-right rank-related-col rank-related">{relatedValues ? relatedValues.join("/") : "-"}</td>
                 )}
                 <td className="align-right rank-value">{renderValue ? renderValue(row) : def.format(row)}</td>
                 {compare && (

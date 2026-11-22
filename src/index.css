@@ -8645,6 +8645,135 @@ table.sortable-table.lineup-search-table tbody th {
   --export-rank-width: 830px;
 }
 
+/* --------------------------------------------------------------------------
+ * ランキング（個人・シーズン成績）の「チーム」「G」の列（DESIGN.md 470章）。PC幅（.export-wide。保存画像も同じ）だけ。
+ * 並び: 順位｜写真｜名前（下にポジション）｜チーム（チームの色の札）｜G｜補足（FGM/FGA など）｜値。
+ * 写真なしの保存画像は、写真と名前の下の行を出さず、幅を詰める。スマホ幅は今までどおり名前の下の行にチーム・ポジション・試合数
+ * -------------------------------------------------------------------------- */
+.rankings-table .rank-team-col,
+.rankings-table .rank-games-col {
+  display: none;
+}
+
+.export-wide .rankings-table .rank-team-col,
+.export-wide .rankings-table .rank-games-col {
+  display: table-cell;
+}
+
+.rankings-table .rank-sub-wide {
+  display: none;
+}
+
+.export-wide .rankings-table .rank-sub-narrow {
+  display: none;
+}
+
+.export-wide .rankings-table .rank-sublabel.rank-sub-wide-empty {
+  display: none;
+}
+
+.export-wide .rankings-table .rank-sub-wide {
+  display: inline;
+  font-size: 12px;
+}
+
+.export-wide table.rankings-table-compact th.rank-team-head {
+  width: 92px;
+  padding-left: 4px;
+  padding-right: 4px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.export-wide table.rankings-table-compact td.rank-team-cell {
+  padding-left: 4px;
+  padding-right: 4px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.export-wide .rankings-table .rank-team-chip {
+  display: block;
+  box-sizing: border-box;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.export-rendering .rank-team-chip[style*="--team-color"] {
+  background: var(--team-color);
+  color: var(--team-ink, #ffffff);
+}
+
+.export-wide table.rankings-table-compact th.rank-games-head {
+  width: 48px;
+  padding-left: 4px;
+  padding-right: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.export-wide table.rankings-table-compact td.rank-games-cell {
+  padding-left: 4px;
+  padding-right: 4px;
+  font-size: 14px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.export-wide table.rankings-table-teamcol th.rank-related-head {
+  width: 130px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.export-wide table.rankings-table-teamcol td.rank-related {
+  font-size: 14px;
+}
+
+/* 字の大きさと幅。基準はいちばん長い名前「ハーパー・ジャン・ローレンス・ジュニア」が1行に収まること（これより長い名前は字を小さくする仕組み〔NameText の lineFirst〕に任せる） */
+.export-wide.export-target-rankings-player.export-target-teamcol {
+  --export-rank-name: 22px;
+  --export-rank-value: 22px;
+  --export-rank-width: 820px;
+}
+
+.export-wide.export-target-rankings-player.export-target-teamcol.export-target-related {
+  --export-rank-width: 950px;
+}
+
+.export-wide.export-target-rankings-player.export-target-teamcol.export-target-compare {
+  --export-rank-width: 1000px;
+}
+
+.export-wide.export-target-rankings-player.export-target-teamcol.export-target-compare.export-target-related {
+  --export-rank-width: 1100px;
+}
+
+.export-rendering.export-plain.export-target-rankings-player.export-target-teamcol {
+  --export-rank-width: 750px;
+}
+
+.export-rendering.export-plain.export-target-rankings-player.export-target-teamcol.export-target-related {
+  --export-rank-width: 880px;
+}
+
+.export-rendering.export-plain.export-target-rankings-player.export-target-teamcol.export-target-compare {
+  --export-rank-width: 930px;
+}
+
+.export-rendering.export-plain.export-target-rankings-player.export-target-teamcol.export-target-compare.export-target-related {
+  --export-rank-width: 1060px;
+}
+
 .rankings-table .rank-related-item {
   white-space: nowrap;
 }
