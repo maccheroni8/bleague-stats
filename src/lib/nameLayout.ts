@@ -35,7 +35,8 @@ export function fitNameText(el: HTMLElement): void {
   el.classList.remove("name-text-wrap");
   // 1行のまま見せる名前（表の名前の欄。lineFirst）: 画面はそのまま。保存画像だけ、入りきらないときに字を小さくし、
   // 読める大きさ（12px）に収まらないときは単位（地名とクラブ名の間）で2行に折り返す
-  if (el.classList.contains("name-text-line")) {
+  // exportLineFirst（name-text-exportline）は保存画像（.export-rendering の中）だけ1行にする。画面は今までどおり折り返す（DESIGN.md 472章）
+  if (el.classList.contains("name-text-line") || (el.classList.contains("name-text-exportline") && el.closest(".export-rendering"))) {
     if (!el.closest(".export-rendering")) return;
     const view = el.ownerDocument.defaultView!;
     const base = parseFloat(view.getComputedStyle(el).fontSize);

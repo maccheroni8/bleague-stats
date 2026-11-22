@@ -60,8 +60,14 @@ export function ConditionTitle({
   exportNameHidden = false,
   exportScopeHidden = false,
   exportOmitLabels,
+  exportTitle,
+  exportConditions,
 }: {
   title: string;
+  /** 保存画像の見出しにだけ使うタイトル（画面の見出しは title のまま。登録区分を頭に付ける個人のランキングなど。DESIGN.md 472章） */
+  exportTitle?: string;
+  /** 保存画像の条件の行にだけ使うラベル（画面の条件の行は conditions のまま） */
+  exportConditions?: string[];
   /** 保存画像の見出しの1行目に出す範囲（「2026-27シーズン」）。見出しの先頭に範囲が書いてあるときは要らない */
   exportScope?: string;
   conditions: string[];
@@ -81,7 +87,7 @@ export function ConditionTitle({
   // 初期値のままの項目・カテゴリ名・登録区分は書かない（DESIGN.md 170章）
   const shown = visibleConditionLabels(conditions);
   const league = useLeague();
-  const heading = exportHeadingLines(title, LEAGUE_LABELS[league], exportScope, leagueScopeLabel(league, true));
+  const heading = exportHeadingLines(exportTitle ?? title, LEAGUE_LABELS[league], exportScope, leagueScopeLabel(league, true));
   const renderConditions = (labels: string[], className: string) => (
     // 幅が足りず折り返すときは、条件ラベルの区切り（／）でだけ折り返す（「試合全/体」のような単語の途中で切らない）
     <p className={className}>
@@ -94,8 +100,8 @@ export function ConditionTitle({
     </p>
   );
   // 保存画像だけ条件のラベルを減らすときは、画面用（export-hide）と保存画像用（export-only）の2つを出す
-  const exportShown = exportOmitLabels ? shown.filter((label) => !exportOmitLabels.includes(label)) : shown;
-  const splitConditions = exportOmitLabels !== undefined && exportShown.length !== shown.length;
+  const exportShown = exportConditions ? visibleConditionLabels(exportConditions) : exportOmitLabels ? shown.filter((label) => !exportOmitLabels.includes(label)) : shown;
+  const splitConditions = exportConditions !== undefined ? exportShown.join("\0") !== shown.join("\0") : exportOmitLabels !== undefined && exportShown.length !== shown.length;
   return (
     <div className={`condition-title${section ? " condition-title-section" : ""}`}>
       {/* クラッチタイムの条件のときの目印。保存画像のフッターに定義を足す（lib/exportImage.ts。設計書387章） */}
@@ -105,10 +111,10 @@ export function ConditionTitle({
         {!exportScopeHidden && <p className="export-heading-scope">{heading.scope}</p>}
         {!exportNameHidden && <h2>{renderTitle(heading.name)}</h2>}
       </div>
-      {shown.length > 0 &&
+      {(shown.length > 0 || (splitConditions && exportShown.length > 0)) &&
         (splitConditions ? (
           <>
-            {renderConditions(shown, "condition-title-conditions export-hide")}
+            {shown.length > 0 && renderConditions(shown, "condition-title-conditions export-hide")}
             {exportShown.length > 0 && renderConditions(exportShown, "condition-title-conditions export-only")}
           </>
         ) : (

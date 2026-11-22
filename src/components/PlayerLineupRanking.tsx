@@ -8,7 +8,7 @@ import { isRookieFilter, withRookie, splitSeasonsOnly, SPLIT_CLASSIFICATION_FIRS
 import { ClassificationNotes } from "./ClassificationNotes";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { selectedPositionLabels } from "../lib/classificationFilter";
-import { buildExportFilename, classTitleLabel, classificationConditionLabels, composeLabels, gameTypeLabels, multiSelectLabels, periodLabels } from "../lib/conditionLabels";
+import { buildExportFilename, classTitleLabel, classificationConditionLabels, classificationLabels, composeLabels, gameTypeLabels, multiSelectLabels, periodLabels } from "../lib/conditionLabels";
 import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
 import { classificationAxis, rookieAxis, gameTypeAxis, multiSelectAxis, simpleSelectAxis, type FilterAxis } from "../lib/filterAxes";
 import { formatDecimal, formatInteger, formatSigned } from "../lib/format";
@@ -242,22 +242,27 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   };
   const rows = useMemo(() => (result ? result.rows.filter((r) => lineupValue(r, unit, metric) !== null) : null), [result, unit, metric]);
   const positionLabels = positions.length > 0 ? multiSelectLabels("ポジション", selectedPositionLabels(POSITION_OPTIONS, positions), "全ポジション") : [];
-  const conditionLabels = composeLabels(
+  // 条件の行: 画面は「登録区分: 日本人」を書き、保存画像はタイトルの頭に区分名を付けるので書かない（DESIGN.md 472章）
+  const conditionLabelsFor = (classLabels: string[]) =>
+    composeLabels(
     activeOn && ACTIVE_LABEL,
-    group !== "all" && classificationConditionLabels(group),
+    group !== "all" && classLabels,
     positionLabels,
     gameTypeLabels(gameType, seasonForTitle),
     periodOption.periods !== null && periodLabels(periodOption),
     gameRecordConditionLabels(conditions, teamName, false),
-  );
+    );
+  const conditionLabels = conditionLabelsFor(group !== "all" ? classificationLabels(group) : []);
+  const exportConditionLabels = conditionLabelsFor(group !== "all" ? classificationConditionLabels(group) : []);
   const scopeText = allTime ? `通算（${seasons?.[0] ?? FIRST_LEAGUE_SEASON}以降）` : `${season}シーズン`;
   const metricLabel = LINEUP_METRIC_LABELS[metric];
   // タイトル・ファイル名には日本語名（表の見出しは略称のまま）
   const metricJa = statJa(metricLabel);
   const unitText = unit === "onoff" ? `On/Off ${metricJa}差（On−Off）` : `${LINEUP_UNIT_LABELS[unit]}の組み合わせ ${metricJa}`;
   const classTitle = classTitleLabel(group);
-  const title = `${scopeText} ${classTitle ? `${classTitle} ` : ""}${unitText}`;
-  const filename = buildExportFilename(["On/Off・組み合わせ", LINEUP_UNIT_LABELS[unit], metricJa, allTime ? "通算" : season, ...(classTitle ? [classTitle] : []), ...conditionLabels]);
+  const exportTitle = `${scopeText} ${classTitle ? `${classTitle} ` : ""}${unitText}`;
+  const title = `${scopeText} ${unitText}`;
+  const filename = buildExportFilename(["On/Off・組み合わせ", LINEUP_UNIT_LABELS[unit], metricJa, allTime ? "通算" : season, ...(classTitle ? [classTitle] : []), ...exportConditionLabels]);
   const failure = lineup.error ?? careerError ?? rookies.error ?? active.error ?? current.error;
 
   const shareRange = LINEUP_SHARE_RANGE[unit];
@@ -397,7 +402,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
             className={`export-target-compact export-target-rankings-player export-target-teamcol${unit === "onoff" ? "" : " export-target-pairs"}${unit === "trio" ? " export-target-trio" : ""}`}
             baseDate={baseDateOf(allTime, season, gameType)}
           >
-            <ConditionTitle title={title} conditions={conditionLabels} />
+            <ConditionTitle title={title} conditions={conditionLabels} exportTitle={exportTitle} exportConditions={exportConditionLabels} />
             <PlayerNamePool names={among}>
               <RankedList
                 rows={rows}
@@ -411,7 +416,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
                 rowKey={(r) => r.key}
                 name={(r) =>
                   unit === "onoff" ? (
-                    <ResponsivePlayerName name={r.players[0]!.name} lineFirst />
+                    <ResponsivePlayerName name={r.players[0]!.name} exportLineFirst />
                   ) : (
                     <span className={unit === "trio" ? "pair-people pair-people-trio" : "pair-people"}>
                       {r.players.map((p, i) => (

@@ -8646,7 +8646,7 @@ table.sortable-table.lineup-search-table tbody th {
 }
 
 /* --------------------------------------------------------------------------
- * ランキング（個人・シーズン成績）の「チーム」「G」の列（DESIGN.md 470章）。PC幅（.export-wide。保存画像も同じ）だけ。
+ * ランキング（個人・シーズン成績）の「チーム」「G」の列（DESIGN.md 470章）。保存画像（.export-rendering）だけ。画面の表は変えない（DESIGN.md 472章）。
  * 並び: 順位｜写真｜名前（下にポジション）｜チーム（チームの色の札）｜G｜補足（FGM/FGA など）｜値。
  * 写真なしの保存画像は、写真と名前の下の行を出さず、幅を詰める。スマホ幅は今までどおり名前の下の行にチーム・ポジション・試合数
  * -------------------------------------------------------------------------- */
@@ -8654,7 +8654,7 @@ table.sortable-table.lineup-search-table tbody th {
   display: none;
 }
 
-.export-wide .rankings-table .rank-team-col {
+.export-rendering .rankings-table .rank-team-col {
   display: table-cell;
 }
 
@@ -8662,20 +8662,20 @@ table.sortable-table.lineup-search-table tbody th {
   display: none;
 }
 
-.export-wide .rankings-table .rank-sub-narrow {
+.export-rendering .rankings-table .rank-sub-narrow {
   display: none;
 }
 
-.export-wide .rankings-table .rank-sublabel.rank-sub-wide-empty {
+.export-rendering .rankings-table .rank-sublabel.rank-sub-wide-empty {
   display: none;
 }
 
-.export-wide .rankings-table .rank-sub-wide {
+.export-rendering .rankings-table .rank-sub-wide {
   display: inline;
   font-size: 12px;
 }
 
-.export-wide table.rankings-table-compact th.rank-team-head {
+.export-rendering table.rankings-table-compact th.rank-team-head {
   width: var(--export-rank-team-width);
   padding-left: 4px;
   padding-right: 4px;
@@ -8684,12 +8684,12 @@ table.sortable-table.lineup-search-table tbody th {
 
 /* チームの色の札。行の高さいっぱいに広げ、上下・左右に少しだけ余白を残して、行の線にかからないようにする（保存画像だけ塗る。画面は文字のまま）。
  * 札は td の中に絶対配置で置く（行の高さは名前・写真の側で決まる） */
-.export-wide table.rankings-table-compact td.rank-team-cell {
+.export-rendering table.rankings-table-compact td.rank-team-cell {
   position: relative;
   padding: 0;
 }
 
-.export-wide .rankings-table .rank-team-chip {
+.export-rendering .rankings-table .rank-team-chip {
   position: absolute;
   inset: 1.5px 7px;
   display: flex;
@@ -8709,34 +8709,34 @@ table.sortable-table.lineup-search-table tbody th {
 }
 
 /* 表の見出しの行は、薄い青灰色の帯に濃い字（順位表などの図の見出しの行と同じ作り）。字は大きめ・列の中央 */
-.export-wide table.rankings-table-teamcol.rankings-table-compact thead tr th {
+.export-rendering table.rankings-table-teamcol.rankings-table-compact thead tr th {
   background: #eef1f6;
   color: #22304a;
   font-size: var(--export-rank-head);
   font-weight: 700;
 }
 
-.export-wide table.rankings-table-teamcol.rankings-table-compact thead tr th *,
+.export-rendering table.rankings-table-teamcol.rankings-table-compact thead tr th *,
 [data-design="v2"] .export-rendering table.rankings-table-teamcol.rankings-table-compact thead tr th[aria-sort],
 .export-rendering table.rankings-table-teamcol.rankings-table-compact thead tr th[aria-sort] {
   color: #22304a;
 }
 
 /* 数字の太さ（写真なしは細め） */
-.export-wide table.rankings-table-teamcol.rankings-table-compact td.rank-value {
+.export-rendering table.rankings-table-teamcol.rankings-table-compact td.rank-value {
   font-weight: var(--export-rank-value-weight);
 }
 
 /* 値の列・補足の列は、見出しも数字も列の中央にそろえる（見出しが右に寄って数字から離れないように） */
-.export-wide table.rankings-table-teamcol.rankings-table-compact:not(.rankings-table-compare) th.rank-val-head,
-.export-wide table.rankings-table-teamcol.rankings-table-compact:not(.rankings-table-compare) td.rank-value {
+.export-rendering table.rankings-table-teamcol.rankings-table-compact:not(.rankings-table-compare) th.rank-val-head,
+.export-rendering table.rankings-table-teamcol.rankings-table-compact:not(.rankings-table-compare) td.rank-value {
   width: var(--export-rank-value-width);
   padding-left: 8px;
   padding-right: 8px;
   text-align: center;
 }
 
-.export-wide table.rankings-table-teamcol th.rank-related-head {
+.export-rendering table.rankings-table-teamcol th.rank-related-head {
   width: var(--export-rank-related-width);
   padding-left: 8px;
   padding-right: 8px;
@@ -8744,7 +8744,7 @@ table.sortable-table.lineup-search-table tbody th {
   white-space: nowrap;
 }
 
-.export-wide table.rankings-table-teamcol td.rank-related {
+.export-rendering table.rankings-table-teamcol td.rank-related {
   padding-left: 8px;
   padding-right: 8px;
   text-align: center;
@@ -8752,7 +8752,7 @@ table.sortable-table.lineup-search-table tbody th {
 }
 
 /* 字の大きさと幅。基準はいちばん長い名前「ハーパー・ジャン・ローレンス・ジュニア」が1行に収まること（これより長い名前は字を小さくする仕組み〔NameText の lineFirst〕に任せる） */
-.export-wide.export-target-rankings-player.export-target-teamcol {
+.export-rendering.export-target-rankings-player.export-target-teamcol {
   --export-rank-name: 28px;
   --export-rank-value: 30px;
   --export-rank-team: 25px;
@@ -8766,15 +8766,15 @@ table.sortable-table.lineup-search-table tbody th {
   --export-rank-width: 880px;
 }
 
-.export-wide.export-target-rankings-player.export-target-teamcol.export-target-related {
+.export-rendering.export-target-rankings-player.export-target-teamcol.export-target-related {
   --export-rank-width: 1070px;
 }
 
-.export-wide.export-target-rankings-player.export-target-teamcol.export-target-compare {
+.export-rendering.export-target-rankings-player.export-target-teamcol.export-target-compare {
   --export-rank-width: 1122px;
 }
 
-.export-wide.export-target-rankings-player.export-target-teamcol.export-target-compare.export-target-related {
+.export-rendering.export-target-rankings-player.export-target-teamcol.export-target-compare.export-target-related {
   --export-rank-width: 1312px;
 }
 
@@ -9956,13 +9956,13 @@ table.sortable-table.tts-table th {
   max-width: none;
 }
 
-/* 補足が3つ並ぶ項目（USG%・TOV%・eFG%・TS%・PPS の一部。「FGA / FTA / TOV」）は、補足の列を広げる */
-.export-wide.export-target-rankings-player.export-target-teamcol.export-target-related3 {
+/* 補足が3つ並ぶ項目（USG%・TOV%・eFG%・TS%・PPS の一部。「FGA / FTA / TOV」）は、補足の列を広げる（保存画像だけ） */
+.export-rendering.export-target-rankings-player.export-target-teamcol.export-target-related3 {
   --export-rank-related-width: 280px;
   --export-rank-width: 1160px;
 }
 
-.export-wide.export-target-rankings-player.export-target-teamcol.export-target-related3.export-target-compare {
+.export-rendering.export-target-rankings-player.export-target-teamcol.export-target-related3.export-target-compare {
   --export-rank-width: 1402px;
 }
 
@@ -9976,8 +9976,8 @@ table.sortable-table.tts-table th {
 }
 
 /* 前シーズン比較の「前季」「差」は、補足の列（FGM / FGA）と同じ大きさ（見出しも同じ）。今季の値（並べている項目）は、これらより大きいまま */
-.export-wide table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare td.rank-prev,
-.export-wide table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare td.rank-diff {
+.export-rendering table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare td.rank-prev,
+.export-rendering table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare td.rank-diff {
   font-size: var(--export-rank-related);
   font-weight: 500;
   text-align: center;
@@ -9985,28 +9985,55 @@ table.sortable-table.tts-table th {
   padding-right: 8px;
 }
 
-.export-wide table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare th.rank-prev-head,
-.export-wide table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare th.rank-diff-head {
+.export-rendering table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare th.rank-prev-head,
+.export-rendering table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare th.rank-diff-head {
   width: var(--export-rank-compare-width);
   text-align: center;
   padding-left: 8px;
   padding-right: 8px;
 }
 
-.export-wide table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare th.rank-cur-head,
-.export-wide table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare td.rank-value {
+.export-rendering table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare th.rank-cur-head,
+.export-rendering table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare td.rank-value {
   text-align: center;
   padding-left: 8px;
   padding-right: 8px;
 }
 
 /* 差で並べているとき（前シーズン比較の「差」の見出しで並べ替えたとき）は、今季の値と差の大きさを入れ替える（差がいちばん大きい数字になる） */
-.export-wide table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare.rank-sort-diff td.rank-diff {
+.export-rendering table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare.rank-sort-diff td.rank-diff {
   font-size: var(--export-rank-value);
   font-weight: var(--export-rank-value-weight);
 }
 
-.export-wide table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare.rank-sort-diff td.rank-value {
+.export-rendering table.rankings-table-teamcol.rankings-table-compact.rankings-table-compare.rank-sort-diff td.rank-value {
   font-size: var(--export-rank-related);
   font-weight: 500;
+}
+
+/* 補足の列の区切り: 画面は「FGM／FGA」、保存画像は空白つきの「FGM / FGA」 */
+.rank-rel-export {
+  display: none;
+}
+
+.export-rendering .rank-rel-screen {
+  display: none;
+}
+
+.export-rendering .rank-rel-export {
+  display: inline;
+}
+
+/* 名前を1行にする（NameText の exportLineFirst）: 保存画像（.export-rendering）の中だけ。画面は今までどおり折り返す */
+.export-rendering .name-text.name-text-exportline {
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.export-rendering .name-text.name-text-exportline:not(.name-text-wrap) wbr {
+  display: none;
+}
+
+.export-rendering .name-text.name-text-exportline.name-text-wrap {
+  white-space: normal;
 }

@@ -11,17 +11,17 @@ import { usePlayerLabel } from "../lib/playerLabel";
 export function ResponsivePlayerName({
   name,
   among,
-  lineFirst = false,
+  exportLineFirst = false,
 }: {
   name: string;
   among?: readonly string[];
   breakAtDot?: boolean;
-  /** 表の名前の欄で1行にする（保存画像だけ、入りきらない名前は字を小さくする。NameText の lineFirst） */
-  lineFirst?: boolean;
+  /** 保存画像だけ、名前を1行にする（入りきらない名前は字を小さくする。画面は変えない。NameText の exportLineFirst） */
+  exportLineFirst?: boolean;
 }) {
   const label = usePlayerLabel(among);
   const shown = label(name);
   const full = normalizePlayerName(name);
-  const text = shown === full ? <NameText name={full} lineFirst={lineFirst} /> : <span title={full}><NameText name={shown} lineFirst={lineFirst} /></span>;
+  const text = shown === full ? <NameText name={full} exportLineFirst={exportLineFirst} /> : <span title={full}><NameText name={shown} exportLineFirst={exportLineFirst} /></span>;
   return text;
 }

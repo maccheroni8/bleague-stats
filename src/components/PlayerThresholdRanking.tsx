@@ -6,7 +6,7 @@ import { isRookieFilter, splitSeasonsOnly, withRookie, SPLIT_CLASSIFICATION_FIRS
 import { ClassificationNotes } from "./ClassificationNotes";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
-import { buildExportFilename, classTitleLabel, classificationConditionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
+import { buildExportFilename, classTitleLabel, classificationConditionLabels, classificationLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { selectedPositionLabels } from "../lib/classificationFilter";
 import { classificationAxis, rookieAxis, gameTypeAxis, multiSelectAxis, simpleSelectAxis, type FilterAxis } from "../lib/filterAxes";
 import { currentSeason } from "../lib/season";
@@ -134,13 +134,17 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
   };
   const thresholdText = statConditionsSummary(threshold, THRESHOLD_ITEMS);
   const positionLabels = positions.length > 0 ? multiSelectLabels("ポジション", selectedPositionLabels(POSITION_OPTIONS, positions), "全ポジション") : [];
-  const conditionLabels = composeLabels(
+  // 条件の行: 画面は「登録区分: 日本人」を書き、保存画像はタイトルの頭に区分名を付けるので書かない（DESIGN.md 472章）
+  const conditionLabelsFor = (classLabels: string[]) =>
+    composeLabels(
     activeOn && ACTIVE_LABEL,
-    group !== "all" && classificationConditionLabels(group),
+    group !== "all" && classLabels,
     positionLabels,
     gameTypeLabels(gameType, seasonForTitle),
     gameRecordConditionLabels(conditions, teamName, false),
-  );
+    );
+  const conditionLabels = conditionLabelsFor(group !== "all" ? classificationLabels(group) : []);
+  const exportConditionLabels = conditionLabelsFor(group !== "all" ? classificationConditionLabels(group) : []);
   const scopeText = allTime ? (unit === "count" ? "通算" : "歴代") : `${season}シーズン`;
   const unitText =
     unit === "streak"
@@ -153,8 +157,9 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
           ? "達成率"
           : "達成試合数";
   const classTitle = classTitleLabel(group);
-  const title = `${scopeText} ${classTitle ? `${classTitle} ` : ""}${unitText}（${thresholdText}）`;
-  const filename = buildExportFilename(["達成記録", unitText, scopeText, thresholdText, ...(classTitle ? [classTitle] : []), ...conditionLabels]);
+  const exportTitle = `${scopeText} ${classTitle ? `${classTitle} ` : ""}${unitText}（${thresholdText}）`;
+  const title = `${scopeText} ${unitText}（${thresholdText}）`;
+  const filename = buildExportFilename(["達成記録", unitText, scopeText, thresholdText, ...(classTitle ? [classTitle] : []), ...exportConditionLabels]);
   // 通算の達成率の掲載基準の文（選んだ試合種別に合わせる。例: 「ポストシーズンの通算の出場試合数が20試合以上の選手だけです」）
   const careerRateBasis = `${gameTypeLabels(gameType, null)[0]}の通算の出場試合数が${THRESHOLD_CAREER_MIN_GAMES[gameType]}試合以上の選手だけです`;
   const failure = index.error ?? rookies.error ?? active.error ?? current.error ?? rosters.error;
@@ -320,7 +325,7 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
             ranking={{ media: "写真", unit: "名", top: 20 }}
           />
           <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-player export-target-teamcol" baseDate={baseDateOf(allTime, season, gameType)}>
-            <ConditionTitle title={title} conditions={conditionLabels} />
+            <ConditionTitle title={title} conditions={conditionLabels} exportTitle={exportTitle} exportConditions={exportConditionLabels} />
             {result.kind === "age" ? (
               <>
                 <ThresholdAgeList rows={result.rows} which={which} teamColors={teamColors} />

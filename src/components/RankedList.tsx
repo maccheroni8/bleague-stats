@@ -108,7 +108,7 @@ export interface RankedListProps<T> {
    * セル全体をチームの色で塗る。名前の下には subWide（ポジション・試合数・継続／移籍）を小さく出す。スマホ幅は今までどおり subLabel（チーム・ポジション・試合数）
    */
   teamCol?: { abbr: (row: T) => string | undefined; subWide?: (row: T) => ReactNode };
-  /** 表の名前を1行にする（長い名前は保存画像で字を小さくする仕組み。DESIGN.md 419章） */
+  /** 保存画像だけ、表の名前を1行にする（長い名前は字を小さくする。画面は変えない。DESIGN.md 419・472章） */
   nameLineFirst?: boolean;
   /** 前シーズン比較で「差」で並べているとき、その向き（"desc"＝大きい順・"asc"＝小さい順）を親に知らせる（差で並べていなければ null）。保存画像のサブタイトルに書くため */
   onDiffSort?: (dir: "asc" | "desc" | null) => void;
@@ -155,7 +155,7 @@ export function RankedList<T>({
   // 呼び出し側が文字列を渡す表（シーズン成績など）も、名前の共通の改行を通す。
   const renderName = (row: T): ReactNode => {
     const text = name(row);
-    return typeof text === "string" ? <NameText name={text} kind={statScope === "team" ? "team" : "player"} lineFirst={nameLineFirst} /> : text;
+    return typeof text === "string" ? <NameText name={text} kind={statScope === "team" ? "team" : "player"} exportLineFirst={nameLineFirst} /> : text;
   };
   // 列見出しクリックでの昇順/降順切り替え（SortableTable.tsxと同じクリックパターン）。
   // ソート方向は「値の大小」ではなく「良い/悪い」の向き（def.higherIsBetter）を基準にした
@@ -247,7 +247,10 @@ export function RankedList<T>({
             <th className="align-right">#</th>
             <th className="align-left">名前</th>
             {teamCol && <th className="rank-team-col rank-team-head">チーム</th>}
-            {related && <th className="align-right rank-related-col rank-related-head">{related.labels.join(" / ")}</th>}
+            {related && <th className="align-right rank-related-col rank-related-head">
+                <span className="rank-rel-screen">{related.labels.join("／")}</span>
+                <span className="rank-rel-export">{related.labels.join(" / ")}</span>
+              </th>}
             <th
               className={`align-right${compare ? " rank-cur-head" : ""}${teamCol ? " rank-val-head" : ""}`}
               title={statDescription(def.label, statScope)}
@@ -398,7 +401,10 @@ export function RankedList<T>({
                   </td>
                 )}
                 {related && (
-                  <td className="align-right rank-related-col rank-related">{relatedValues ? relatedValues.join(" / ") : "-"}</td>
+                  <td className="align-right rank-related-col rank-related">
+                    <span className="rank-rel-screen">{relatedValues ? relatedValues.join("／") : "-"}</span>
+                    <span className="rank-rel-export">{relatedValues ? relatedValues.join(" / ") : "-"}</span>
+                  </td>
                 )}
                 <td className="align-right rank-value">{renderValue ? renderValue(row) : def.format(row)}</td>
                 {compare && (

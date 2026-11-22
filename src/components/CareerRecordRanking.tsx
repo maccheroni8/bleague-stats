@@ -5,7 +5,7 @@ import { CAREER_TOTAL_DEFS } from "../../shared/teamRecords";
 import { CAREER_CONDITION_KEY_PREFIX, CAREER_ITEM_DEFS } from "../lib/playerConditionItems";
 import type { LeagueRankingGameType, LeagueTeamRankEntry, TeamColors } from "../../shared/types";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote } from "../lib/activePlayers";
-import { buildExportFilename, classTitleLabel, classificationConditionLabels, composeLabels, gameTypeLabels, leagueVenueLabels, type LeagueVenue } from "../lib/conditionLabels";
+import { buildExportFilename, classTitleLabel, classificationConditionLabels, classificationLabels, composeLabels, gameTypeLabels, leagueVenueLabels, type LeagueVenue } from "../lib/conditionLabels";
 import { classTokens, isSplitClassificationGroup, topFileClassKey, type SplitClassificationGroup } from "../lib/classificationFilter";
 import type { LeaguePlayerCareerTopFileWithSplit, SplitCareerKey } from "../../shared/careerTopSplit";
 import { ClassificationNotes } from "./ClassificationNotes";
@@ -111,14 +111,18 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
     : (table?.[gameType as LeagueRankingGameType]?.[def.key] ?? []);
   const rows = entries.flatMap((e) => (file?.players[e.playerId] ? [{ ...e, info: file.players[e.playerId]! }] : []));
 
-  const classLabels = composeLabels(activeOn && ACTIVE_LABEL, classification !== "all" && classificationConditionLabels(classification));
-  const conditions = countDef
-    ? [...classLabels, "各選手の最新の累計"]
-    : composeLabels(classLabels, leagueVenueLabels(venue), gameTypeLabels(gameType, null));
+  // 条件の行: 画面は「登録区分: 日本人」を書き、保存画像はタイトルの頭に区分名を付けるので書かない（DESIGN.md 472章）
+  const conditionsFor = (labels: string[]) => {
+    const classLabels = composeLabels(activeOn && ACTIVE_LABEL, classification !== "all" && labels);
+    return countDef ? [...classLabels, "各選手の最新の累計"] : composeLabels(classLabels, leagueVenueLabels(venue), gameTypeLabels(gameType, null));
+  };
+  const conditions = conditionsFor(classificationLabels(classification));
+  const exportConditions = conditionsFor(classificationConditionLabels(classification));
   const classTitle = classTitleLabel(classification);
-  const title = `歴代 ${classTitle ? `${classTitle} ` : ""}個人通算記録 ${statJa(def.label)}ランキング`;
+  const exportTitle = `歴代 ${classTitle ? `${classTitle} ` : ""}個人通算記録 ${statJa(def.label)}ランキング`;
+  const title = `歴代 個人通算記録 ${statJa(def.label)}ランキング`;
   const countDisabled = "回数・在籍の項目は、会場・試合区分を選べません。";
-  const filename = buildExportFilename(["個人通算記録", "歴代", statJa(def.label), ...(classTitle ? [classTitle] : []), ...conditions]);
+  const filename = buildExportFilename(["個人通算記録", "歴代", statJa(def.label), ...(classTitle ? [classTitle] : []), ...exportConditions]);
 
   return (
     <>
@@ -152,7 +156,7 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
             ranking={{ media: "写真", unit: "名", top: PLAYER_RANK_TOP_N }}
           />
           <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-player export-target-teamcol" baseDate={{ kind: "allTime", gameType: countDef ? "both" : gameType }}>
-            <ConditionTitle title={title} conditions={conditions} />
+            <ConditionTitle title={title} conditions={conditions} exportTitle={exportTitle} exportConditions={exportConditions} />
             <PlayerNamePool names={rows.map((r) => r.info.name)}>
               <RankedList
                 rows={rows}
@@ -165,7 +169,7 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
                 }}
                 tieKey={(r) => String(r.value)}
                 rowKey={(r) => r.playerId}
-                name={(r) => <ResponsivePlayerName name={r.info.name} lineFirst />}
+                name={(r) => <ResponsivePlayerName name={r.info.name} exportLineFirst />}
                 subLabel={(r) => (
                   <>
                     <LastTeamName teamId={r.info.teamId} name={r.info.teamName} last={isLast(r.info.latestSeason, [r.playerId])} />・{r.info.latestSeason}シーズンまで在籍確認

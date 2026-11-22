@@ -64,7 +64,7 @@ export function ThresholdCountList({
         }}
         tieKey={(e) => String(e.value)}
         rowKey={(e) => e.playerId}
-        name={(e) => <ResponsivePlayerName name={e.playerName} lineFirst />}
+        name={(e) => <ResponsivePlayerName name={e.playerName} exportLineFirst />}
         subLabel={(e) => <CountLine r={e} sort={sort} allTime={allTime} last={isLast(e.lastSeason, [e.playerId])} />}
         linkTo={(e) => `/players/${e.playerId}?season=${e.lastSeason}`}
         teamColor={(e) => teamColors?.[e.teamId]?.primary}
@@ -112,7 +112,7 @@ export function ThresholdStreakList({ rows, ongoingOnly, teamColors }: { rows: T
         def={{ key: `threshold:streak:${ongoingOnly ? "ongoing" : "best"}`, label: "連続", value: (e) => e.value, format: (e) => String(e.value), higherIsBetter: true }}
         tieKey={(e) => String(e.value)}
         rowKey={(e) => e.playerId}
-        name={(e) => <ResponsivePlayerName name={e.playerName} lineFirst />}
+        name={(e) => <ResponsivePlayerName name={e.playerName} exportLineFirst />}
         subLabel={(e) => (
           <>
             <StreakGameLine label="開始" g={e.start} />
@@ -162,7 +162,7 @@ export function ThresholdAgeList({ rows, which, teamColors }: { rows: ThresholdA
         }}
         tieKey={(e) => String(e.value)}
         rowKey={(e) => e.playerId}
-        name={(e) => <ResponsivePlayerName name={e.playerName} lineFirst />}
+        name={(e) => <ResponsivePlayerName name={e.playerName} exportLineFirst />}
         subLabel={(e) => (
           <>
             <span className="record-date-nowrap">

@@ -7,7 +7,7 @@ import { isRookieFilter, splitSeasonsOnly, withRookie, SPLIT_CLASSIFICATION_FIRS
 import { ClassificationNotes } from "./ClassificationNotes";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
-import { buildExportFilename, classTitleLabel, classificationConditionLabels, composeLabels, gameTypeLabels } from "../lib/conditionLabels";
+import { buildExportFilename, classTitleLabel, classificationConditionLabels, classificationLabels, composeLabels, gameTypeLabels } from "../lib/conditionLabels";
 import { teamShortName } from "../../shared/teamNames";
 import { classificationAxis, rookieAxis, gameTypeAxis, simpleSelectAxis, statItemAxis, type FilterAxis } from "../lib/filterAxes";
 import { DEFAULT_GAME_RECORD_CONDITIONS, cleanGameConditionsForSeason, gameRecordConditionLabels, gameRecordConditionsParam } from "../lib/gameRecordConditions";
@@ -115,17 +115,22 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
     const t = options.teams.find((o) => o.value === id);
     return t ? (narrow ? t.label : t.name) : id;
   };
-  const conditionLabels = composeLabels(
+  // 条件の行: 画面は「登録区分: 日本人」を書き、保存画像はタイトルの頭に区分名を付けるので書かない（DESIGN.md 472章）
+  const conditionLabelsFor = (classLabels: string[]) =>
+    composeLabels(
     activeOn && ACTIVE_LABEL,
-    group !== "all" && classificationConditionLabels(group),
+    group !== "all" && classLabels,
     gameTypeLabels(gameType, seasonForTitle),
     gameRecordConditionLabels(conditions, teamName, true),
-  );
+    );
+  const conditionLabels = conditionLabelsFor(group !== "all" ? classificationLabels(group) : []);
+  const exportConditionLabels = conditionLabelsFor(group !== "all" ? classificationConditionLabels(group) : []);
   const measureLabel = CLUTCH_MEASURE_LABELS[measure];
   const windowLabel = CLUTCH_WINDOW_LABELS[window];
   const classTitle = classTitleLabel(group);
-  const title = `${allTime ? "通算" : `${season}シーズン`} ${classTitle ? `${classTitle} ` : ""}${measureLabel}（第4Q・延長の${windowLabel}）`;
-  const filename = buildExportFilename(["勝負所", allTime ? "通算" : season, measureLabel, windowLabel, ...(classTitle ? [classTitle] : []), ...conditionLabels]);
+  const exportTitle = `${allTime ? "通算" : `${season}シーズン`} ${classTitle ? `${classTitle} ` : ""}${measureLabel}（第4Q・延長の${windowLabel}）`;
+  const title = `${allTime ? "通算" : `${season}シーズン`} ${measureLabel}（第4Q・延長の${windowLabel}）`;
+  const filename = buildExportFilename(["勝負所", allTime ? "通算" : season, measureLabel, windowLabel, ...(classTitle ? [classTitle] : []), ...exportConditionLabels]);
   const entries = result?.rows;
   const failure = index.error ?? rookies.error ?? active.error ?? current.error;
 
@@ -193,14 +198,14 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
             ranking={{ media: "写真", unit: "名", top: RANK_TOP_N }}
           />
           <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-player export-target-teamcol" baseDate={baseDateOf(allTime, season, gameType)}>
-            <ConditionTitle title={title} conditions={conditionLabels} />
+            <ConditionTitle title={title} conditions={conditionLabels} exportTitle={exportTitle} exportConditions={exportConditionLabels} />
             <PlayerNamePool names={entries.map((e) => e.playerName)}>
               <RankedList
                 rows={entries}
                 def={{ key: `clutch:${measure}:${window}`, label: measureLabel, value: (e) => e.value, format: (e) => String(e.value), higherIsBetter: true }}
                 tieKey={(e) => String(e.value)}
                 rowKey={(e) => e.playerId}
-                name={(e) => <ResponsivePlayerName name={e.playerName} lineFirst />}
+                name={(e) => <ResponsivePlayerName name={e.playerName} exportLineFirst />}
                 subLabel={(e) => <ClutchLine r={e} allTime={allTime} last={isLast(e.lastSeason, [e.playerId])} />}
                 linkTo={(e) => `/players/${e.playerId}?season=${e.lastSeason}`}
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}

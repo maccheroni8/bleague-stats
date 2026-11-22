@@ -5,7 +5,7 @@ import type { PlayerGameRecordDef } from "../../shared/playerGameRecords";
 import type { TeamColors } from "../../shared/types";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
-import { buildExportFilename, classTitleLabel, classificationConditionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
+import { buildExportFilename, classTitleLabel, classificationConditionLabels, classificationLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { teamShortName } from "../../shared/teamNames";
 import { fetchLeaguePlayerGameRecordTable, fetchPlayerGameRecords } from "../lib/data";
 import type { PlayerRecordPartGroup } from "../lib/leagueRecordParts";
@@ -229,21 +229,26 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
     return t ? (narrow ? t.label : t.name) : id;
   };
   const positionLabels = positions.length > 0 ? multiSelectLabels("ポジション", selectedPositionLabels(POSITION_OPTIONS, positions), "全ポジション") : [];
-  const conditionLabels = composeLabels(
+  // 条件の行: 画面は「登録区分: 日本人」を書き、保存画像はタイトルの頭に区分名を付けるので書かない（DESIGN.md 472章）
+  const conditionLabelsFor = (classLabels: string[]) =>
+    composeLabels(
     gameRecordPeriodLabel(periodParam),
     activeOn && ACTIVE_LABEL,
-    group !== "all" && classificationConditionLabels(group),
+    group !== "all" && classLabels,
     positionLabels,
     gameTypeLabels(gameType, seasonForTitle),
     roleLabels(role, null),
     gameRecordConditionLabels(conditions, teamName, includeSpecialDefault),
-  );
+    );
+  const conditionLabels = conditionLabelsFor(group !== "all" ? classificationLabels(group) : []);
+  const exportConditionLabels = conditionLabelsFor(group !== "all" ? classificationConditionLabels(group) : []);
   const modeLabel = mode === "worst" ? "ワースト" : "記録";
   const defJa = statJa(def.label);
   const classTitle = classTitleLabel(group);
   const classPart = classTitle ? `${classTitle} ` : "";
-  const title = allTime ? `歴代 ${classPart}個人1試合${modeLabel} ${defJa}ランキング` : `${season}シーズン ${classPart}個人1試合${modeLabel} ${defJa}ランキング`;
-  const filename = buildExportFilename([`個人1試合${modeLabel}`, allTime ? "歴代" : season, defJa, ...(classTitle ? [classTitle] : []), ...conditionLabels]);
+  const exportTitle = allTime ? `歴代 ${classPart}個人1試合${modeLabel} ${defJa}ランキング` : `${season}シーズン ${classPart}個人1試合${modeLabel} ${defJa}ランキング`;
+  const title = allTime ? `歴代 個人1試合${modeLabel} ${defJa}ランキング` : `${season}シーズン 個人1試合${modeLabel} ${defJa}ランキング`;
+  const filename = buildExportFilename([`個人1試合${modeLabel}`, allTime ? "歴代" : season, defJa, ...(classTitle ? [classTitle] : []), ...exportConditionLabels]);
   const minNote = playerGameRecordMinMadeNote(def.key, period ? { key: period, label: period === "ot" ? "延長" : period === "clutch" ? "クラッチ" : period === "h1" ? "前半" : period === "h2" ? "後半" : `${period.slice(1)}Q` } : undefined);
   const seasonOf = (e: PlayerRecordRow) => e.season ?? season;
   const periodNotes = period && result ? { overtime: period === "ot", shortGames: result.periodShortGames ?? 0, noRecordGames: result.periodNoRecordGames ?? 0, noPlusMinus: result.excludedNoPlusMinus ?? 0 } : undefined;
@@ -353,7 +358,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
             ranking={{ media: "写真", unit: "件", top: RANK_TOP_N }}
           />
           <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-player export-target-teamcol" baseDate={baseDateOf(allTime, season, gameType)}>
-            <ConditionTitle title={title} conditions={conditionLabels} statConditions={statConditionsTitle(statConditions, PLAYER_STAT_CONDITION_ITEMS)} />
+            <ConditionTitle title={title} conditions={conditionLabels} exportTitle={exportTitle} exportConditions={exportConditionLabels} statConditions={statConditionsTitle(statConditions, PLAYER_STAT_CONDITION_ITEMS)} />
             <PlayerNamePool names={entries.map((e) => e.playerName)}>
               <RankedList
                 rows={entries}
@@ -367,7 +372,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
                 renderValue={(e) => <RecordValue text={formatPlayerGameRecordValue(def, e.value)} fraction={playerGameRecordFraction(e)} />}
                 tieKey={tieKeyWithMade}
                 rowKey={(e) => `${e.scheduleKey}-${e.playerId}`}
-                name={(e) => <ResponsivePlayerName name={e.playerName} lineFirst />}
+                name={(e) => <ResponsivePlayerName name={e.playerName} exportLineFirst />}
                 subLabel={(e) => <PlayerGameRecordLine e={e} season={seasonOf(e)} showPosition={positions.length > 0} />}
                 linkTo={(e) => `/players/${e.playerId}?season=${seasonOf(e)}`}
                 subLinkTo={(e) => `/games/${e.scheduleKey}?season=${seasonOf(e)}`}

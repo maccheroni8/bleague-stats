@@ -81,6 +81,7 @@ import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING } from "../
 import {
   buildExportFilename,
   classificationLabels,
+  classificationConditionLabels,
   composeLabels,
   displayModeLabels,
   eligibilityLabels,
@@ -1033,27 +1034,32 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
         : filterIgnoredForItem
           ? composeLabels(gameTypeLabels("regular", null), SITUATIONAL_DEFAULT_LABEL, "試合全体", "※この項目はフィルタ対象外")
           : composeLabels(gameTypeLabels(gameType, season), situationalFilterLabels(filter), periodLabels(periodOption), roleLabels(role, rolePercent));
+  // 条件の行: 画面は今までどおり（「登録区分: 日本人」を書く）。保存画像はタイトルの頭に区分名を付け、差で並べているときは「差の大きい順」を足す（DESIGN.md 472章）
+  const playerConditions = (forExport: boolean) =>
+    composeLabels(
+        playerCategoryLabel,
+        compareActive && COMPARE_LABEL,
+        // 前シーズン比較で「差」を並べ替えの基準にしているとき（保存画像だけ。画面は変えない）
+        forExport && compareActive && diffSortDir ? (diffSortDir === "desc" ? "差の大きい順" : "差の小さい順") : [],
+        // Career は、そのシーズンの登録選手を、そのシーズン終了時点の累計で並べる（通算記録の「歴代」と区別する。DESIGN.md 193章）
+        category === "career" ? "シーズン終了時点の累計" : [],
+        // 登録区分は選手名の下に書かないので、指定したときはタイトルの下の行に書く（「全選手」は書かない。DESIGN.md 170章）
+        forExport ? classificationConditionLabels(selectedClassification) : classificationLabels(selectedClassification),
+        // ポジションは選択肢が9つだけなので、選んだものを省略せずに全部書く（「他N」にしない。DESIGN.md 178章）
+        multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positions), "全ポジション", Infinity),
+        // 平均/合計は初期値（平均）でも必ず書く（画像だけ見ても分かるように。初期値を書かないルールの例外。DESIGN.md 179章）。
+        // 切り替えの対象外の項目（割合・Profile・Career）では書かない
+        modeApplies ? displayModeLabels(rankMode) : [],
+        playerScopeLabels,
+        registeredTarget ? "登録選手" : overtimeActive ? (subsetEligibilityLabel(period) ?? OVERTIME_ELIGIBILITY_LABEL) : eligibilityLabels({ gamesRatio, achievable, extra: extraRule, extraThreshold }),
+      );
+  const playerStatJa = statJa(selectedItem.label);
+  const playerScreenTitle = makeRankingTitle("個人", season, playerStatJa, playerConditions(false));
   const playerTitle = makeRankingTitle(
     "個人",
     season,
-    statJa(selectedItem.label),
-    composeLabels(
-      playerCategoryLabel,
-      compareActive && COMPARE_LABEL,
-      // 前シーズン比較で「差」を並べ替えの基準にしているとき（保存画像でも分かるように）
-      compareActive && diffSortDir ? (diffSortDir === "desc" ? "差の大きい順" : "差の小さい順") : [],
-      // Career は、そのシーズンの登録選手を、そのシーズン終了時点の累計で並べる（通算記録の「歴代」と区別する。DESIGN.md 193章）
-      category === "career" ? "シーズン終了時点の累計" : [],
-      // 登録区分は選手名の下に書かないので、指定したときはタイトルの下の行に書く（「全選手」は書かない。DESIGN.md 170章）
-      classificationLabels(selectedClassification).filter((l) => !l.startsWith("登録区分:")),
-      // ポジションは選択肢が9つだけなので、選んだものを省略せずに全部書く（「他N」にしない。DESIGN.md 178章）
-      multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positions), "全ポジション", Infinity),
-      // 平均/合計は初期値（平均）でも必ず書く（画像だけ見ても分かるように。初期値を書かないルールの例外。DESIGN.md 179章）。
-      // 切り替えの対象外の項目（割合・Profile・Career）では書かない
-      modeApplies ? displayModeLabels(rankMode) : [],
-      playerScopeLabels,
-      registeredTarget ? "登録選手" : overtimeActive ? (subsetEligibilityLabel(period) ?? OVERTIME_ELIGIBILITY_LABEL) : eligibilityLabels({ gamesRatio, achievable, extra: extraRule, extraThreshold }),
-    ),
+    playerStatJa,
+    playerConditions(true),
     selectedClassification !== "all" && classPartOf(selectedClassification) !== "all" ? classificationFilterLabel(selectedClassification) : undefined,
   );
 
@@ -1281,8 +1287,10 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
             className={`export-target-compact export-target-rankings-player export-target-teamcol${comparison ? " export-target-compare" : ""}${related ? " export-target-related" : ""}${related && related.labels.length >= 3 ? " export-target-related3" : ""}`}
           >
             <ConditionTitle
-              title={playerTitle.title}
-              conditions={playerTitle.conditions}
+              title={playerScreenTitle.title}
+              conditions={playerScreenTitle.conditions}
+              exportTitle={playerTitle.title}
+              exportConditions={playerTitle.conditions}
               statConditions={statConditionsTitle(statConditions, conditionItems)}
             />
             {profileBaseDateLabel && <p className="rule-change-footnote ranking-base-date">{profileBaseDateLabel}</p>}
