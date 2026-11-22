@@ -152,13 +152,14 @@ export function playerScoringCompositionColumns(): Column<PlayerOpponentRow>[] {
   const hasPaintSplit = (r: PlayerOpponentRow) => r.ctx.raw.paint2a + r.ctx.raw.mid2a > 0;
   const total = (r: PlayerOpponentRow) => share(r).pct.reduce((a, b) => a + b, 0);
   return [
-    pctColumn("pct3p", "%3P", (r) => (total(r) > 0 ? share(r).pct[0]! : null)),
-    pctColumn("pctft", "%FT", (r) => (total(r) > 0 ? share(r).pct[1]! : null)),
-    pctColumn("pctpoutp", "%PoutP", (r) => (total(r) > 0 ? share(r).pct[2]! : null)),
-    pctColumn("pitppct", "PITP%", (r) => (total(r) > 0 ? share(r).pct[3]! : null)),
-    pctColumn("pct3pafga", "3PA/FGA", (r) => (r.ctx.raw.fga > 0 ? fga(r).pct[0]! : null)),
-    pctColumn("pctmid2afga", "MID2A/FGA", (r) => (hasPaintSplit(r) ? fga(r).pct[1]! : null)),
-    pctColumn("pctpaint2afga", "PAINT2A/FGA", (r) => (hasPaintSplit(r) ? fga(r).pct[2]! : null)),
+    pctColumn("pitppct", "%PTSPITP", (r) => (total(r) > 0 ? share(r).pct[3]! : null)),
+    pctColumn("midptspct", "%PTSMID", (r) => (total(r) > 0 ? share(r).pct[2]! : null)),
+    pctColumn("pct3p", "%PTS3P", (r) => (total(r) > 0 ? share(r).pct[0]! : null)),
+    pctColumn("pctft", "%PTSFT", (r) => (total(r) > 0 ? share(r).pct[1]! : null)),
+    pctColumn("pct2p", "%PTS2P", (r) => (total(r) > 0 ? share(r).pct[2]! + share(r).pct[3]! : null)),
+    pctColumn("pct3pafga", "%FGA3P", (r) => (r.ctx.raw.fga > 0 ? fga(r).pct[0]! : null)),
+    pctColumn("pctmid2afga", "%FGAMID2", (r) => (hasPaintSplit(r) ? fga(r).pct[1]! : null)),
+    pctColumn("pctpaint2afga", "%FGAPAINT2", (r) => (hasPaintSplit(r) ? fga(r).pct[2]! : null)),
   ];
 }
 

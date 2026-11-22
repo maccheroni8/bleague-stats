@@ -173,7 +173,7 @@ export const PLAYER_CAREER_TOTAL_DEFS: PlayerCareerTotalDef[] = [
   // 被アシスト率（得点のうち、アシストされた得点の割合。シーズン成績の %PTS ASTED と同じ定義）。通算得点が最低得点に届かない選手は順位に載せない
   {
     key: "astedPct",
-    label: "%PTS ASTED",
+    label: "%PTSAST",
     value: (t) => safeDiv(t.assistedPts, t.pts),
     kind: "pct",
     eligible: (t) => t.pts >= PLAYER_CAREER_ASTED_MIN_POINTS,

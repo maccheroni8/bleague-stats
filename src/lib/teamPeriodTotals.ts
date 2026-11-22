@@ -150,6 +150,9 @@ export function sumTeamPeriodTotals(
         ma: count("mid2a"),
         tm: count("pt2m"),
         ta: count("pt2a"),
+        pts: count("pts"),
+        tpm: count("pt3m"),
+        ftm: count("ftm"),
       };
     };
     paintPairs.push({ own: paintSide(own), opp: paintSide(opp), win: g.win });

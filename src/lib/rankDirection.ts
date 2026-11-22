@@ -31,13 +31,13 @@ const NEUTRAL_COMPOSITION_KEYS = new Set([
 
 /**
  * 良し悪しなしのうち、チーム詳細・比較では「色なしで、多い順の順位だけ」出す項目（DESIGN.md 408章）。
- * ベンチ／スターター得点・登録区分別の得点とその割合・%3P・%PoutP・%FT・%OPA。ランキングの並べ替えは今まで通り（多い順・色なし）。
+ * ベンチ／スターター得点・登録区分別の得点とその割合・%PTS3P・%PTS2P・%PTSFT・%FGAOPA。ランキングの並べ替えは今まで通り（多い順・色なし）。
  * G・GS・MIN・POSS・PACE・USG%・ほかの構成比・アシストの分け方などは順位も出さない
  */
 const RANK_ONLY_KEYS = new Set([
   "benchpts", "starterpts", "japanesepts3", "internationalpts3", "foreignpts3", "naturalizedasiapts3",
   "pctbenchpts", "pctstarterpts", "pctjapanese3", "pctinternational3", "pctforeign3", "pctnaturalizedasia3",
-  "pct3p", "pctpoutp", "pctft", "pctopa",
+  "pct3p", "pct2p", "pctft", "pctopa",
 ]);
 
 /** 良し悪しなしだが、色なしで順位だけ出す項目か（多い順が1位。opp・+/- の視点でも多い順） */
@@ -95,6 +95,6 @@ export const RANK_DIRECTION_GLOSSARY: { direction: RankDirection; title: string;
   {
     direction: "neutral",
     title: "良し悪しがない（多い順に並べるが、良い・悪いの色は付けない）",
-    items: "G・GS・MIN・POSS・PACE、USG%、構成比・内訳（%PTS・%FGM・%3PA などの「%」で始まる項目、PITP%・MID PTS%・FBP%・2ND PTS%・PTSOFFTO%、AST2PM・SELF2PM・ASTFGM・ASTPTS などアシストの有無の分け方、BENCH／STARTER PTS、日本人・外国籍・帰化・アジア特別枠の PTS とその割合、%3P・%PoutP・%FT・%OPA）。このうち、ベンチ／スターター・登録区分別の PTS とその割合、%3P・%PoutP・%FT・%OPA は、チーム詳細と比較ページで色なしの順位だけ出します（多い順が1位）。",
+    items: "G・GS・MIN・POSS・PACE、USG%、構成比・内訳（%PTS・%FGM・%3PA などの「%」で始まる項目、%PTSPITP・%PTSMID・%PTSFBP・%PTS2ND・%PTSOFFTO、AST2PM・SELF2PM・ASTFGM・ASTPTS などアシストの有無の分け方、BENCH／STARTER PTS、日本人・外国籍・帰化・アジア特別枠の PTS とその割合、%PTS3P・%PTS2P・%PTSFT・%FGAOPA）。このうち、ベンチ／スターター・登録区分別の PTS とその割合、%PTS3P・%PTS2P・%PTSFT・%FGAOPA は、チーム詳細と比較ページで色なしの順位だけ出します（多い順が1位）。",
   },
 ];

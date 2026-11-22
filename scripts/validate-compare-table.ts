@@ -114,7 +114,7 @@ for (const tab of ["traditional", "advanced", "misc", "scoring"] as const) {
     }
   }
   const scoring = teamCompareDefs("scoring", "own", false).map((d) => d.label);
-  eq("残した名前がある（PITP%・%PAINT2A）", [scoring.includes("PITP%"), scoring.includes("%PAINT2A")], [true, true]);
+  eq("残した名前がある（%PTSPITP・%FGAPAINT2）", [scoring.includes("%PTSPITP"), scoring.includes("%FGAPAINT2")], [true, true]);
 }
 
 // --- チームの比較: 強調が値の比較どおりであること（value を持たない列が無いこと。DESIGN.md 238章） ---
@@ -310,11 +310,16 @@ for (const season of seasonsOnDisk) {
     expectNear(`${label} 外国籍・帰化・アジア PTS`, v(ownMisc, "internationalPts3"), a.internationalPointsPerGame);
     expectNear(`${label} %日本人 PTS`, v(ownScoring, "pctjapanese3"), a.japanesePointsSharePct);
     expectNear(`${label} %外国籍・帰化・アジア PTS`, v(ownScoring, "pctinternational3"), a.foreignPointsSharePct + a.naturalizedOrAsianPointsSharePct);
-    expectNear(`${label} %3P`, v(ownScoring, "pct3p"), a.threePointPointsSharePct);
+    // 得点の割合は、内訳の記録がそろった試合だけで数える（468章）。teams.json の値は全試合の合計なので、記録がそろわない試合（1810）を含むチームは比べない
+    const noBreakdown = logs.some((g) => g.maxLead === undefined);
+    if (!noBreakdown) expectNear(`${label} %PTS3P`, v(ownScoring, "pct3p"), a.threePointPointsSharePct);
     // ペイント内得点の割合は PITP% 1つにまとめた（旧 %PinP。チーム詳細の元データ paintPointsSharePct と同じ値。DESIGN.md 236章）
-    expectNear(`${label} PITP%（旧 %PinP）`, v(ownScoring, "pitppct"), a.paintPointsSharePct);
-    expectNear(`${label} %PoutP`, v(ownScoring, "pctpoutp"), a.midRangePointsSharePct);
-    expectNear(`${label} %FT`, v(ownScoring, "pctft"), a.ftPointsSharePct);
+    if (!noBreakdown) {
+      expectNear(`${label} %PTSPITP（旧 %PinP）`, v(ownScoring, "pitppct"), a.paintPointsSharePct);
+      expectNear(`${label} %PTSMID（旧 %PoutP）`, v(ownScoring, "midptspct"), a.midRangePointsSharePct);
+      expectNear(`${label} %PTSFT`, v(ownScoring, "pctft"), a.ftPointsSharePct);
+      expectNear(`${label} 4つの得点の割合の合計`, v(ownScoring, "pitppct") + v(ownScoring, "midptspct") + v(ownScoring, "pct3p") + v(ownScoring, "pctft"), 100);
+    }
     // ①opp
     expectNear(`${label} opp FTR`, v(oppAdv, "ftr"), team.opponentShooting.ftRate);
     expectNear(`${label} opp OR%`, v(oppAdv, "orbpct"), a.opponentOrbPct);
@@ -322,8 +327,10 @@ for (const season of seasonsOnDisk) {
     expectNear(`${label} opp STARTER PTS`, v(oppMisc, "starterPts"), a.opponentStarterPointsPerGame);
     expectNear(`${label} opp 日本人 PTS`, v(oppMisc, "japanesePts3"), a.opponentJapanesePointsPerGame);
     expectNear(`${label} opp 外国籍・帰化・アジア PTS`, v(oppMisc, "internationalPts3"), a.opponentInternationalPointsPerGame);
-    expectNear(`${label} opp %3P`, v(oppScoring, "pct3p"), a.opponentThreePointPointsSharePct);
-    expectNear(`${label} opp PITP%（旧 %PinP）`, v(oppScoring, "pitppct"), a.opponentPaintPointsSharePct);
+    if (!noBreakdown) {
+      expectNear(`${label} opp %PTS3P`, v(oppScoring, "pct3p"), a.opponentThreePointPointsSharePct);
+      expectNear(`${label} opp %PTSPITP（旧 %PinP）`, v(oppScoring, "pitppct"), a.opponentPaintPointsSharePct);
+    }
     // ペイント内の試投の割合は %PAINT2A 1つにまとめた（旧 %IPA＝チーム詳細の 100×PAINT2A÷チームの FGA〔teams.json の totals.fga〕）
     {
       const fga = team.totals.fga;
@@ -332,8 +339,10 @@ for (const season of seasonsOnDisk) {
       expectNear(`${label} opp %PAINT2A（旧 opp %IPA）`, v(oppScoring, "pctpaint2a"), (100 * totals.oppPaint2a) / oppFga);
       expectNear(`${label} %OPA＋%PAINT2A＝100`, v(ownScoring, "pctopa") + v(ownScoring, "pctpaint2a"), 100);
     }
-    expectNear(`${label} opp %PoutP`, v(oppScoring, "pctpoutp"), a.opponentMidRangePointsSharePct);
-    expectNear(`${label} opp %FT`, v(oppScoring, "pctft"), a.opponentFtPointsSharePct);
+    if (!noBreakdown) {
+      expectNear(`${label} opp %PTSMID`, v(oppScoring, "midptspct"), a.opponentMidRangePointsSharePct);
+      expectNear(`${label} opp %PTSFT`, v(oppScoring, "pctft"), a.opponentFtPointsSharePct);
+    }
     // ②合計（選手の得点の合計がチーム得点と合わない既知の試合を除く）
     const clean = logs.filter((g) => !KNOWN_PLAYER_SUM_GAPS.has(`${season}:${g.scheduleKey}`));
     const cleanItem = itemOf(sumTeamGameLogs(clean), clean.length);
@@ -355,7 +364,7 @@ for (const season of seasonsOnDisk) {
       for (const tab of TEAM_TABS) {
         for (const perspective of ["own", "opp"] as const) {
           const defs = teamDefsFor(tab, perspective);
-          for (const key of ["ftr", "orbpct", "pitppct", "fbppct", "2ndptspct", "ptsofftovpct", "pctpaint2m", "pctpaint2a", "pctmid2m", "pctmid2a", "pct3p", "pctpoutp", "pctft", "pctopa"]) {
+          for (const key of ["ftr", "orbpct", "pitppct", "midptspct", "pct2p", "fbppct", "2ndptspct", "ptsofftovpct", "pctpaint2m", "pctpaint2a", "pctmid2m", "pctmid2a", "pct3p", "pctft", "pctopa"]) {
             const d = defs.get(key);
             if (!d) continue;
             // 画面に出る値（小数第2位まで）で比べる。2016-17・2020-21 は、ペイント内外の試投・成功だけ、平均の元（試合の生データ）と
@@ -367,7 +376,11 @@ for (const season of seasonsOnDisk) {
             const shownLeague = Number.parseFloat(d.format(fromLeague));
             const shownLogs = Number.parseFloat(d.format(fromLogs));
             const withinKnownGap = paintKnownGap && Number.isFinite(shownLeague) && Number.isFinite(shownLogs) && Math.abs(shownLeague - shownLogs) <= 0.01 + 1e-9;
-            if (d.format(fromLeague) !== d.format(fromLogs) && !withinKnownGap) {
+            // 得点の割合は、試合ログの合計の側だけ「内訳の記録がそろった試合の得点」が分母（468章）。リーグ平均の元は全試合の合計なので、
+            // 記録がそろわない試合（2017-18 の1810）があるシーズンだけ、0.1pt 未満の差が出る
+            const breakdownGap =
+              season === "2017-18" && ["pitppct", "midptspct", "pct2p", "fbppct", "2ndptspct", "ptsofftovpct", "pct3p", "pctft"].includes(key) && Number.isFinite(shownLeague) && Number.isFinite(shownLogs) && Math.abs(shownLeague - shownLogs) < 0.1;
+            if (d.format(fromLeague) !== d.format(fromLogs) && !withinKnownGap && !breakdownGap) {
               mismatches.push(`${season} リーグ平均 ${perspective} ${d.label}: 平均から ${d.format(fromLeague)} / 試合ログから ${d.format(fromLogs)}`);
             }
           }

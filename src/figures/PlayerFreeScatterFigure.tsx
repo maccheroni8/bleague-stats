@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { teamShortName } from '../../shared/teamNames';
 import { TeamChipList } from '../components/TeamChip';
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from '../../shared/gameType';
+import { canonicalStatKey } from '../lib/statKeyAliases';
 import { enumParam, numberParam, situationalParam, useUrlState, type UrlCodec } from '../lib/urlState';
 import { venueAxis, venueCodec, venueConditionLabel } from '../lib/figureVenue';
 import { defaultInvert, invertCodec, invertedName } from '../lib/figureInvert';
@@ -51,7 +52,7 @@ const rangeCodec: UrlCodec<SituationalFilter> = {
 const gameCodec = { ...enumParam<SeasonGameTypeFilter>('gt', ['regular', 'playoff', 'both'], 'regular'), read: GAME_TYPE_PARAM.read };
 const itemCodec = (key: string, fallback: string): UrlCodec<string> => ({
   keys: [key],
-  read: p => p.get(key) ?? undefined,
+  read: p => { const v = p.get(key); return v === null ? undefined : canonicalStatKey(v); },
   write: (p, v) => { if (v !== fallback) p.set(key, v); },
 });
 const yCodec = itemCodec('py', DEFAULT_PLAYER_FREE_Y);

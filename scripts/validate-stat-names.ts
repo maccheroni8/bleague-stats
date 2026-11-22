@@ -169,6 +169,8 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 const SRC = path.resolve(process.cwd(), "src"); // npm run はリポジトリのルートで実行する
+// 保存キーの対象の個人の列の定義に残る旧い見出し（見出しは playerSelfColumns.ts が画面で新しい名前に直す。465・468章）
+const KEYED_FILE_RENAMED = new Set(["AST2M", "AST3M", "%PTS ASTED", "3PM/FGA", "3PA/FGA", "PAINT2M/FGA", "PAINT2A/FGA", "MID2M/FGA", "MID2A/FGA"]);
 const SOURCE_EXEMPT = new Set(["lib/statNames.ts"]);
 // label: "X" / label="X" / >X<（見出しの文字列）/ statDescription("X")
 const found: string[] = [];
@@ -182,7 +184,7 @@ for (const file of walk(SRC)) {
     const code = line.replace(/\/\/.*$/, "");
     for (const alias of aliasKeys) {
       // 保存キーの対象の個人の列の定義は、AST2M・AST3M のまま（見出しは playerSelfColumns.ts が AST2PM・AST3PM に直す。465章）
-      if (rel === "lib/playerSeasonBoxscore.ts" && (alias === "AST2M" || alias === "AST3M")) continue;
+      if (rel === "lib/playerSeasonBoxscore.ts" && KEYED_FILE_RENAMED.has(alias)) continue;
       const esc = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const patterns = [
         new RegExp(`label\\s*[:=]\\s*["'\`]${esc}["'\`]`),

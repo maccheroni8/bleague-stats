@@ -26,6 +26,7 @@ import { ONE_RANKING_FORCED_TOV_REASON, ONE_RANKING_SHOOTING_REASON } from '../l
 import { TEAM_PERSPECTIVE_LABELS } from '../lib/teamStatsColumns';
 import { useTeamLabel } from '../lib/teamLabel';
 import { teamShortName } from '../../shared/teamNames';
+import { canonicalStatKey } from '../lib/statKeyAliases';
 import { FilterBar } from '../components/FilterBar';
 import { ExportTarget } from '../components/ExportTarget';
 import { ConditionTitle } from '../components/ConditionTitle';
@@ -50,7 +51,7 @@ const LEGACY_X: Record<string, string> = { fga: 'traditional.fga', '2pa': 'tradi
 const LEGACY_Y: Record<string, string> = { fg: 'traditional.fgpct', '2p': 'traditional.2ppct', '3p': 'traditional.3ppct', ft: 'traditional.ftpct', efg: 'advanced.efg', ts: 'advanced.ts' };
 const itemCodec = (key: string, legacyKey: string, legacy: Record<string, string>, fallback: string): UrlCodec<string> => ({
   keys: [key, legacyKey],
-  read: p => p.get(key) ?? legacy[p.get(legacyKey) ?? ''],
+  read: p => { const v = p.get(key); return v !== null ? canonicalStatKey(v) : legacy[p.get(legacyKey) ?? '']; },
   write: (p, v) => { if (v !== fallback) p.set(key, v); },
 });
 const invXCodec = invertCodec('fxi'), invYCodec = invertCodec('fyi');

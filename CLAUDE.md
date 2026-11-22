@@ -225,6 +225,8 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 464章: **「記録のある試合数」の列は画面・保存画像から隠す**（`withoutCoverageColumn`。値・順位の仕組み・md は残す）。**良し悪しのない項目の色は緑・赤に戻した**（緑・赤は、良し悪しのある項目では良し悪し、良し悪しのない項目では多い・少ない）。**画面だけの変更でキー不変**
 - 465〜467章: **アシスト・セルフの成功数の表記を AST2PM・AST3PM・ASTFTM・SELF2PM・SELF3PM・SELFFTM に変更**（割合は 2PM %SELF などに大文字化。列のキー・URL・保存した設定・保存キー対象のファイルの文字列は古い表記のまま。古い表記は `STAT_ALIASES` で読み替え。個人の見出しは `playerSelfColumns.ts` が直す）、
   **新4項目 ASTFGM・SELFFGM・ASTPTS・SELFPTS**（ASTPTS＋SELFPTS＝PTS・ASTFGM＋SELFFGM＝FGM。1810 は「-」で合計・平均から外す）、**MID PTS・MID PTS%**（MID2M×2・÷PTS。Misc の PITP の右・Scoring の PITP% の右）。個人の Misc の列は `src/lib/playerColumnsView.ts` の `seasonBoxColumnsFor` を使う。**画面だけの変更でキー不変**
+- 468章: **割合の名前は公式の書き方（前に % ＝割合「%＋分母＋中身」、後ろに % ＝成功率・率）**（%PTSPITP・%PTSMID〔旧 %PoutP と MID PTS%〕・%PTS3P・%PTSFT・%PTS2P・%PTSFBP・%PTS2ND・%PTSOFFTO・%PTSAST・%PTSSELF・%FGM3P・%FGA3P・%FGAPAINT2・%FGAMID2・%FGAOPA など。列のキー・URL・保存した設定は古いまま、旧名は `STAT_ALIASES`、旧キー pctpoutp は `statKeyAliases.ts`）。
+  **得点の割合の分母は内訳の記録がそろった試合の得点**（`pointsShareValue`。ペイント内＋ミッドレンジ＋3P＋FT＝100%）。個人の %PTS・%FGM などは分母が出場中の自チームのまま（用語集に公式との違いを明記）。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
@@ -318,7 +320,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   （列定義や各ページに説明文を書かない。項目を足したら辞書にも足す。設計書136章）
 - **項目名の方針**（設計書236・237章。名前は `src/lib/statNames.ts` の辞書1か所が正。項目を足したら辞書に略称と日本語名を足し、`npm run validate:stat-names` を通す）: ①同じ値になる項目は、画面ごとに別の名前で出さず**1つの名前にまとめる**（項目を足す前に、既にある項目と値が同じでないかを確かめる。
   全チームスタッツ・チーム詳細・全選手スタッツ・個人詳細・ランキング・記録・比較・スタッツの条件・用語集のすべてで同じ名前）。
-  ②名前は**同じ並び（同じ分母・同じ種類）の項目にそろえる**（総得点に対する割合は PITP%・FBP%・2ND PTS%・PTSOFFTO%、FGAに対する割合は %PAINT2M・%PAINT2A・%MID2M・%MID2A）。
+  ②名前は**同じ並び（同じ分母・同じ種類）の項目にそろえる**（総得点に対する割合は %PTSPITP・%PTSFBP・%PTS2ND・%PTSOFFTO、FGAに対する割合は %FGAPAINT2M・%FGAPAINT2・%FGAMID2M・%FGAMID2）。
   ③まとめる前に、定義が同じか全シーズンで値を確かめる（`npm run validate:compare-table` の実データの確認）。④外す名前が URL・保存状態に残っているなら、残す名前に読み替えて開けるようにする。
   補数（%OPA＝100−%PAINT2A）や定数倍（PITP＝2×PAINT2M）の関係は、同じ値ではないので別項目として残す
 - 時間（MIN・出場時間・平均出場時間など）の表示は、小数の分（28.5）や「28分」ではなく、**「分:秒」（28:30）に統一する**（表・ランキング・比較・前シーズン比較・

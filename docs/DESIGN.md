@@ -17462,3 +17462,28 @@ X に地区ごとに投稿するための画像。「全地区まとめて1枚�
   `playerSeasonBoxscore.ts`（保存キーの対象）は書き換えていない。
 - **順位・色**: MID PTS は多いほど良い（PITP と同じ）、MID PTS% は良し悪しなし（PITP% と同じ。464章の緑・赤）。
 - 検証: `validate:self-scoring`（MID PTS＝MID2M×2・個人の MID PTS%）・`validate:rank-direction`・`validate:team-paint2`。
+
+## 468. 割合の項目の名前を公式の書き方にそろえた・得点の割合の分母（2026-11-22。**画面だけの変更でキー不変**）
+
+B.LEAGUE 公式の用語集（bleague.jp/glossary）の書き方に合わせる。**前に「%」が付く項目は割合（「%＋分母＋中身」）、後ろに「%」が付く項目は成功率または率**。
+
+- **名前の変更**（表示名だけ。古い名前は `statNames.ts` の `STAT_ALIASES` に残し、URL・保存した設定の列のキーは変えない）:
+  - 得点の割合: PITP%→**%PTSPITP**、MID PTS%・%PoutP→**%PTSMID**（1つにまとめた）、%3P→**%PTS3P**、%FT→**%PTSFT**、FBP%→**%PTSFBP**、2ND PTS%→**%PTS2ND**、PTSOFFTO%→**%PTSOFFTO**、
+    %BENCH PTS・%STARTER PTS→**%PTSBENCH・%PTSSTARTER**、%日本人 PTS・%外国籍・帰化・アジア PTS・%外国籍 PTS・%帰化・アジア特別枠 PTS→**%PTS日本人・%PTS外国籍・帰化・アジア・%PTS外国籍・%PTS帰化・アジア特別枠**、
+    %PTS ASTED・%PTS SELF→**%PTSAST・%PTSSELF**、2PM %AST・%SELF（3PM・FGM・FTM も）→**%2PMAST・%2PMSELF**（**%3PMAST・%FGMAST・%FTMAST** なども同じ形）。
+  - FGM・FGA に占める割合（チーム）: %3PM・%2PM→**%FGM3P・%FGM2P**（公式の %3PM は選手のチーム内比率で別の意味だったため）、%3PA・%2PA→**%FGA3P・%FGA2P**、%PAINT2A・%MID2A→**%FGAPAINT2・%FGAMID2**、
+    %PAINT2M・%MID2M→**%FGAPAINT2M・%FGAMID2M**、%OPA→**%FGAOPA**。
+  - 個人の「自分のFGAに占める割合」: 3PA/FGA→**%FGA3P**（チームと同じ名前・同じ形）、3PM/FGA→**%FGA3PM**、PAINT2M/FGA→**%FGAPAINT2M**（チームの %PAINT2M と同じ値だったので統一）、PAINT2A/FGA→**%FGAPAINT2**、MID2M/FGA→**%FGAMID2M**、MID2A/FGA→**%FGAMID2**。
+  - **変えなかったもの**: 後ろに % の率の項目（TOV%・USG%・OR%・AST%・LIVE TOV%・DEAD TOV%・Time to Shot の割合・OC0〜OC4%）、個人の %PTS・%FGM・%FGA・%3PM・%3PA・%2PM・%2PA・%FTM・%FTA（分母は今の「出場中の自チーム」・式もそのまま。値は変わらない）。用語集に「名前の中の % の位置」を足し、後者は公式の同名の項目とのちがい（分母がチーム全体・%FGM は式も違う）を明記した。
+- **保存キーの対象のファイルの文字列は変えていない**（`playerSeasonBoxscore.ts` の「%PTS ASTED」「3PM/FGA」など、`shared/playerGameRecords.ts` の「%PTS ASTED」）。表示名は `playerSelfColumns.ts` が画面で直す（`RENAMED_LABELS`。列オブジェクトの `label`・`PLAYER_GAME_RECORD_STATS` の `label` を書き換える）。`validate:stat-names` はその見出しだけを例外にした。
+- **古いキーの読み替え**: %PoutP は %PTSMID にまとめたので、列のキー `pctpoutp` を `midptspct` に読み替える（`src/lib/statKeyAliases.ts` の `canonicalStatKey`。ランキングの `stat=`・図解の散布図の軸 `fx`・`fy`・`px`・`py`〔「カテゴリ.キー」の形も〕）。保存した図の設定は URL と同じ中身なので同じ読み替えで開く。
+- **得点の割合の分母を、内訳の記録がそろった試合の得点にそろえた**（%PTSPITP・%PTSMID・%PTS3P・%PTSFT・%PTS2P・%PTSFBP・%PTS2ND・%PTSOFFTO。`teamPaint2.ts` の `PaintSide` に試合の得点・3PM・FTM の合計を足し、`pointsShareValue`・`paintValidPoints` で出す。
+  `teamStatsColumns.ts` の `pointsShareColumn`・`otherPointsShareColumn`。内訳の対象が1試合も無い合計は、全試合の合計の式〔従来〕に戻る）。記録がそろった試合では、ペイント内＋ミッドレンジ＋3P＋FT＝得点なので、**4つの合計は必ず100%**。
+  以前の差（1810 を含む 2017-18 の2チーム〔704・706〕。1810 はペイント内外の内訳が0で、%PoutP は 2P得点−PITP なのでその試合の2P得点が全部ミッドレンジに入り、MID PTS% は分母に1810の得点が入って小さくなっていた）はこれで消える。
+  個人は、1810 に出て点を取った選手だけ %PTSPITP・%PTSMID を「-」にする（Self と同じ扱い。`playerSelfUnavailable`）。%PTS3P・%PTSFT・%PTS2P は常に出す。**保存する値・保存キーは変えていない**（分母は試合ログの試合ごとの値から画面で足す）。
+  teams.json の割合（teamScoringShare 等・円グラフ）と league-compare.json（リーグ平均）は全試合の合計のままなので、2017-18 のリーグ平均だけ試合ログの合計と 0.06pt ほど違う（検証は許容した）。
+- **並び**（チームの Scoring・個人の Scoring）: **%PTSPITP・%PTSMID・%PTS3P・%PTSFT**（チームは Scoring の先頭、個人は %FTA の右）、その右に **%PTS2P**、続けて（チームは）%PTSFBP・%PTS2ND・%PTSOFFTO。
+  %PTS3P・%PTSFT・%PTS2P は全チームスタッツの Scoring にも出る（これまではランキング・チーム詳細・比較だけ）。`buildPointsShareColumns` は %FGAOPA だけ残した。試合詳細のボックススコア（Scoring）にも同じ5列（流れの記録が無い試合のペイント内・ミッドレンジは「-」）、
+  チーム詳細のシーズン別成績は全チームスタッツと同じ列の式（`seasonScoringColumnText`）、比較は全チームスタッツの式を使い、ボックススコア側の同じキーは外す（`compareShared.ts`）。個人詳細の「対戦相手別」は %PTSPITP・%PTSMID・%PTS3P・%PTSFT・%PTS2P の順。
+- **順位・色**: %PTSPITP・%PTSMID・%PTSFBP などは今までどおり良し悪しなし（緑・赤は多い・少ない）。%PTS2P は %PTS3P・%PTSFT と同じ（チーム詳細・比較では色なしの順位だけ。`RANK_ONLY_KEYS`）。
+- 検証: `validate:stat-names`（旧名が残っていない）・`validate:self-scoring`（個人の %PTSMID・%PTS3P・%PTSFT・%PTS2P の手計算と、4つが PTS と一致）・`validate:compare-table`（4つの合計＝100%。teams.json の値との突き合わせは 1810 を含むチームを除く）・`validate:team-rank-columns`。

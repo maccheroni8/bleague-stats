@@ -11,6 +11,7 @@ import type { StoredGame, TeamGameLog, YahooGamePbp } from "../shared/types";
 import { filterByGameType } from "../shared/gameType";
 import { readAllGames, readJson, DATA_DIR } from "./lib/storage";
 import { buildTeamMultiGameBoxTotals } from "../src/lib/playerSeasonBoxscore";
+import { paintOf, withPaint } from "../src/lib/teamPaint2";
 import { buildTeamCategoryColumns } from "../src/lib/teamSeasonRanking";
 import { sumTeamGameLogs, type AllTeamsRow, type TeamPerspective } from "../src/lib/teamStatsColumns";
 import { sumTeamGameFoulTotals } from "../src/lib/teamPeriodTotals";
@@ -28,7 +29,7 @@ const SEASONS = only ? [only] : ["2026-27", "2025-26", "2023-24", "2021-22", "20
 const NEW_KEYS = new Set([
   "bsr", "eff", "offfoul", "charge", "livetov", "livetovpct",
   "japanesePts3", "internationalPts3", "foreignPts3", "naturalizedAsiaPts3",
-  "pctforeign3", "pctnaturalizedAsia3", "pct3p", "pctpoutp", "pctft", "pctopa",
+  "pctforeign3", "pctnaturalizedAsia3", "pct3p", "pct2p", "midptspct", "pctft", "pctopa",
 ]);
 /** 比較の表に並ぶが順位を付けない項目（良し悪しなし。値の無い列） */
 const NO_RANK_KEYS = new Set(["g", "min", "usg", "paint2games"]);
@@ -80,7 +81,11 @@ async function main(): Promise<void> {
       const boxTotals = buildTeamMultiGameBoxTotals(entries, yahooTurnovers, shotChartSupported, yahooPbpSupported);
       if (!boxTotals) continue;
       const foul = sumTeamGameFoulTotals(source, logs);
-      const totals = { ...sumTeamGameLogs(logs), ...(foul ?? {}) };
+      const baseTotals = sumTeamGameLogs(logs);
+      const totals = { ...baseTotals, ...(foul ?? {}) };
+      // 合計をコピーすると添えた内訳が消えるので、ランキング本体（teamSeasonRanking.ts）と同じく引き継ぐ
+      const paint = paintOf(baseTotals);
+      if (paint) withPaint(totals, paint);
       const row: AllTeamsRow = { team: { teamId: t.teamId, teamName: "" }, gamesPlayed: logs.length, wins: 0, losses: 0, totals };
       const item: TeamCompareColumnData = {
         key: "slot0", label: t.teamId, boxTotals, gamesCount: logs.length,

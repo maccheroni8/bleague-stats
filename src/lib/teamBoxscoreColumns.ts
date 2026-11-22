@@ -21,12 +21,15 @@ const FGA_SHARE: Record<string, (c: BoxscoreCounts) => number> = {
 };
 
 /** ボックススコアのカテゴリタブの列を、チームの表向けに直したもの。自チーム・opp・+/- のどの視点でも、その側の合計から値を出す */
+/** チームの表での名前（選手の %3PM・%3PA などは「個人÷チーム」の別の意味なので、チームは公式の書き方にそろえた名前にする。468章） */
+const TEAM_SHARE_LABELS: Record<string, string> = { pct3pm: "%FGM3P", pct3pa: "%FGA3P", pct2pm: "%FGM2P", pct2pa: "%FGA2P" };
+
 export function teamBoxscoreColumnsFor(tab: BoxscoreTabKey, foulSplit: boolean): BoxscoreColumn[] {
   return boxscoreColumnsFor(tab, foulSplit)
     .filter((col) => !TEAM_HIDDEN_BOXSCORE_COLUMN_KEYS.has(col.key))
     .map((col) => {
       const share = FGA_SHARE[col.key];
       if (!share) return col;
-      return { ...col, format: (c: BoxscoreCounts) => formatPct100(share(c)), value: (c: BoxscoreCounts) => share(c) };
+      return { ...col, label: TEAM_SHARE_LABELS[col.key] ?? col.label, format: (c: BoxscoreCounts) => formatPct100(share(c)), value: (c: BoxscoreCounts) => share(c) };
     });
 }

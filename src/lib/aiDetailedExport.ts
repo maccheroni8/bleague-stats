@@ -126,7 +126,7 @@ const OPP_RULES: Record<Exclude<OpponentKind, 'all'>, string> = {
 // 自チームだけ（相手・差に意味がない、または言い換えになる列）
 const OWN_ONLY = new Set(['G', 'MIN', 'POSS', 'PACE', 'ORtg', 'DRtg', 'NetRtg', '+/-', 'EFF', 'BSR', '記録のある試合数']);
 // 構成の章に移す列（得点・失点構成とまとめる）
-const MOVED_TO_COMPOSITION = new Set(['%3PA', '%2PA', '%PAINT2A', '%MID2A', '日本人 PTS', '外国籍・帰化・アジア PTS', '%日本人 PTS', '%外国籍・帰化・アジア PTS']);
+const MOVED_TO_COMPOSITION = new Set(['%FGA3P', '%FGA2P', '%FGAPAINT2', '%FGAMID2', '日本人 PTS', '外国籍・帰化・アジア PTS', '%PTS日本人', '%PTS外国籍・帰化・アジア']);
 const PERSPECTIVES: [TeamPerspective, string][] = [['own', ''], ['opp', 'opp '], ['diff', '差 ']];
 /** シチュエーション別勝敗で、数え方が名前から分かりにくい項目の名前（画面の名前に意味を足す） */
 const SITUATION_GROUP_LABEL: Record<string, string> = {

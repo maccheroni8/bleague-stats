@@ -361,7 +361,16 @@ export function teamCompareDefs(
   });
   // 全チームスタッツ・チーム詳細にあって、ボックススコアの列定義には無い項目（DESIGN.md 235章）
   const extras = teamLogTotalsDefs(tabKey, perspective, foulSplit);
-  return withTeamOverride(buildTeamCompareDefList(tabKey, perspective, defs, extras));
+  // 同じ項目がボックススコアの列と全チームスタッツの列の両方にあるとき（%PTSMID）は、全チームスタッツの式（内訳の記録がそろった試合の得点が分母）を使う
+  const extraKeys = new Set(extras.map((e) => e.key));
+  return withTeamOverride(
+    buildTeamCompareDefList(
+      tabKey,
+      perspective,
+      defs.filter((d) => !extraKeys.has(d.key)),
+      extras,
+    ),
+  );
 }
 
 function buildTeamCompareDefList(
@@ -460,6 +469,10 @@ function teamLogTotalsDefs(tabKey: BoxscoreTabKey, perspective: TeamPerspective,
     return defsOf([
       ...pick(scoring, [
         "pitppct",
+        "midptspct",
+        "pct3p",
+        "pctft",
+        "pct2p",
         "fbppct",
         "2ndptspct",
         "ptsofftovpct",

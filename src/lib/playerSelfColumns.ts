@@ -4,6 +4,7 @@
 // （SEASON_SCORING_COLUMNS。SEASON_BOX_COLUMNS.scoring と同じ配列）へ、画面側から同じ並びで差し込む。
 // 全選手スタッツ・個人詳細・ランキング・比較・md・図解のどれも、この配列から列を作るので、1か所の差し込みで同じ並びになる。
 // 画面の入口（src/main.tsx）とこの列を使う検証から import する。このファイルを保存キーの対象のファイルから import しないこと。
+import { PLAYER_GAME_RECORD_STATS } from "../../shared/playerGameRecords";
 import { formatDecimal, formatPct100 } from "./format";
 import { countDigits, SEASON_SCORING_COLUMNS, type PlayerSeasonRawTotals, type SeasonBoxscoreColumn } from "./playerSeasonBoxscore";
 import { SELF_COUNT_DEFS, SELF_PCT_DEFS, selfCountsOf, selfPct, selfSplitOf, type SelfShotKind, type ShotMadeSource } from "./selfScoring";
@@ -66,32 +67,67 @@ export const PLAYER_MID_PTS_COLUMN: SeasonBoxscoreColumn = {
   value: (c) => (c.seasonStartYear >= MID_SPLIT_FIRST_YEAR ? c.scaled.mid2m * 2 : 0),
 };
 
-/** 得点に占めるミッドレンジの得点の割合（合計でも平均でも同じ値）。得点が0なら「-」 */
-export const PLAYER_MID_PTS_PCT_COLUMN: SeasonBoxscoreColumn = {
-  key: "midptspct",
-  label: "MID PTS%",
-  format: (c) => (c.seasonStartYear >= MID_SPLIT_FIRST_YEAR && c.raw.pts > 0 ? formatPct100((100 * c.raw.mid2m * 2) / c.raw.pts) : NA),
-  value: (c) => (c.seasonStartYear >= MID_SPLIT_FIRST_YEAR && c.raw.pts > 0 ? (100 * c.raw.mid2m * 2) / c.raw.pts : 0),
+/**
+ * 得点の割合（得点に占める、ペイント内・ミッドレンジ・3P・FT・2Pの得点。合計でも平均でも同じ値。DESIGN.md 468章）。ペイント内＋ミッドレンジ＋3P＋FT＝100%。
+ * 試合の流れの記録が無い試合（2017-18 の1810）で点を取った選手は、ペイント内・ミッドレンジの内訳が数えられないので「-」（Self と同じ扱い）。
+ * 得点が0なら「-」
+ */
+function pointsShareOf(c: { raw: PlayerSeasonRawTotals; seasonStartYear: number }, kind: "pitp" | "mid" | "p3" | "ft" | "p2"): number | null {
+  const r = c.raw;
+  if (!(r.pts > 0)) return null;
+  if ((kind === "pitp" || kind === "mid") && (c.seasonStartYear < MID_SPLIT_FIRST_YEAR || playerSelfUnavailable(r))) return null;
+  const part = kind === "pitp" ? r.pt2in : kind === "mid" ? 2 * r.mid2m : kind === "p3" ? 3 * r.tpm : kind === "ft" ? r.ftm : 2 * (r.fgm - r.tpm);
+  return (100 * part) / r.pts;
+}
+
+const pointsShareColumn = (key: string, label: string, kind: "pitp" | "mid" | "p3" | "ft" | "p2"): SeasonBoxscoreColumn => ({
+  key,
+  label,
+  format: (c) => {
+    const v = pointsShareOf(c, kind);
+    return v === null ? NA : formatPct100(v);
+  },
+  value: (c) => pointsShareOf(c, kind) ?? 0,
+});
+
+/** 得点の割合の列（Scoring の %FTA の右。チームと同じ並び）。%PTSMID は旧 MID PTS%（key midptspct）・旧 %PoutP */
+export const PLAYER_POINTS_SHARE_COLUMNS: SeasonBoxscoreColumn[] = [
+  pointsShareColumn("pitppct", "%PTSPITP", "pitp"),
+  pointsShareColumn("midptspct", "%PTSMID", "mid"),
+  pointsShareColumn("pct3p", "%PTS3P", "p3"),
+  pointsShareColumn("pctft", "%PTSFT", "ft"),
+  pointsShareColumn("pct2p", "%PTS2P", "p2"),
+];
+
+/** 元の定義（保存キーの対象）の見出し → 画面の見出し。元の定義は書き換えない */
+const RENAMED_LABELS: Record<string, string> = {
+  AST2M: "AST2PM",
+  AST3M: "AST3PM",
+  "%PTS ASTED": "%PTSAST",
+  "3PM/FGA": "%FGA3PM",
+  "3PA/FGA": "%FGA3P",
+  "PAINT2M/FGA": "%FGAPAINT2M",
+  "PAINT2A/FGA": "%FGAPAINT2",
+  "MID2M/FGA": "%FGAMID2M",
+  "MID2A/FGA": "%FGAMID2",
 };
 
-/** 元の定義の見出し → 画面の見出し（元の定義はキーの対象なので書き換えない） */
-const RENAMED_LABELS: Record<string, string> = { AST2M: "AST2PM", AST3M: "AST3PM" };
-
-export const PLAYER_PTS_SELF_COLUMN: SeasonBoxscoreColumn = pctColumn("pctptsself", "%PTS SELF", "pts", "self");
+export const PLAYER_PTS_SELF_COLUMN: SeasonBoxscoreColumn = pctColumn("pctptsself", "%PTSSELF", "pts", "self");
 
 /** Scoring の列に差し込む。ASTFTM の右に Self の本数と種類ごとの割合、%PTS ASTED の右に %PTS SELF（すでにあれば何もしない） */
 export function installPlayerSelfColumns(cols: SeasonBoxscoreColumn[] = SEASON_SCORING_COLUMNS): SeasonBoxscoreColumn[] {
   if (cols.some((c) => c.key === "self2m")) return cols;
   for (const c of cols) c.label = RENAMED_LABELS[c.label] ?? c.label;
+  for (const r of PLAYER_GAME_RECORD_STATS) r.label = RENAMED_LABELS[r.label] ?? r.label;
   const at = (k: string) => cols.findIndex((c) => c.key === k);
   const sAstFt = at("astftm");
   const sPctAsted = at("pctptsasted");
   if (sAstFt < 0 || sPctAsted < 0) return cols;
-  // 後ろから差し込む（先の位置がずれない）。MID PTS% は PC（ポイントクリエイト）の右＝ペイント内外の内訳の手前
-  const sPc = at("pc");
-  if (sPc >= 0) cols.splice(sPc + 1, 0, PLAYER_MID_PTS_PCT_COLUMN);
+  // 後ろから差し込む（先の位置がずれない）。得点の割合は %FTA の右（チームの Scoring の先頭と同じ並び）
+  const sFta = at("pctfta");
   cols.splice(sPctAsted + 1, 0, PLAYER_PTS_SELF_COLUMN);
   cols.splice(sAstFt + 1, 0, ...PLAYER_SELF_COUNT_COLUMNS, ...PLAYER_SELF_PCT_COLUMNS);
+  if (sFta >= 0) cols.splice(sFta + 1, 0, ...PLAYER_POINTS_SHARE_COLUMNS);
   return cols;
 }
 

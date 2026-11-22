@@ -9,6 +9,7 @@ import { TeamSeasonRecordRanking } from "../components/TeamSeasonRecordRanking";
 import { PlayerCareerRecordRanking, TeamCareerRecordRanking } from "../components/CareerRecordRanking";
 import { DEFAULT_ROLE_SHARE_PERCENT, ROLE_PARAM, ROLE_SHARE_PARAM, roleAxis, roleLabels } from "../lib/appearanceRole";
 import { EligibilitySlider } from "../components/EligibilitySlider";
+import { canonicalStatKey } from "../lib/statKeyAliases";
 import { isPaint2Key, paintOf, paintRankable, paintRecord } from "../lib/teamPaint2";
 import { noGamesRanking, teamRecordText, yahooRecordByTeam } from "../lib/teamRankingRecord";
 import type { AllTeamsRow } from "../lib/teamStatsColumns";
@@ -344,7 +345,9 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
   const teamCategoryBlocked = league === "one" && (urlTeamCategory === "shooting" || urlTeamCategory === "forcedTurnovers");
   // 登録区分別の得点（日本人 PTS など）は Misc に移した。古い URL（Scoring ＋ その項目）は Misc で開く
   const baseCategory: TeamRankingCategory = teamCategoryBlocked ? "traditional" : urlTeamCategory;
-  const [urlStatKey, setStatKey] = useUrlState(stringParam("stat", teamDefaultStatKey(baseCategory), isStatKeyLike), teamDefaultStatKey(baseCategory));
+  const [rawUrlStatKey, setStatKey] = useUrlState(stringParam("stat", teamDefaultStatKey(baseCategory), isStatKeyLike), teamDefaultStatKey(baseCategory));
+  // 古い URL の項目のキー（%PoutP の pctpoutp など）は今のキーに読み替える
+  const urlStatKey = canonicalStatKey(rawUrlStatKey);
   const movedToMisc = baseCategory === "scoring" && MOVED_TO_MISC_KEYS.has(urlStatKey);
   const category: TeamRankingCategory = movedToMisc ? "misc" : baseCategory;
   const defaultTeamStat = teamDefaultStatKey(category);
@@ -802,7 +805,8 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
   const playerCategoryBlocked = league === "one" && (urlPlayerCategory === "shooting" || urlPlayerCategory === "career");
   const category: PlayerRankCategory = playerCategoryBlocked ? "traditional" : urlPlayerCategory;
   const defaultPlayerStat = playerDefaultStatKey(category);
-  const [statKey, setStatKey] = useUrlState(stringParam("stat", defaultPlayerStat, isStatKeyLike), defaultPlayerStat);
+  const [rawPlayerStatKey, setStatKey] = useUrlState(stringParam("stat", defaultPlayerStat, isStatKeyLike), defaultPlayerStat);
+  const statKey = canonicalStatKey(rawPlayerStatKey);
   const [gamesRatio, setGamesRatio] = useUrlState(GAMES_RATIO_ELIG_PARAM, MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
   const [urlAchievable, setAchievable] = useUrlState(ACHIEVABLE_PARAM, false);
   // 掲載基準の「達成可能」は、残り試合数が正しいときだけ（B.ONE は、クラブの日程が60試合そろうまで出さない）

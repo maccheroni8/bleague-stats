@@ -50,7 +50,7 @@ export function GlossaryGuides() {
           成功したシュートのうち、アシストが付いたもの（AST2PM・AST3PM・ASTFTM）と付かなかったもの（SELF2PM＝2PM−AST2PM、SELF3PM＝3PM−AST3PM、SELFFTM＝FTM−ASTFTM）の割合です。
           全チームスタッツの Scoring % では、シュートの種類（2P・3P・FG〔2P＋3P〕・FT・得点全体）を選んで、自チームの成功のうち（アシストの有無）と相手の成功のうち（相手のアシストの有無）を、
           アシストありを濃い色、セルフを薄い色で並べます。得点全体は、アシストあり・セルフそれぞれの得点（2P×2＋3P×3＋FT）の割合です。
-          表の列は 2PM %AST・2PM %SELF・3PM %AST・3PM %SELF・FGM %AST・FGM %SELF・FTM %AST・FTM %SELF・%PTS ASTED・%PTS SELF です。
+          表の列は %2PMAST・%2PMSELF・%3PMAST・%3PMSELF・%FGMAST・%FGMSELF・%FTMAST・%FTMSELF・%PTSAST・%PTSSELF です。
           アシストはプレーバイプレーの記録から数えるため、その記録が無い試合（2017-18シーズンの試合ID 1810）は、SELF の本数・割合と平均の試合数から除きます。
         </p>
         <p>
@@ -610,7 +610,7 @@ export function GlossaryGuides() {
         </p>
         <h3>PBPの項目・来場者数</h3>
         <p>
-          PITP・FBPS・2ND PTS・PTSOFFTOは、プレーバイプレーのタグから数えた得点です。MID PTS は、ミッドレンジの2P（ペイント外の2P）で決めた得点（MID2M×2）で、MID PTS% は総得点に占めるその割合です（MID2M と同じ内訳の記録がそろった試合で数えます）。ホーム来場者数は、ホーム開催の試合だけが対象です。
+          PITP・FBPS・2ND PTS・PTSOFFTOは、プレーバイプレーのタグから数えた得点です。MID PTS は、ミッドレンジの2P（ペイント外の2P）で決めた得点（MID2M×2）で、%PTSMID は総得点に占めるその割合です（旧 %PoutP と同じ値）（MID2M と同じ内訳の記録がそろった試合で数えます）。ホーム来場者数は、ホーム開催の試合だけが対象です。
         </p>
         <h3>項目名の下の順位（クラブレコード・通算）</h3>
         <p>

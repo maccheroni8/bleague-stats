@@ -394,6 +394,18 @@ function boxSelfPctColumn(key: string, label: string, kind: SelfShotKind, side: 
   };
 }
 
+/** 得点の割合（0〜100）。得点が0・流れの記録が無い試合のペイント内・ミッドレンジ・個人でもチーム合計でもない行は undefined */
+function pointsShareValue(
+  c: BoxscoreCounts,
+  ctx: ColumnCtx,
+  part: (c: BoxscoreCounts, ctx: ColumnCtx) => number,
+  needsFlow: boolean,
+): number | undefined {
+  if (!(ctx.isPlayerRow || ctx.isTeamTotalRow) || c.pts <= 0) return undefined;
+  if (needsFlow && ctx.noFlow) return undefined;
+  return (100 * part(c, ctx)) / c.pts;
+}
+
 const SCORING_COLUMNS: BoxscoreColumn[] = [
   { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec },
   { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts },
@@ -406,6 +418,26 @@ const SCORING_COLUMNS: BoxscoreColumn[] = [
   onCourtShareColumn("pct2pa", "%2PA", (c) => c.pt2a, (t) => t.fga - t.tpa),
   onCourtShareColumn("pctftm", "%FTM", (c) => c.ftm, (t) => t.ftm),
   onCourtShareColumn("pctfta", "%FTA", (c) => c.fta, (t) => t.fta),
+  // 得点の割合（ペイント内・ミッドレンジ・3P・FT・2P。チームの Scoring の先頭と同じ並び。DESIGN.md 468章）。試合の流れの記録が無い試合（1810）のペイント内・ミッドレンジは「-」
+  ...(
+    [
+      ["pitppct", "%PTSPITP", (c: BoxscoreCounts, ctx: ColumnCtx) => (ctx.isTeamTotalRow ? ctx.ownPlayType.pt2in : c.pt2in), true],
+      ["midptspct", "%PTSMID", (c: BoxscoreCounts) => c.nonPaint2m * 2, true],
+      ["pct3p", "%PTS3P", (c: BoxscoreCounts) => c.pt3m * 3, false],
+      ["pctft", "%PTSFT", (c: BoxscoreCounts) => c.ftm, false],
+      ["pct2p", "%PTS2P", (c: BoxscoreCounts) => c.pt2m * 2, false],
+    ] as const
+  ).map(
+    ([key, label, part, needsFlow]): BoxscoreColumn => ({
+      key,
+      label,
+      format: (c, ctx) => {
+        const v = pointsShareValue(c, ctx, part, needsFlow);
+        return v === undefined ? "-" : formatPct100(v);
+      },
+      value: (c, ctx) => pointsShareValue(c, ctx, part, needsFlow),
+    }),
+  ),
 
   // アシストからの得点（得点者視点。shared/assistedScoring.ts参照）。FTAST含め
   // PlayByPlays配列内の構造的な隣接パターンから求めた「被アシスト」内訳
@@ -426,18 +458,12 @@ const SCORING_COLUMNS: BoxscoreColumn[] = [
   ]),
   {
     key: "pctptsasted",
-    label: "%PTS ASTED",
+    label: "%PTSAST",
     format: (c) =>
       formatPct100(sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts)),
     value: (c) => sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts),
   },
-  boxSelfPctColumn("pctptsself", "%PTS SELF", "pts", "self"),
-  {
-    key: "midptspct",
-    label: "MID PTS%",
-    format: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) ? formatPct100(sharePct(c.nonPaint2m * 2, c.pts)) : "-"),
-    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) ? sharePct(c.nonPaint2m * 2, c.pts) : undefined),
-  },
+  boxSelfPctColumn("pctptsself", "%PTSSELF", "pts", "self"),
   // ペイント内外の2P内訳（PAINT2M〜MID2%）は、プレーバイプレーの公式の区分で数える（全シーズン。DESIGN.md 155章）
   {
     key: "paint2m",

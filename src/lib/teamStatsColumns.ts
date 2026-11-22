@@ -7,7 +7,7 @@ import { buildTeamGameBoxTotals, type SeasonDisplayMode } from "./playerSeasonBo
 import type { PeriodRangeOption } from "./periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 import { formatMinutesFromSeconds } from "./boxscoreAggregate";
-import { midPtsColumn, paintColumns, summarizePaintLogs, withPaint } from "./teamPaint2";
+import { midPtsColumn, paintColumns, paintOf, paintValidPoints, pointsShareValue, summarizePaintLogs, withPaint, type PointsShareKind } from "./teamPaint2";
 import { eff as effFormula, efgPct, ftRate, offensiveRating, orbPct, pace, safeDiv, tovPartPct, tovPct, tsPct } from "../../shared/formulas";
 
 /**
@@ -619,6 +619,55 @@ function pct100Column(
   );
 }
 
+/**
+ * 得点の割合（%PTSPITP・%PTSMID・%PTS3P・%PTSFT・%PTS2P）。分母・分子とも、内訳の記録がそろった試合だけで数える（teamPaint2.ts の pointsShareValue）。
+ * 内訳の対象が無い合計（区分別など）は、全試合の合計から出す式（fallback）。DESIGN.md 468章
+ */
+function pointsShareColumn(
+  key: string,
+  label: string,
+  kind: PointsShareKind,
+  fallbackOwn: (t: TeamTotals) => number,
+  fallbackOpp: (t: TeamTotals) => number,
+  perspective: TeamPerspective,
+): Column<AllTeamsRow> {
+  const valueFor = (r: AllTeamsRow): number => {
+    const v = pointsShareValue(paintOf(r.totals), kind, perspective);
+    return v !== undefined ? v : perspectiveValue(fallbackOwn(r.totals), fallbackOpp(r.totals), perspective);
+  };
+  return {
+    key,
+    label,
+    sortValue: valueFor,
+    format: (r) => (perspective === "diff" ? `${formatSigned(valueFor(r), 2)}%` : formatPct100(valueFor(r))),
+    higherIsBetter: higherIsBetterForPerspective(true, perspective),
+  };
+}
+
+/** 速攻・セカンドチャンス・ターンオーバー後の得点の割合。分母は、内訳の記録がそろった試合の得点（得点の割合の4つと同じ試合）にそろえる */
+function otherPointsShareColumn(
+  key: string,
+  label: string,
+  pickOwn: (t: TeamTotals) => number,
+  pickOpp: (t: TeamTotals) => number,
+  perspective: TeamPerspective,
+): Column<AllTeamsRow> {
+  const valueFor = (r: AllTeamsRow): number => {
+    const t = r.totals;
+    const d = paintValidPoints(paintOf(t), perspective);
+    const own = safeDiv(100 * pickOwn(t), d ? d.own : t.pts);
+    const opp = safeDiv(100 * pickOpp(t), d?.opp ?? t.oppPts);
+    return perspectiveValue(own, opp, perspective);
+  };
+  return {
+    key,
+    label,
+    sortValue: valueFor,
+    format: (r) => (perspective === "diff" ? `${formatSigned(valueFor(r), 2)}%` : formatPct100(valueFor(r))),
+    higherIsBetter: higherIsBetterForPerspective(true, perspective),
+  };
+}
+
 function decimalColumn(
   key: string,
   label: string,
@@ -929,26 +978,24 @@ export function buildScoringColumns(
   classificationSupported = true,
 ): Column<AllTeamsRow>[] {
   return [
-    pct100Column("pitppct", "PITP%", (t) => safeDiv(100 * t.pt2in, t.pts), (t) => safeDiv(100 * t.oppPt2in, t.oppPts), perspective),
-    // ミッドレンジの得点（MID2M×2）の割合。%MID2M と同じく、内訳を出せないシーズンは「-」
+    // 得点の割合（先頭の4つ＋%PTS2P。ペイント内＋ミッドレンジ＋3P＋FT＝100%。468章）。%PTSMID は %FGAMID2M と同じく、内訳を出せないシーズンは「-」
+    pointsShareColumn("pitppct", "%PTSPITP", "pitp", (t) => safeDiv(100 * t.pt2in, t.pts), (t) => safeDiv(100 * t.oppPt2in, t.oppPts), perspective),
     paintSupported
-      ? pct100Column("midptspct", "MID PTS%", (t) => safeDiv(100 * t.mid2m * 2, t.pts), (t) => safeDiv(100 * t.oppMid2m * 2, t.oppPts), perspective)
-      : unavailableColumn("midptspct", "MID PTS%"),
-    pct100Column("fbppct", "FBP%", (t) => safeDiv(100 * t.fb, t.pts), (t) => safeDiv(100 * t.oppFb, t.oppPts), perspective),
-    pct100Column(
-      "2ndptspct",
-      "2ND PTS%",
-      (t) => safeDiv(100 * t.pt2nd, t.pts),
-      (t) => safeDiv(100 * t.oppPt2nd, t.oppPts),
+      ? pointsShareColumn("midptspct", "%PTSMID", "mid", (t) => safeDiv(100 * t.mid2m * 2, t.pts), (t) => safeDiv(100 * t.oppMid2m * 2, t.oppPts), perspective)
+      : unavailableColumn("midptspct", "%PTSMID"),
+    pointsShareColumn("pct3p", "%PTS3P", "p3", (t) => safeDiv(100 * t.tpm * 3, t.pts), (t) => safeDiv(100 * t.oppTpm * 3, t.oppPts), perspective),
+    pointsShareColumn("pctft", "%PTSFT", "ft", (t) => safeDiv(100 * t.ftm, t.pts), (t) => safeDiv(100 * t.oppFtm, t.oppPts), perspective),
+    pointsShareColumn(
+      "pct2p",
+      "%PTS2P",
+      "p2",
+      (t) => safeDiv(100 * (t.fgm - t.tpm) * 2, t.pts),
+      (t) => safeDiv(100 * (t.oppFgm - t.oppTpm) * 2, t.oppPts),
       perspective,
     ),
-    pct100Column(
-      "ptsofftovpct",
-      "PTSOFFTO%",
-      (t) => safeDiv(100 * t.pft, t.pts),
-      (t) => safeDiv(100 * t.oppPft, t.oppPts),
-      perspective,
-    ),
+    otherPointsShareColumn("fbppct", "%PTSFBP", (t) => t.fb, (t) => t.oppFb, perspective),
+    otherPointsShareColumn("2ndptspct", "%PTS2ND", (t) => t.pt2nd, (t) => t.oppPt2nd, perspective),
+    otherPointsShareColumn("ptsofftovpct", "%PTSOFFTO", (t) => t.pft, (t) => t.oppPft, perspective),
     // アシストからの得点（得点の内訳のまとまりとしてMiscから移設。DESIGN.md 140章）
     countColumn("ast2m", "AST2PM", (t) => t.assisted2m, (t) => t.oppAssisted2m, mode, perspective),
     countColumn("ast3m", "AST3PM", (t) => t.assisted3m, (t) => t.oppAssisted3m, mode, perspective),
@@ -960,31 +1007,31 @@ export function buildScoringColumns(
     ]),
     pct100Column(
       "pctptsasted",
-      "%PTS ASTED",
+      "%PTSAST",
       (t) => safeDiv(100 * (t.assisted2m * 2 + t.assisted3m * 3 + t.assistedFtm), t.pts),
       (t) => safeDiv(100 * (t.oppAssisted2m * 2 + t.oppAssisted3m * 3 + t.oppAssistedFtm), t.oppPts),
       perspective,
     ),
-    selfPctColumn("pctptsself", "%PTS SELF", "pts", "self", perspective),
+    selfPctColumn("pctptsself", "%PTSSELF", "pts", "self", perspective),
     // 総得点に占めるベンチ得点・スタメン得点の割合（チーム詳細のシーズン別成績と同じくScoring。2026-09-26）
     classificationSupported
       ? pct100Column(
           "pctbenchpts",
-          "%BENCH PTS",
+          "%PTSBENCH",
           (t) => safeDiv(100 * t.benchPoints, t.benchPoints + t.starterPoints),
           (t) => safeDiv(100 * t.oppBenchPoints, t.oppBenchPoints + t.oppStarterPoints),
           perspective,
         )
-      : unavailableColumn("pctbenchpts", "%BENCH PTS"),
+      : unavailableColumn("pctbenchpts", "%PTSBENCH"),
     classificationSupported
       ? pct100Column(
           "pctstarterpts",
-          "%STARTER PTS",
+          "%PTSSTARTER",
           (t) => safeDiv(100 * t.starterPoints, t.benchPoints + t.starterPoints),
           (t) => safeDiv(100 * t.oppStarterPoints, t.oppBenchPoints + t.oppStarterPoints),
           perspective,
         )
-      : unavailableColumn("pctstarterpts", "%STARTER PTS"),
+      : unavailableColumn("pctstarterpts", "%PTSSTARTER"),
     // 登録区分別得点（日本人/外国籍・帰化・アジアの2分割）。実数値＋総得点に占める割合(%)を追加する
     classificationSupported
       ? countColumn("japanesePts3", "日本人 PTS", (t) => t.japanesePoints, (t) => t.oppJapanesePoints, mode, perspective)
@@ -1002,35 +1049,35 @@ export function buildScoringColumns(
     classificationSupported
       ? pct100Column(
           "pctjapanese3",
-          "%日本人 PTS",
+          "%PTS日本人",
           (t) => safeDiv(100 * t.japanesePoints, t.pts),
           (t) => safeDiv(100 * t.oppJapanesePoints, t.oppPts),
           perspective,
         )
-      : unavailableColumn("pctjapanese3", "%日本人 PTS"),
+      : unavailableColumn("pctjapanese3", "%PTS日本人"),
     classificationSupported
       ? pct100Column(
           "pctinternational3",
-          "%外国籍・帰化・アジア PTS",
+          "%PTS外国籍・帰化・アジア",
           (t) => safeDiv(100 * t.internationalPoints, t.pts),
           (t) => safeDiv(100 * t.oppInternationalPoints, t.oppPts),
           perspective,
         )
-      : unavailableColumn("pctinternational3", "%外国籍・帰化・アジア PTS"),
+      : unavailableColumn("pctinternational3", "%PTS外国籍・帰化・アジア"),
     // ここから下は「自チーム/相手チームの全FGAに対する割合」（シュート選択構成比）。
     // 上記PITP%等（総得点に対する割合）とは分母が異なる別系統の指標
-    pct100Column("pct3pm", "%3PM", (t) => safeDiv(100 * t.tpm, t.fgm), (t) => safeDiv(100 * t.oppTpm, t.oppFgm), perspective),
-    pct100Column("pct3pa", "%3PA", (t) => safeDiv(100 * t.tpa, t.fga), (t) => safeDiv(100 * t.oppTpa, t.oppFga), perspective),
+    pct100Column("pct3pm", "%FGM3P", (t) => safeDiv(100 * t.tpm, t.fgm), (t) => safeDiv(100 * t.oppTpm, t.oppFgm), perspective),
+    pct100Column("pct3pa", "%FGA3P", (t) => safeDiv(100 * t.tpa, t.fga), (t) => safeDiv(100 * t.oppTpa, t.oppFga), perspective),
     pct100Column(
       "pct2pm",
-      "%2PM",
+      "%FGM2P",
       (t) => safeDiv(100 * (t.fgm - t.tpm), t.fgm),
       (t) => safeDiv(100 * (t.oppFgm - t.oppTpm), t.oppFgm),
       perspective,
     ),
     pct100Column(
       "pct2pa",
-      "%2PA",
+      "%FGA2P",
       (t) => safeDiv(100 * (t.fga - t.tpa), t.fga),
       (t) => safeDiv(100 * (t.oppFga - t.oppTpa), t.oppFga),
       perspective,
@@ -1038,39 +1085,39 @@ export function buildScoringColumns(
     paintSupported
       ? pct100Column(
           "pctpaint2m",
-          "%PAINT2M",
+          "%FGAPAINT2M",
           (t) => safeDiv(100 * t.paint2m, t.fga),
           (t) => safeDiv(100 * t.oppPaint2m, t.oppFga),
           perspective,
         )
-      : unavailableColumn("pctpaint2m", "%PAINT2M"),
+      : unavailableColumn("pctpaint2m", "%FGAPAINT2M"),
     paintSupported
       ? pct100Column(
           "pctpaint2a",
-          "%PAINT2A",
+          "%FGAPAINT2",
           (t) => safeDiv(100 * t.paint2a, t.fga),
           (t) => safeDiv(100 * t.oppPaint2a, t.oppFga),
           perspective,
         )
-      : unavailableColumn("pctpaint2a", "%PAINT2A"),
+      : unavailableColumn("pctpaint2a", "%FGAPAINT2"),
     paintSupported
       ? pct100Column(
           "pctmid2m",
-          "%MID2M",
+          "%FGAMID2M",
           (t) => safeDiv(100 * t.mid2m, t.fga),
           (t) => safeDiv(100 * t.oppMid2m, t.oppFga),
           perspective,
         )
-      : unavailableColumn("pctmid2m", "%MID2M"),
+      : unavailableColumn("pctmid2m", "%FGAMID2M"),
     paintSupported
       ? pct100Column(
           "pctmid2a",
-          "%MID2A",
+          "%FGAMID2",
           (t) => safeDiv(100 * t.mid2a, t.fga),
           (t) => safeDiv(100 * t.oppMid2a, t.oppFga),
           perspective,
         )
-      : unavailableColumn("pctmid2a", "%MID2A"),
+      : unavailableColumn("pctmid2a", "%FGAMID2"),
   ];
 }
 
@@ -1157,10 +1204,10 @@ export function buildClassPointColumns(mode: SeasonDisplayMode, perspective: Tea
 export function buildSplitClassPointShareColumns(perspective: TeamPerspective, supported: boolean): Column<AllTeamsRow>[] {
   const n = (v: number) => (supported ? v : NO_VALUE);
   return [
-    pct100Column("pctforeign3", "%外国籍 PTS", (t) => n(safeDiv(100 * t.foreignPoints, t.pts)), (t) => n(safeDiv(100 * t.oppForeignPoints, t.oppPts)), perspective),
+    pct100Column("pctforeign3", "%PTS外国籍", (t) => n(safeDiv(100 * t.foreignPoints, t.pts)), (t) => n(safeDiv(100 * t.oppForeignPoints, t.oppPts)), perspective),
     pct100Column(
       "pctnaturalizedAsia3",
-      "%帰化・アジア特別枠 PTS",
+      "%PTS帰化・アジア特別枠",
       (t) => n(safeDiv(100 * t.naturalizedAsiaPoints, t.pts)),
       (t) => n(safeDiv(100 * t.oppNaturalizedAsiaPoints, t.oppPts)),
       perspective,
@@ -1169,26 +1216,16 @@ export function buildSplitClassPointShareColumns(perspective: TeamPerspective, s
 }
 
 /**
- * 得点の構成比（総得点に占める3P・ペイント内2P・ペイント外2P・FTの得点）と、試投の構成比（ペイント内外のFGA）。
- * チーム詳細のシーズン別成績（TeamDetailPage の %3P・%PoutP・%FT・%OPA）と同じ式を、試合ログの合計（TeamTotals）から出す
+ * 試投の構成比のうち、ペイント外の試投の割合（%FGAOPA。チーム詳細のシーズン別成績の %FGAOPA と同じ式）を、試合ログの合計（TeamTotals）から出す
  * （比較ページ・比較タブの条件つきの値用。全チームスタッツには無い項目）。
- * %PoutP は2P得点−ペイント内得点（PITP。TeamGameLog の pt2in）÷総得点（ミッドレンジ得点の割合）。
- * ペイント内得点の割合は PITP%（buildScoringColumns）、ペイント内の試投の割合は %PAINT2A と同じ値なので、ここには置かない（DESIGN.md 236章）
+ * 得点の割合（%PTSPITP・%PTSMID・%PTS3P・%PTSFT・%PTS2P）は buildScoringColumns に移した（468章。旧 %PoutP は %PTSMID にまとめた）。
+ * ペイント内の試投の割合は %FGAPAINT2 と同じ値なので、ここには置かない（DESIGN.md 236章）
  */
 export function buildPointsShareColumns(perspective: TeamPerspective): Column<AllTeamsRow>[] {
   return [
-    pct100Column("pct3p", "%3P", (t) => safeDiv(100 * t.tpm * 3, t.pts), (t) => safeDiv(100 * t.oppTpm * 3, t.oppPts), perspective),
-    pct100Column(
-      "pctpoutp",
-      "%PoutP",
-      (t) => safeDiv(100 * ((t.fgm - t.tpm) * 2 - t.pt2in), t.pts),
-      (t) => safeDiv(100 * ((t.oppFgm - t.oppTpm) * 2 - t.oppPt2in), t.oppPts),
-      perspective,
-    ),
-    pct100Column("pctft", "%FT", (t) => safeDiv(100 * t.ftm, t.pts), (t) => safeDiv(100 * t.oppFtm, t.oppPts), perspective),
     pct100Column(
       "pctopa",
-      "%OPA",
+      "%FGAOPA",
       (t) => safeDiv(100 * (t.fga - t.paint2a), t.fga),
       (t) => safeDiv(100 * (t.oppFga - t.oppPaint2a), t.oppFga),
       perspective,

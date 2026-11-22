@@ -271,10 +271,10 @@ import { OPPONENT_PARAM, TeamHeadToHead } from "../components/TeamHeadToHead";
 import { TeamOpponentSplit } from "../components/TeamOpponentSplit";
 import { enumParam, useUrlState } from "../lib/urlState";
 import { fgaShare, foreignShareFromSeconds, teamClassificationShareFromTotals, teamScoringShareFromTotals, type ForeignShare } from "../lib/shareCharts";
-import { EMPTY_TOTALS, sumTeamGameLogs, type AllTeamsRow } from "../lib/teamStatsColumns";
+import { buildScoringColumns, EMPTY_TOTALS, sumTeamGameLogs, type AllTeamsRow, type TeamTotals } from "../lib/teamStatsColumns";
 import { addGameFlowLog, EMPTY_GAME_FLOW, opponentRunOf, formatGameFlow, GAME_FLOW_LABELS, gameFlowOf, gameFlowValue, sumGameFlow, withGameFlow, type GameFlowKey } from "../lib/gameFlowTotals";
 import { noFlowOf, noFlowTotalsOf, SELF_COUNT_DEFS, selfCountsOf, selfPct, selfSplitOf, SELF_PCT_DEFS, withNoFlow, type SelfCounts, type SelfShotKind, type ShotMadeSource } from "../lib/selfScoring";
-import { midPtsColumn, paintColumns, summarizePaintLogs, withPaint, PAINT2_NOTE, withoutCoverageColumn } from "../lib/teamPaint2";
+import { midPtsColumn, paintColumns, paintOf, summarizePaintLogs, withPaint, PAINT2_NOTE, withoutCoverageColumn } from "../lib/teamPaint2";
 import { loadLeaguePaintComplete } from "../lib/teamPaint2Load";
 import { FORCED_TURNOVER_COLUMNS } from "../lib/forcedTurnoverColumns";
 import { categoryNeedsYahoo, type OpponentSplitCategory } from "../lib/opponentSplit";
@@ -1457,38 +1457,37 @@ function seasonSelfPctText(r: SeasonRecord, m: TeamSeasonMiscTotals, kind: SelfS
   return formatTeamSeasonPct100(pick(false), pick(true), p);
 }
 
+/** 全チームスタッツの Scoring の列の式で、シーズン別成績の1つの列の表示を出す（自チームの得点・FGM・3PM・FTM はシーズンの合計から、相手・内訳は misc から） */
+function seasonScoringColumnText(key: string, r: SeasonRecord, m: TeamSeasonMiscTotals, p: TeamPerspective): string {
+  const own = r.team.totals;
+  const totals = { ...m, pts: own.pts, fgm: own.fgm, tpm: own.tpm, ftm: own.ftm } as unknown as TeamTotals;
+  const paint = paintOf(m);
+  if (paint) withPaint(totals, paint);
+  const col = buildScoringColumns("perGame", p, true, true).find((c) => c.key === key)!;
+  return col.format!({ totals } as unknown as AllTeamsRow);
+}
+
 const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   { key: "g", label: "G", format: (r) => String(r.team.gamesPlayed) },
-  {
-    key: "pitppct",
-    label: "PITP%",
-    format: (r, m, _mode, p) =>
-      formatTeamSeasonPct100(safeDiv(100 * m.pt2in, r.team.totals.pts), safeDiv(100 * m.oppPt2in, m.oppPts), p),
-  },
-  {
-    key: "midptspct",
-    label: "MID PTS%",
-    format: (r, m, _mode, p) =>
-      formatTeamSeasonPct100(safeDiv(100 * m.mid2m * 2, r.team.totals.pts), safeDiv(100 * m.oppMid2m * 2, m.oppPts), p),
-  },
-  {
-    key: "fbppct",
-    label: "FBP%",
-    format: (r, m, _mode, p) =>
-      formatTeamSeasonPct100(safeDiv(100 * m.fb, r.team.totals.pts), safeDiv(100 * m.oppFb, m.oppPts), p),
-  },
-  {
-    key: "2ndptspct",
-    label: "2ND PTS%",
-    format: (r, m, _mode, p) =>
-      formatTeamSeasonPct100(safeDiv(100 * m.pt2nd, r.team.totals.pts), safeDiv(100 * m.oppPt2nd, m.oppPts), p),
-  },
-  {
-    key: "ptsofftovpct",
-    label: "PTSOFFTO%",
-    format: (r, m, _mode, p) =>
-      formatTeamSeasonPct100(safeDiv(100 * m.pft, r.team.totals.pts), safeDiv(100 * m.oppPft, m.oppPts), p),
-  },
+  // 得点の割合（ペイント内＋ミッドレンジ＋3P＋FT＝100%。分母・分子とも、内訳の記録がそろった試合だけ。全チームスタッツと同じ列の式。DESIGN.md 468章）
+  ...(
+    [
+      ["pitppct", "%PTSPITP"],
+      ["midptspct", "%PTSMID"],
+      ["pct3p", "%PTS3P"],
+      ["pctft", "%PTSFT"],
+      ["pct2p", "%PTS2P"],
+      ["fbppct", "%PTSFBP"],
+      ["2ndptspct", "%PTS2ND"],
+      ["ptsofftovpct", "%PTSOFFTO"],
+    ] as const
+  ).map(
+    ([key, label]): TeamSeasonBoxColumn => ({
+      key,
+      label,
+      format: (r, m, _mode, p) => seasonScoringColumnText(key, r, m, p),
+    }),
+  ),
   // アシストからの得点（得点の内訳のまとまりとしてMiscから移設。DESIGN.md 140章）
   {
     key: "ast2m",
@@ -1525,7 +1524,7 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   ]),
   {
     key: "pctptsasted",
-    label: "%PTS ASTED",
+    label: "%PTSAST",
     format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(
         safeDiv(100 * (m.assisted2m * 2 + m.assisted3m * 3 + m.assistedFtm), r.team.totals.pts),
@@ -1533,12 +1532,12 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
         p,
       ),
   },
-  { key: "pctptsself", label: "%PTS SELF", format: (r, m, _mode, p) => seasonSelfPctText(r, m, "pts", "self", p) },
+  { key: "pctptsself", label: "%PTSSELF", format: (r, m, _mode, p) => seasonSelfPctText(r, m, "pts", "self", p) },
   // %BENCH PTS・%STARTER PTS（Batch 1でヘッダータイルから移設）。2026-09-26、全チームスタッツ・ランキングに合わせて
   // 自チーム/opp/+/- に切り替わるようにした（それまでは常に自チームの値。DESIGN.md 152章）
   {
     key: "benchptspct",
-    label: "%BENCH PTS",
+    label: "%PTSBENCH",
     format: (r, _m, _mode, p) =>
       formatTeamSeasonPct100(
         r.team.advanced.benchPointsSharePct,
@@ -1551,7 +1550,7 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   },
   {
     key: "starterptspct",
-    label: "%STARTER PTS",
+    label: "%PTSSTARTER",
     format: (r, _m, _mode, p) =>
       formatTeamSeasonPct100(
         r.team.advanced.starterPointsSharePct,
@@ -1565,23 +1564,6 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   // Batch 3（2026-09-08）: 得点傾向の%系（総得点に対する割合）。own/opp/diffに対応する
   // シーズン合計値ベースの構成比（Phase H10・85章で追加済みのteam.advanced.*SharePct、
   // PBPタグ集計方式のためショットチャート座標に依存せず全シーズン対応）
-  {
-    key: "pct3p",
-    label: "%3P",
-    format: (r, _m, _mode, p) =>
-      formatTeamSeasonPct100(r.team.advanced.threePointPointsSharePct, r.team.advanced.opponentThreePointPointsSharePct, p),
-  },
-  {
-    key: "pctpoutp",
-    label: "%PoutP",
-    format: (r, _m, _mode, p) =>
-      formatTeamSeasonPct100(r.team.advanced.midRangePointsSharePct, r.team.advanced.opponentMidRangePointsSharePct, p),
-  },
-  {
-    key: "pctft",
-    label: "%FT",
-    format: (r, _m, _mode, p) => formatTeamSeasonPct100(r.team.advanced.ftPointsSharePct, r.team.advanced.opponentFtPointsSharePct, p),
-  },
   // 登録区分別得点（日本人/外国籍・帰化・アジアの2分割）。team.advanced.foreignPointsPerGame等
   // （旧3分割版の内部フィールド）を合算して2区分に統一する（src/lib/classificationFilter.ts参照）
   {
@@ -1611,13 +1593,13 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   },
   {
     key: "pctjapanese3",
-    label: "%日本人 PTS",
+    label: "%PTS日本人",
     format: (r, _m, _mode, p) =>
       formatTeamSeasonPct100(r.team.advanced.japanesePointsSharePct, r.team.advanced.opponentJapanesePointsSharePct, p),
   },
   {
     key: "pctinternational3",
-    label: "%外国籍・帰化・アジア PTS",
+    label: "%PTS外国籍・帰化・アジア",
     format: (r, _m, _mode, p) =>
       formatTeamSeasonPct100(
         r.team.advanced.foreignPointsSharePct + r.team.advanced.naturalizedOrAsianPointsSharePct,
@@ -1629,19 +1611,19 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   // 上記PITP%等（総得点に対する割合）とは分母が異なる別系統の指標
   {
     key: "pct3pm",
-    label: "%3PM",
+    label: "%FGM3P",
     format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(safeDiv(100 * r.team.totals.tpm, r.team.totals.fgm), safeDiv(100 * m.oppTpm, m.oppFgm), p),
   },
   {
     key: "pct3pa",
-    label: "%3PA",
+    label: "%FGA3P",
     format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(safeDiv(100 * r.team.totals.tpa, r.team.totals.fga), safeDiv(100 * m.oppTpa, m.oppFga), p),
   },
   {
     key: "pct2pm",
-    label: "%2PM",
+    label: "%FGM2P",
     format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(
         safeDiv(100 * (r.team.totals.fgm - r.team.totals.tpm), r.team.totals.fgm),
@@ -1651,7 +1633,7 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   },
   {
     key: "pct2pa",
-    label: "%2PA",
+    label: "%FGA2P",
     format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(
         safeDiv(100 * (r.team.totals.fga - r.team.totals.tpa), r.team.totals.fga),
@@ -1663,7 +1645,7 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   // ペイント内試投割合（旧 %IPA）は %PAINT2A と同じ値なので、%PAINT2A にまとめた（DESIGN.md 236章）
   {
     key: "pctopa",
-    label: "%OPA",
+    label: "%FGAOPA",
     format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(
         safeDiv(100 * (r.team.totals.fga - m.paint2a), r.team.totals.fga),
@@ -1673,25 +1655,25 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   },
   {
     key: "pctpaint2m",
-    label: "%PAINT2M",
+    label: "%FGAPAINT2M",
     format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(safeDiv(100 * m.paint2m, r.team.totals.fga), safeDiv(100 * m.oppPaint2m, m.oppFga), p),
   },
   {
     key: "pctpaint2a",
-    label: "%PAINT2A",
+    label: "%FGAPAINT2",
     format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(safeDiv(100 * m.paint2a, r.team.totals.fga), safeDiv(100 * m.oppPaint2a, m.oppFga), p),
   },
   {
     key: "pctmid2m",
-    label: "%MID2M",
+    label: "%FGAMID2M",
     format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(safeDiv(100 * m.mid2m, r.team.totals.fga), safeDiv(100 * m.oppMid2m, m.oppFga), p),
   },
   {
     key: "pctmid2a",
-    label: "%MID2A",
+    label: "%FGAMID2",
     format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(safeDiv(100 * m.mid2a, r.team.totals.fga), safeDiv(100 * m.oppMid2a, m.oppFga), p),
   },
@@ -2232,10 +2214,10 @@ const TEAM_POINTS_MISC_COLUMNS: TeamPointsExtraColumn[] = [
 // ヘッダータイル時代・「シーズン別成績」と同じくown/opp/diffの切り替え対象外にする。
 // 登録区分別得点（日本人/外国籍・帰化・アジアの2分割）を実数値＋割合(%)で追加
 const TEAM_POINTS_SHARE_COLUMNS: TeamPointsExtraColumn[] = [
-  { key: "benchPtsShare", label: "%BENCH PTS", value: (b) => safeDiv(100 * b.bench, b.bench + b.starter), kind: "sharePctPerspective" },
+  { key: "benchPtsShare", label: "%PTSBENCH", value: (b) => safeDiv(100 * b.bench, b.bench + b.starter), kind: "sharePctPerspective" },
   {
     key: "starterPtsShare",
-    label: "%STARTER PTS",
+    label: "%PTSSTARTER",
     value: (b) => safeDiv(100 * b.starter, b.bench + b.starter),
     kind: "sharePctPerspective",
   },
@@ -2243,13 +2225,13 @@ const TEAM_POINTS_SHARE_COLUMNS: TeamPointsExtraColumn[] = [
   { key: "internationalPts3", label: "外国籍・帰化・アジア PTS", value: (b) => b.international, kind: "count" },
   {
     key: "japanesePtsShare3",
-    label: "%日本人 PTS",
+    label: "%PTS日本人",
     value: (b) => safeDiv(100 * b.japanese, b.bench + b.starter),
     kind: "sharePct",
   },
   {
     key: "internationalPtsShare3",
-    label: "%外国籍・帰化・アジア PTS",
+    label: "%PTS外国籍・帰化・アジア",
     value: (b) => safeDiv(100 * b.international, b.bench + b.starter),
     kind: "sharePct",
   },

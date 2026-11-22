@@ -127,10 +127,10 @@ export function selfPct(part: number, total: number): number {
 
 /** 割合の列の定義（名前は表の見出し。種類ごとにアシストあり・セルフを隣り合わせで並べる） */
 export const SELF_PCT_DEFS: { kind: Exclude<SelfShotKind, "pts">; astKey: string; astLabel: string; selfKey: string; selfLabel: string }[] = [
-  { kind: "2pm", astKey: "pct2pmast", astLabel: "2PM %AST", selfKey: "pct2pmself", selfLabel: "2PM %SELF" },
-  { kind: "3pm", astKey: "pct3pmast", astLabel: "3PM %AST", selfKey: "pct3pmself", selfLabel: "3PM %SELF" },
-  { kind: "fgm", astKey: "pctfgmast", astLabel: "FGM %AST", selfKey: "pctfgmself", selfLabel: "FGM %SELF" },
-  { kind: "ftm", astKey: "pctftmast", astLabel: "FTM %AST", selfKey: "pctftmself", selfLabel: "FTM %SELF" },
+  { kind: "2pm", astKey: "pct2pmast", astLabel: "%2PMAST", selfKey: "pct2pmself", selfLabel: "%2PMSELF" },
+  { kind: "3pm", astKey: "pct3pmast", astLabel: "%3PMAST", selfKey: "pct3pmself", selfLabel: "%3PMSELF" },
+  { kind: "fgm", astKey: "pctfgmast", astLabel: "%FGMAST", selfKey: "pctfgmself", selfLabel: "%FGMSELF" },
+  { kind: "ftm", astKey: "pctftmast", astLabel: "%FTMAST", selfKey: "pctftmself", selfLabel: "%FTMSELF" },
 ];
 
 /**

@@ -138,12 +138,12 @@ export function standardColumns(
 
 // --- Scoring %（得点構成・登録区分・FG試投構成の割合。チームスタッツの同じ名前の列を並べる） ---
 
-/** 得点構成（%3P・%FT・%PoutP〔ミッドレンジ〕・PITP%〔ペイント〕）→ 登録区分（日本人・外国籍等）→ FG試投構成（%3PA・%MID2A・%PAINT2A）の順 */
+/** 得点構成（%PTSPITP・%PTSMID・%PTS3P・%PTSFT）→ 登録区分（日本人・外国籍等）→ FG試投構成（%FGA3P・%FGAMID2・%FGAPAINT2）の順 */
 const SCORING_COMPOSITION_KEYS: readonly { from: "share" | "scoring"; key: string }[] = [
-  { from: "share", key: "pct3p" },
-  { from: "share", key: "pctft" },
-  { from: "share", key: "pctpoutp" },
   { from: "scoring", key: "pitppct" },
+  { from: "scoring", key: "midptspct" },
+  { from: "scoring", key: "pct3p" },
+  { from: "scoring", key: "pctft" },
   { from: "scoring", key: "pctjapanese3" },
   { from: "scoring", key: "pctinternational3" },
   { from: "scoring", key: "pct3pa" },

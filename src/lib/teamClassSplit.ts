@@ -192,7 +192,7 @@ export const CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS: ReadonlySet<string> = new Set(
   "pctforeign3",
   "pctnaturalizedAsia3",
   "pct3p",
-  "pctpoutp",
+  "pct2p",
   "pctft",
   "pctopa",
 ]);
@@ -406,8 +406,8 @@ export function classSideValues(source: ClassSplitSource, teamRow: number, cls: 
 /** ペイント内外の1試合分。ピリオド別の行が無い試合は -1（記録なし。validPaint が通らず、内訳の対象から外れる） */
 function paintInput(source: ClassSplitSource, teamRow: number, v: ClassSideValues, atoms?: readonly number[]): PaintInput {
   // 区間を選んでいるときは、選んだ区間のどれかにピリオド別の行が無ければ記録なし
-  if (atoms ? !atoms.every((a) => source.atomHas[teamRow * ATOM_COUNT + a]) : !source.period || !source.hasPeriod[teamRow]) return { pm: -1, pa: -1, mm: -1, ma: -1, tm: -1, ta: -1 };
-  return { pm: v.paint2m, pa: v.paint2a, mm: v.mid2m, ma: v.mid2a, tm: v.fgm - v.tpm, ta: v.fga - v.tpa };
+  if (atoms ? !atoms.every((a) => source.atomHas[teamRow * ATOM_COUNT + a]) : !source.period || !source.hasPeriod[teamRow]) return { pm: -1, pa: -1, mm: -1, ma: -1, tm: -1, ta: -1, pts: -1, tpm: -1, ftm: -1 };
+  return { pm: v.paint2m, pa: v.paint2a, mm: v.mid2m, ma: v.mid2a, tm: v.fgm - v.tpm, ta: v.fga - v.tpa, pts: v.pts, tpm: v.tpm, ftm: v.ftm };
 }
 
 const OWN_KEYS = [

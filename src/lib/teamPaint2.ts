@@ -24,6 +24,10 @@ export interface PaintInput {
   ma: number;
   tm: number;
   ta: number;
+  /** その試合のその側の得点・3P成功数・FT成功数（得点の割合の分母・分子を、内訳の記録がそろった試合だけでそろえるため。DESIGN.md 468章） */
+  pts: number;
+  tpm: number;
+  ftm: number;
 }
 
 export interface PaintPair {
@@ -41,6 +45,10 @@ export interface PaintSide {
   pa: number;
   mm: number;
   ma: number;
+  /** 内訳対象の試合の得点・3P成功数・FT成功数の合計 */
+  pts: number;
+  tpm: number;
+  ftm: number;
 }
 
 export interface PaintSummary {
@@ -55,7 +63,7 @@ export interface PaintSummary {
   teams: number;
 }
 
-const emptySide = (): PaintSide => ({ games: 0, wins: 0, pm: 0, pa: 0, mm: 0, ma: 0 });
+const emptySide = (): PaintSide => ({ games: 0, wins: 0, pm: 0, pa: 0, mm: 0, ma: 0, pts: 0, tpm: 0, ftm: 0 });
 
 /** 記録が揃っている（整数・非負・成功≦試投・内訳の合計＝2P全体）かどうか。 */
 export function validPaint(p: PaintInput): boolean {
@@ -71,7 +79,7 @@ export function validPaint(p: PaintInput): boolean {
 export function paintPair(g: TeamGameLog): PaintPair {
   return {
     win: g.win,
-    own: { pm: g.paint2m, pa: g.paint2a, mm: g.mid2m, ma: g.mid2a, tm: g.fgm - g.tpm, ta: g.fga - g.tpa },
+    own: { pm: g.paint2m, pa: g.paint2a, mm: g.mid2m, ma: g.mid2a, tm: g.fgm - g.tpm, ta: g.fga - g.tpa, pts: g.teamScore, tpm: g.tpm, ftm: g.ftm },
     opp: {
       pm: g.opponentPaint2m,
       pa: g.opponentPaint2a,
@@ -79,6 +87,9 @@ export function paintPair(g: TeamGameLog): PaintPair {
       ma: g.opponentMid2a,
       tm: g.opponentFgm - g.opponentTpm,
       ta: g.opponentFga - g.opponentTpa,
+      pts: g.opponentScore,
+      tpm: g.opponentTpm,
+      ftm: g.opponentFtm,
     },
   };
 }
@@ -99,6 +110,9 @@ export function summarizePaint(pairs: readonly PaintPair[]): PaintSummary {
     to.pa += p.pa;
     to.mm += p.mm;
     to.ma += p.ma;
+    to.pts += p.pts;
+    to.tpm += p.tpm;
+    to.ftm += p.ftm;
   };
   for (const pair of pairs) {
     const ownValid = validPaint(pair.own);
@@ -135,7 +149,7 @@ export function mergePaint(items: readonly object[]): PaintSummary {
     merged.total += p.total;
     merged.teams += p.teams;
     for (const side of ["own", "opp", "bothOwn", "bothOpp"] as const) {
-      for (const k of ["games", "wins", "pm", "pa", "mm", "ma"] as const) merged[side][k] += p[side][k];
+      for (const k of ["games", "wins", "pm", "pa", "mm", "ma", "pts", "tpm", "ftm"] as const) merged[side][k] += p[side][k];
     }
   }
   return merged;
@@ -281,4 +295,46 @@ export async function verifyLeaguePaint(t: TeamTotals, loadLogs: () => Promise<T
       return s.own.games === s.total && s.opp.games === s.total;
     })
   );
+}
+
+// --- 得点の割合（ペイント内・ミッドレンジ・3P・FT・2P。DESIGN.md 468章） ---
+// 分母・分子とも、内訳の記録がそろった試合（その試合の2Pの内訳の合計が2P全体と一致する試合）だけで数える。
+// 記録がそろった試合では、ペイント内＋ミッドレンジ＋3P＋FT＝得点なので、4つの合計は必ず100%になる。
+// 内訳の対象が1試合も無い合計（区分別など）は、全試合の合計から出す式（fallback）に戻る。
+
+export type PointsShareKind = "pitp" | "mid" | "p3" | "ft" | "p2";
+
+/** 内訳の対象の試合の合計から、得点の割合（0〜100）の分子を出す */
+function shareNumerator(v: PaintSide, kind: PointsShareKind): number {
+  switch (kind) {
+    case "pitp":
+      return 2 * v.pm;
+    case "mid":
+      return 2 * v.mm;
+    case "p3":
+      return 3 * v.tpm;
+    case "ft":
+      return v.ftm;
+    case "p2":
+      return 2 * (v.pm + v.mm);
+  }
+}
+
+/** 得点の割合（0〜100）。視点は自チーム・相手・差（差は両方の記録がそろう試合だけ）。内訳の対象が無ければ undefined */
+export function pointsShareValue(s: PaintSummary | undefined, kind: PointsShareKind, perspective: TeamPerspective): number | undefined {
+  if (!s) return undefined;
+  const [a, b] = sidesFor(s, perspective);
+  if (!a.games || a.pts <= 0) return undefined;
+  const x = (100 * shareNumerator(a, kind)) / a.pts;
+  if (!b) return x;
+  if (b.pts <= 0) return undefined;
+  return x - (100 * shareNumerator(b, kind)) / b.pts;
+}
+
+/** 内訳の対象の試合の得点（その他の得点の割合〔速攻・セカンドチャンス・ターンオーバー後〕の分母にそろえる）。無ければ undefined */
+export function paintValidPoints(s: PaintSummary | undefined, perspective: TeamPerspective): { own: number; opp?: number } | undefined {
+  if (!s) return undefined;
+  const [a, b] = sidesFor(s, perspective);
+  if (!a.games || a.pts <= 0) return undefined;
+  return b ? { own: a.pts, opp: b.pts } : { own: a.pts };
 }

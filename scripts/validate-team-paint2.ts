@@ -30,7 +30,7 @@ const PERSPECTIVES = ["own", "opp", "diff"] as const;
 const GAME_TYPES = ["regular", "playoff", "both"] as const;
 
 // --- 境界の事例（実データと独立） ---
-const good: PaintInput = { pm: 1, pa: 1, mm: 0, ma: 0, tm: 1, ta: 1 };
+const good: PaintInput = { pm: 1, pa: 1, mm: 0, ma: 0, tm: 1, ta: 1, pts: 2, tpm: 0, ftm: 0 };
 assert(validPaint(good));
 for (const x of [NaN, Infinity, -1, 0.5, undefined, "1"]) {
   assert(!validPaint({ ...good, pa: x } as PaintInput));
@@ -44,7 +44,7 @@ const weighted = summarizePaint([
 ]);
 assert.equal(paintValue(weighted, "paint2pct", "perGame", "own"), 0.1);
 assert.equal(paintValue(weighted, "paint2m", "perGame", "own"), 0.5);
-const empty = summarizePaint([{ own: { pm: 0, pa: 0, mm: 0, ma: 0, tm: 0, ta: 0 }, opp: good }]);
+const empty = summarizePaint([{ own: { pm: 0, pa: 0, mm: 0, ma: 0, tm: 0, ta: 0, pts: 0, tpm: 0, ftm: 0 }, opp: good }]);
 assert.equal(paintFormat(empty, "paint2pct", "total", "own"), "-");
 assert(!paintRankable(empty, "paint2pct", "own"));
 const partial = summarizePaint([
