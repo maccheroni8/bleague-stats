@@ -17487,3 +17487,16 @@ B.LEAGUE 公式の用語集（bleague.jp/glossary）の書き方に合わせる�
   チーム詳細のシーズン別成績は全チームスタッツと同じ列の式（`seasonScoringColumnText`）、比較は全チームスタッツの式を使い、ボックススコア側の同じキーは外す（`compareShared.ts`）。個人詳細の「対戦相手別」は %PTSPITP・%PTSMID・%PTS3P・%PTSFT・%PTS2P の順。
 - **順位・色**: %PTSPITP・%PTSMID・%PTSFBP などは今までどおり良し悪しなし（緑・赤は多い・少ない）。%PTS2P は %PTS3P・%PTSFT と同じ（チーム詳細・比較では色なしの順位だけ。`RANK_ONLY_KEYS`）。
 - 検証: `validate:stat-names`（旧名が残っていない）・`validate:self-scoring`（個人の %PTSMID・%PTS3P・%PTSFT・%PTS2P の手計算と、4つが PTS と一致）・`validate:compare-table`（4つの合計＝100%。teams.json の値との突き合わせは 1810 を含むチームを除く）・`validate:team-rank-columns`。
+
+## 469. アシストの有無のグラフ：最初は「得点全体」・選手にも追加・選手の Scoring % の保存（2026-11-22。**画面だけの変更でキー不変**。allKey は 593d4f1f… のまま。タスク t155）
+
+- **最初の選択を「得点全体」に**（得点のうちアシストあり／なし＝%PTSAST・%PTSSELF）。チーム詳細のシーズン別推移（`TeamSeasonShareCharts.tsx` の `AssistSelfTrend`）と全チームスタッツ（`TeamsListPage.tsx` の `assistSelfKind` の初期値と、並び順の欄の既定値）。ほかの選択肢（2P・3P・FG・FT）はそのまま。選んだ値を覚える仕組み（`usePageState`）は前のまま。画面の名前は今までの「得点全体」（依頼の「全体得点」と同じもの）。
+- **選手にも「アシストの有無」を追加**: 全選手スタッツの Scoring %（得点構成・FG試投構成の下）と個人詳細の Scoring %（シーズンごと）。チームと同じ部品の組み立て（`ShareBarChart`・`ASSIST_SELF_CATEGORIES`・`assistSelfShare`・種類 `SELF_SHOT_KIND_LABELS`・並び順 `ASSIST_SELF_ORDER_LABELS`）。最初は得点全体。
+  - 値は、レギュラーシーズンの出場試合の合計（`sumPlayerGameLogs`）を、表の列と同じ `playerShotSource` で成功数・アシスト付きの数にして出す（`PlayerScoringShareCharts.tsx` の `playerLogsAssistSource`）。得点全体は表の %PTSAST・%PTSSELF と同じ値で、足して100%。
+  - 全選手スタッツは、得点構成・FG試投構成と同じ選手（出場試合数85%以上・1試合10分以上・合計300分以上、登録区分・ポジション・クラブ・ルーキーの絞り込みが効く）。件数は50人ずつ「もっと見る」（FG試投構成と同じ。アシストの有無だけ別の件数）。
+  - **アシストの記録が無い試合（2017-18 の1810）で点を取った選手は、その選手・シーズンを出さない**（表の SELF の列が「-」になる決まりと同じ `playerSelfUnavailable`）。
+- **選手の Scoring % に保存を新設**: これまで全選手スタッツ・個人詳細には画像の保存が無かった（451章の保存の窓があったのは全チームスタッツだけ）ので、**Scoring % のタブだけ**に足した（ほかのタブには足していない。ユーザーに確認して決めた）。共通の部品 `ShareGraphSave.tsx`（保存の窓でグラフを1つずつチェックで選ぶ・1グラフ1枚・保存の間だけその1つの表示に切り替わり終わると戻る・見出しとファイル名にグラフ名）。
+  対象は 得点構成・FG試投構成・アシストの有無の3つ。並び順などの選択は画像に入れず、アシストの有無のシュートの種類は画像では文字（「（得点全体）」）で出す。「もっと見る」は画像に入れない。
+  全選手スタッツの見出しは「2026-27シーズン 全選手スタッツ：Scoring %　アシストの有無」、個人詳細は「通算 {選手名} シーズン別 Scoring %　…」（条件の行は「レギュラーシーズン／シーズン通算値」）。幅は 1180px（`.export-target-share`）。
+- 用語集の「アシストの有無・Self」に、選手にもこのグラフがあることを書き足した。
+- 確かめたこと: 宇都宮のトレイ・ケル（2026-27）は 35.24%／64.76%（合計100%）で表の %PTSAST・%PTSSELF と一致、仙台のカルバーも 44.72%／55.28% で一致。保存画像は個人詳細で3枚（ファイル名にグラフ名）・アシストの有無の画像の中身を確認。

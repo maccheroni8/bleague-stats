@@ -600,8 +600,8 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   const [storedFgaOrder, setFgaOrder] = usePageState<FgaShareOrder>("teams:fgaOrder", "total");
   const fgaOrder: FgaShareOrder = storedFgaOrder in FGA_ORDER_LABELS ? storedFgaOrder : "total";
   // アシストの有無（Scoring %）: シュートの種類と並び順
-  const [storedAssistKind, setAssistKind] = usePageState<SelfShotKind>("teams:assistSelfKind", "fgm");
-  const assistKind: SelfShotKind = storedAssistKind in SELF_SHOT_KIND_LABELS ? storedAssistKind : "fgm";
+  const [storedAssistKind, setAssistKind] = usePageState<SelfShotKind>("teams:assistSelfKind", "pts");
+  const assistKind: SelfShotKind = storedAssistKind in SELF_SHOT_KIND_LABELS ? storedAssistKind : "pts";
   const [storedAssistOrder, setAssistOrder] = usePageState<AssistSelfOrder>("teams:assistSelfOrder", "total");
   const assistOrder: AssistSelfOrder = storedAssistOrder in ASSIST_SELF_ORDER_LABELS ? storedAssistOrder : "total";
   const [storedClassificationOrder, setClassificationOrder] = usePageState<ClassificationShareOrder>("teams:classificationOrder", "total");
@@ -1579,7 +1579,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
                 label: "アシストの有無のシュート",
                 options: (Object.keys(SELF_SHOT_KIND_LABELS) as SelfShotKind[]).map((o) => ({ value: o, label: SELF_SHOT_KIND_LABELS[o] })),
                 value: assistKind,
-                defaultValue: "fgm",
+                defaultValue: "pts",
                 onChange: (v) => setAssistKind(v as SelfShotKind),
               }),
               simpleSelectAxis({

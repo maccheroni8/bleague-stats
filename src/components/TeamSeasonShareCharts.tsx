@@ -206,7 +206,7 @@ export function TeamSeasonScoringCharts({
 
 /**
  * アシストの有無のシーズン別推移（全チームスタッツの Scoring % と同じ作り。DESIGN.md 364章）。自チームの視点は「アシストの有無」（自チームの成功のうち）、
- * opp の視点は「相手のアシストの有無」（相手の成功のうち）。シュートの種類（2P・3P・FG・FT・得点全体、最初は FG）は上のプルダウンで選ぶ。
+ * opp の視点は「相手のアシストの有無」（相手の成功のうち）。シュートの種類（2P・3P・FG・FT・得点全体、最初は得点全体）は上のプルダウンで選ぶ。
  * アシストありを濃い色、セルフを薄い色。試合の流れの記録が無い試合（1810）は除く
  */
 function AssistSelfTrend({
@@ -218,7 +218,7 @@ function AssistSelfTrend({
   sources: Map<string, { games: number; totals: TeamTotals }> | null;
   opp: boolean;
 }) {
-  const [kind, setKind] = useState<SelfShotKind>("fgm");
+  const [kind, setKind] = useState<SelfShotKind>("pts");
   const unit = kind === "pts" ? "点" : "本";
   if (!sources) return <p className="loading">読み込み中...</p>;
   const chartRows: ShareBarRow[] = rows.flatMap((r) => {

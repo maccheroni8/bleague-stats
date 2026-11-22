@@ -227,6 +227,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   **新4項目 ASTFGM・SELFFGM・ASTPTS・SELFPTS**（ASTPTS＋SELFPTS＝PTS・ASTFGM＋SELFFGM＝FGM。1810 は「-」で合計・平均から外す）、**MID PTS・MID PTS%**（MID2M×2・÷PTS。Misc の PITP の右・Scoring の PITP% の右）。個人の Misc の列は `src/lib/playerColumnsView.ts` の `seasonBoxColumnsFor` を使う。**画面だけの変更でキー不変**
 - 468章: **割合の名前は公式の書き方（前に % ＝割合「%＋分母＋中身」、後ろに % ＝成功率・率）**（%PTSPITP・%PTSMID〔旧 %PoutP と MID PTS%〕・%PTS3P・%PTSFT・%PTS2P・%PTSFBP・%PTS2ND・%PTSOFFTO・%PTSAST・%PTSSELF・%FGM3P・%FGA3P・%FGAPAINT2・%FGAMID2・%FGAOPA など。列のキー・URL・保存した設定は古いまま、旧名は `STAT_ALIASES`、旧キー pctpoutp は `statKeyAliases.ts`）。
   **得点の割合の分母は内訳の記録がそろった試合の得点**（`pointsShareValue`。ペイント内＋ミッドレンジ＋3P＋FT＝100%）。個人の %PTS・%FGM などは分母が出場中の自チームのまま（用語集に公式との違いを明記）。**画面だけの変更でキー不変**
+- 469章: **アシストの有無のグラフ**。最初の選択は「得点全体」（チーム詳細・全チームスタッツ）。選手にも追加（全選手スタッツ・個人詳細の Scoring %。値は表の %PTSAST・%PTSSELF と同じ。1810 の選手は出さない）。選手の Scoring % だけに保存（`ShareGraphSave.tsx`。1グラフ1枚）。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

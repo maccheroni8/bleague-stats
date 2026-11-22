@@ -59,6 +59,7 @@ import {
 import { teamDivisionForSeason } from "../../scripts/lib/divisions";
 import { divisionPresets, opponentDivisionChoices } from "../lib/divisionGroups";
 import { ConditionTitle } from "../components/ConditionTitle";
+import { ShareGraphSave } from "../components/ShareGraphSave";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import { OnCourtShareNote } from "../components/OnCourtShareNote";
 import { OnOffNote } from "../components/OnOffNote";
@@ -125,7 +126,9 @@ import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
 import { filterByGameType } from "../../shared/gameType";
 import {
   PlayersFgaShareChart,
+  PlayersAssistSelfChart,
   PlayersScoringShareChart,
+  playerLogsAssistSource,
   playerLogsFgaShare,
   playerLogsScoringShare,
   type PlayerShareListRow,
@@ -140,6 +143,7 @@ import {
   type PlayerRecentFormRecentN,
 } from "../lib/tableThresholds";
 import { usePageState } from "../lib/pageStateCache";
+import { ASSIST_SELF_ORDER_LABELS, SELF_SHOT_KIND_LABELS, type AssistSelfOrder, type SelfShotKind } from "../lib/selfScoring";
 import { choiceNumberParam, clearUrlParams, enumParam, rangeParam, situationalParam, statConditionsParam, useUrlState } from "../lib/urlState";
 import { VENUE_PARAM, CLUB_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, POSITION_PARAM, PLAYER_GROUP_PARAM, PLAYER_SEASON_PERIOD_PARAM } from "../lib/urlFilterParams";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
@@ -602,6 +606,12 @@ const DEFAULT_SORT: Record<PlayersPageTab, { key: string; dir: "asc" | "desc" }>
 };
 
 const PAGE_SIZE = 50;
+/** Scoring % の3つのグラフ（保存は1グラフ1枚。設計書469章） */
+const PLAYER_SHARE_GRAPHS = [
+  { key: "score", name: "得点構成" },
+  { key: "fga", name: "FG試投構成" },
+  { key: "assist", name: "アシストの有無" },
+] as const;
 
 const DEFAULT_SITUATIONAL_FILTER: SituationalFilter = { range: { kind: "all" } };
 
@@ -946,6 +956,15 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
   const [storedFgaOrder, setFgaOrder] = usePageState<FgaShareOrder>("players:fgaOrder", "total");
   const fgaOrder: FgaShareOrder = storedFgaOrder in FGA_ORDER_LABELS ? storedFgaOrder : "total";
   const [fgaVisibleCount, setFgaVisibleCount] = useState(PAGE_SIZE);
+  // アシストの有無（設計書469章）: シュートの種類（最初は得点全体）・並び順・「もっと見る」。対象の選手は得点構成と同じ
+  const [storedAssistKind, setAssistKind] = usePageState<SelfShotKind>("players:assistSelfKind", "pts");
+  const assistKind: SelfShotKind = storedAssistKind in SELF_SHOT_KIND_LABELS ? storedAssistKind : "pts";
+  const [storedAssistOrder, setAssistOrder] = usePageState<AssistSelfOrder>("players:assistSelfOrder", "total");
+  const assistOrder: AssistSelfOrder = storedAssistOrder in ASSIST_SELF_ORDER_LABELS ? storedAssistOrder : "total";
+  const [assistVisibleCount, setAssistVisibleCount] = useState(PAGE_SIZE);
+  useEffect(() => {
+    setAssistVisibleCount(PAGE_SIZE);
+  }, [season, classificationFilter, teamFilter, positionFilter, rookieActive, assistKind]);
   useEffect(() => {
     setFgaVisibleCount(PAGE_SIZE);
   }, [season, classificationFilter, teamFilter, positionFilter, rookieActive]);
@@ -968,6 +987,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
         teamName: p.teamName,
         share: playerLogsScoringShare(classLogs(gameLogs, p.playerId)),
         fga: playerLogsFgaShare(classLogs(gameLogs, p.playerId)),
+        assist: playerLogsAssistSource(classLogs(gameLogs, p.playerId)),
       }))
       .filter((r) => r.share.perGame > 0);
     // groupOk・classLogs は classificationFilter・rookies.ids・classScope.changed から決まる
@@ -1304,11 +1324,14 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
         ))}
       </div>
 
-      <ConditionTitle
-        title={statsTitle.title}
-        conditions={statsTitle.conditions}
-        statConditions={tab === "scoringComposition" ? undefined : statConditionsTitle(statConditions, conditionItems)}
-      />
+      {/* Scoring % は、見出しを保存の範囲（ShareGraphSave）の中に置く（読み込み中・使えないときだけここに出す） */}
+      {(tab !== "scoringComposition" || classBlocked || rookies.error || gameDataLoading || rookies.loading || classScope.loading) && (
+        <ConditionTitle
+          title={statsTitle.title}
+          conditions={statsTitle.conditions}
+          statConditions={tab === "scoringComposition" ? undefined : statConditionsTitle(statConditions, conditionItems)}
+        />
+      )}
 
       {classBlocked ? (
         <p className="empty-message">{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p>
@@ -1342,26 +1365,76 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
                   defaultValue: "total",
                   onChange: (v) => setFgaOrder(v as FgaShareOrder),
                 }),
+                simpleSelectAxis({
+                  id: "assistSelfKind",
+                  label: "アシストの有無のシュート",
+                  options: (Object.keys(SELF_SHOT_KIND_LABELS) as SelfShotKind[]).map((o) => ({ value: o, label: SELF_SHOT_KIND_LABELS[o] })),
+                  value: assistKind,
+                  defaultValue: "pts",
+                  onChange: (v) => setAssistKind(v as SelfShotKind),
+                }),
+                simpleSelectAxis({
+                  id: "assistSelfOrder",
+                  label: "アシストの有無の並び順",
+                  options: (Object.keys(ASSIST_SELF_ORDER_LABELS) as AssistSelfOrder[]).map((o) => ({ value: o, label: ASSIST_SELF_ORDER_LABELS[o] })),
+                  value: assistOrder,
+                  defaultValue: "total",
+                  onChange: (v) => setAssistOrder(v as AssistSelfOrder),
+                }),
               ]}
             />
-            <h3>得点構成（総得点に占める割合）</h3>
-            <PlayersScoringShareChart
-              rows={scoringShareRows}
-              order={scoringOrder}
-              visibleCount={visibleCount}
-              onMore={() => setVisibleCount((c) => c + PAGE_SIZE)}
-            />
-            <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成" scope={`レギュラーシーズン・シーズン合計の値です（対象${scoringShareRows.length}人）。`} />
-            <h3>FG試投構成（FGAに占める割合）</h3>
-            <PlayersFgaShareChart
-              rows={scoringShareRows}
-              order={fgaOrder}
-              visibleCount={fgaVisibleCount}
-              onMore={() => setFgaVisibleCount((c) => c + PAGE_SIZE)}
-            />
-            <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="FG試投構成" scope="対象の選手は得点構成と同じです。" />
-            {rookieActive && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
-            <ClassificationNotes filter={classificationFilter} scope="season" />
+            <ShareGraphSave
+              graphs={PLAYER_SHARE_GRAPHS}
+              title={statsTitle.title}
+              exportScope={`${season}シーズン`}
+              conditions={statsTitle.conditions}
+              baseDate={{ kind: "season", season, gameType: "regular" }}
+            >
+              {(show) => (
+                <>
+                    {show("score") && (
+                      <>
+                    <h3>得点構成（総得点に占める割合）</h3>
+                    <PlayersScoringShareChart
+                      rows={scoringShareRows}
+                      order={scoringOrder}
+                      visibleCount={visibleCount}
+                      onMore={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                    />
+                    <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成" scope={`レギュラーシーズン・シーズン合計の値です（対象${scoringShareRows.length}人）。`} />
+                      </>
+                    )}
+                    {show("fga") && (
+                      <>
+                    <h3>FG試投構成（FGAに占める割合）</h3>
+                    <PlayersFgaShareChart
+                      rows={scoringShareRows}
+                      order={fgaOrder}
+                      visibleCount={fgaVisibleCount}
+                      onMore={() => setFgaVisibleCount((c) => c + PAGE_SIZE)}
+                    />
+                    <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="FG試投構成" scope="対象の選手は得点構成と同じです。" />
+                      </>
+                    )}
+                    {show("assist") && (
+                      <>
+                    <h3>アシストの有無（{SELF_SHOT_KIND_LABELS[assistKind]}の成功のうちアシストありとセルフの割合）</h3>
+                    <PlayersAssistSelfChart
+                      rows={scoringShareRows}
+                      kind={assistKind}
+                      order={assistOrder}
+                      visibleCount={assistVisibleCount}
+                      onMore={() => setAssistVisibleCount((c) => c + PAGE_SIZE)}
+                    />
+                    <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="アシストの有無" scope="対象の選手は得点構成と同じです。試合の流れの記録が無い試合（2017-18の試合ID 1810）で点を取った選手はそのシーズンは出しません。" />
+                      </>
+                    )}
+
+                  {rookieActive && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
+                  <ClassificationNotes filter={classificationFilter} scope="season" />
+                </>
+              )}
+            </ShareGraphSave>
           </>
         )
       ) : tab === "shooting" && !yahooPbpSupported ? (

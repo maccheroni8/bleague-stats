@@ -2647,6 +2647,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               teamData={careerTeamData}
               displayMode={seasonDisplayMode}
               playerId={player.playerId}
+              playerName={player.name}
               period={seasonBreakdownPeriod}
               periodSources={breakdownPeriodSources.sources}
               activeTab={seasonBreakdownTab}
@@ -3456,6 +3457,7 @@ function SeasonBreakdownTable({
   teamData,
   displayMode,
   playerId,
+  playerName,
   period,
   periodSources,
   activeTab: controlledActiveTab,
@@ -3470,6 +3472,8 @@ function SeasonBreakdownTable({
   /** 試合種別・Q別/前後半・表示は親のFilterBarで選ぶ（表示モードは読むだけ） */
   displayMode: SeasonDisplayMode;
   playerId: string;
+  /** 保存画像の見出し（Scoring %）に入れる選手名 */
+  playerName: string;
   period: PeriodRangeValue;
   /** Q別・前後半のときの、シーズンごとのピリオド別の索引（DESIGN.md 256章） */
   periodSources: ReadonlyMap<string, SeasonPeriodSource | null>;
@@ -3721,6 +3725,7 @@ function SeasonBreakdownTable({
       <>
         {tabBar}
         <PlayerSeasonScoringChart
+          playerName={playerName}
           seasons={[...careerData]
             .sort((a, b) => b.season.localeCompare(a.season))
             .map((cd) => ({ season: cd.season, logs: cd.logs, ownTeamByScheduleKey: teamData?.get(cd.season)?.ownTeamByScheduleKey }))}
