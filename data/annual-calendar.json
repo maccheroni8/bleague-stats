@@ -430,7 +430,7 @@
             "name": "信州ブレイブウォリアーズ"
           },
           "away": {
-            "name": "近畿ブロック代表"
+            "name": "東山高"
           },
           "status": "upcoming"
         },
@@ -472,7 +472,7 @@
             "name": "福島ファイヤーボンズ"
           },
           "away": {
-            "name": "北信越ブロック代表"
+            "name": "石川BS"
           },
           "status": "upcoming"
         },
@@ -535,7 +535,7 @@
             "name": "長崎ヴェルカ"
           },
           "away": {
-            "name": "M1（東海ブロック代表 vs 徳島クラブ）の勝者",
+            "name": "M1（リンタツ vs 徳島クラブ）の勝者",
             "placeholder": true
           },
           "status": "upcoming"
@@ -553,7 +553,7 @@
           "cupStage": "final",
           "id": "cup:M10:713",
           "home": {
-            "name": "M2（信州ブレイブウォリアーズ vs 近畿ブロック代表）の勝者",
+            "name": "M2（信州ブレイブウォリアーズ vs 東山高）の勝者",
             "placeholder": true
           },
           "away": {
@@ -643,7 +643,7 @@
           "cupStage": "final",
           "id": "cup:M12:704",
           "home": {
-            "name": "M4（福島ファイヤーボンズ vs 北信越ブロック代表）の勝者",
+            "name": "M4（福島ファイヤーボンズ vs 石川BS）の勝者",
             "placeholder": true
           },
           "away": {
@@ -759,7 +759,7 @@
             "name": "アルバルク東京"
           },
           "away": {
-            "name": "M7（九州ブロック代表 vs JR秋田）の勝者",
+            "name": "M7（日本経済大 vs JR秋田）の勝者",
             "placeholder": true
           },
           "status": "upcoming"
@@ -1714,7 +1714,7 @@
       ],
       "finalsEnd": "2027-06-01",
       "finalsSource": "https://www.bleague.jp/schedule/?club=700&tab=1",
-      "cupUpdatedAt": "2026-11-15T18:39:37.650Z"
+      "cupUpdatedAt": "2026-11-22T18:38:19.404Z"
     }
   }
 }
