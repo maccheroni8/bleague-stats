@@ -5,6 +5,7 @@
 //
 // 使い方: npm run validate:season-compare（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
 
+import { rankDirectionProps } from "../src/lib/rankDirection";
 import { buildCompare, compareUnsupportedReason, displayedDiff, diffTone, previousSeason, rankPositions } from "../src/lib/seasonCompare";
 
 let failures = 0;
@@ -63,6 +64,12 @@ eq("色 多い方が良い項目で減った", diffTone(-1.2, undefined), "bad")
 eq("色 少ない方が良い項目（TOV）で減った", diffTone(-0.4, false), "good");
 eq("色 少ない方が良い項目（TOV）で増えた", diffTone(0.1, false), "bad");
 eq("色 差が0", diffTone(0, false), "flat");
+// 良し悪しのない項目（MIN・POSS・割合など）も、増えたら緑・減ったら赤（PTS と同じ）
+for (const k of ["min", "g", "gs", "poss", "pace", "usg", "pitppct", "pct3p", "ast2m"]) {
+  const higher = rankDirectionProps(k).higherIsBetter;
+  eq(`色 良し悪しなし ${k} で増えた`, diffTone(1, higher), "good");
+  eq(`色 良し悪しなし ${k} で減った`, diffTone(-1, higher), "bad");
+}
 
 // 順位
 eq("順位 1・2・2・4", rankPositions(["10.0", "9.0", "9.0", "8.0"]), [1, 2, 2, 4]);

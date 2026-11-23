@@ -163,9 +163,13 @@ export function displayedDiff(currentText: string, prevText: string): DisplayedD
   return { diff, text, percent };
 }
 
-/** 差の色。少ない方が良い項目（higherIsBetter が false）は、減ったほうを「良くなった」にする。差が0のときは flat */
-export function diffTone(diff: number, higherIsBetter: boolean | undefined, neutral?: boolean): "good" | "bad" | "flat" {
-  if (diff === 0 || neutral) return "flat";
+/**
+ * 差の色。少ない方が良い項目（higherIsBetter が false）は、減ったほうを「良くなった」にする。差が0のときは flat。
+ * 良し悪しのない項目（出場時間・POSS・割合など）も、ほかの項目と同じく増えたら緑・減ったら赤
+ * （ランキングの色の決まり〔461〜464章〕と同じ。多い・少ないを緑・赤で表す。設計書474章）
+ */
+export function diffTone(diff: number, higherIsBetter: boolean | undefined): "good" | "bad" | "flat" {
+  if (diff === 0) return "flat";
   const better = higherIsBetter === false ? diff < 0 : diff > 0;
   return better ? "good" : "bad";
 }
@@ -199,7 +203,7 @@ export interface CompareEntry<P> {
 export function buildCompare<T, P>(opts: {
   currentRows: readonly T[];
   currentKey: (row: T) => string;
-  currentDef: { format: (row: T) => string; higherIsBetter?: boolean; neutral?: boolean };
+  currentDef: { format: (row: T) => string; higherIsBetter?: boolean };
   prevRows: readonly P[];
   prevKey: (row: P) => string;
   prevDef: { format: (row: P) => string };
@@ -218,7 +222,7 @@ export function buildCompare<T, P>(opts: {
     const d = displayedDiff(currentDef.format(row), prevText);
     if (!d) continue;
     rows.push(row);
-    entries.set(key, { prev, prevText, diff: d.diff, diffText: d.text, tone: diffTone(d.diff, currentDef.higherIsBetter, currentDef.neutral) });
+    entries.set(key, { prev, prevText, diff: d.diff, diffText: d.text, tone: diffTone(d.diff, currentDef.higherIsBetter) });
   }
   return { rows, entries };
 }
