@@ -190,7 +190,7 @@ export interface EligibilityLabelInput {
 /** ランキングの掲載基準（出場率＋スタッツ固有の追加基準） */
 export function eligibilityLabels({ gamesRatio, achievable, extra, extraThreshold }: EligibilityLabelInput): string[] {
   const labels = [`出場率${Math.round(gamesRatio * 100)}%以上${achievable ? "達成可能" : ""}`];
-  if (extra && extraThreshold !== undefined) labels.push(`${extra.label}${extraThreshold.toFixed(1)}${extra.unit}以上`);
+  if (extra && extraThreshold !== undefined) labels.push(`${extra.label} ${extraThreshold.toFixed(1)}以上`);
   return labels;
 }
 

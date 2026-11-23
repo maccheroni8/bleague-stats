@@ -56,7 +56,7 @@ export interface RankLinesOptions {
 }
 
 
-export const RANK_ELIGIBILITY_TEXT = `出場率${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}%以上（所属チームの試合数に対する出場試合数）。項目によって追加の基準がある（FG%：FGM 1.5本/試合以上、2P%：2PM 1.0本/試合以上、3P%：3PM 1.5本/試合以上、FT%：FTM 1.0本/試合以上。シュートタイプ・エリア別の成功率：その期間のチームの試合数の半分以上〔端数は切り上げ〕の試投）`;
+export const RANK_ELIGIBILITY_TEXT = `出場率${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}%以上（所属チームの試合数に対する出場試合数）。項目によって追加の基準がある（FG%：FGM 1.5以上、2P%：2PM 1.5以上、3P%：3PM 1.5以上、FT%：FTM 1.0以上（いずれも1試合平均）。シュートタイプ・エリア別の成功率：その期間のチームの試合数の半分以上〔端数は切り上げ〕の試投）`;
 
 /** Misc・Scoring の順位のために試合ログが要る選手（出場率の掲載基準を満たす選手） */
 export function rankLogPlayers(players: PlayerSummary[], teams: TeamSummary[]): PlayerSummary[] {

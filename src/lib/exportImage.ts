@@ -1,3 +1,4 @@
+import { fitHeadingIn } from "./exportHeadingFit";
 import { fitNamesIn } from "./nameLayout";
 import type html2canvas from "html2canvas";
 import {
@@ -322,6 +323,7 @@ function prepareClone(doc: Document, clonedEl: HTMLElement, options: ExportOptio
   if (options.plain && options.teamNames) clonedEl.classList.add("export-plain-team");
   if (options.top10) clonedEl.classList.add("export-top10");
   fitNamesIn(clonedEl);
+  fitHeadingIn(clonedEl);
   convertModernColors(clonedEl);
   // フッターは画面の表の下に出している要素（ExportTarget）をそのまま使い、アカウント名だけを足す。基準日は保存のときに求めた値
   let footer = Array.from(clonedEl.children).find((c): c is HTMLElement => c.classList.contains("export-footer"));

@@ -55,7 +55,7 @@ export const EXTRA_ELIGIBILITY_RULES: Partial<Record<string, ExtraEligibilityRul
     perGameValue: (p) => safeDiv(p.totals.ftm, p.gamesPlayed),
   },
   // FG%・2P% は成功数の基準（2026-10-18 ユーザー決定。公式の3P%・FT%〔1試合平均の成功数〕にならったこのサイトの決まり。以前は FGA 3.0・2PA 2.0）。
-  // 2025-26 の対象191名で、FGM 1.5以上＝141名（以前の FGA 3.0以上は160名）、2PM 1.0以上＝120名（以前の 2PA 2.0以上は122名）
+  // 2025-26 の対象191名で、FGM 1.5以上＝141名（以前の FGA 3.0以上は160名）、2PM 1.0以上＝120名（以前の 2PA 2.0以上は122名）。2026-11-24 に 2PM の下限の最初の値を 1.0 から 1.5 に変えた（473章）
   fgPct: {
     label: "FGM",
     unit: "本/試合",
@@ -68,7 +68,7 @@ export const EXTRA_ELIGIBILITY_RULES: Partial<Record<string, ExtraEligibilityRul
   twoPct: {
     label: "2PM",
     unit: "本/試合",
-    defaultValue: 1.0,
+    defaultValue: 1.5,
     min: 0,
     max: 5,
     step: 0.5,

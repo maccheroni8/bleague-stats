@@ -1115,7 +1115,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
             min={extraRule.min}
             max={extraRule.max}
             step={extraRule.step}
-            format={(v) => `${v.toFixed(1)}${extraRule.unit}`}
+            format={(v) => v.toFixed(1)}
             onChange={setExtraThreshold}
           />
         )}
