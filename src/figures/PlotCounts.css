@@ -1,5 +1,4 @@
-.plot-counts { position:absolute; top:6px; right:6px; z-index:3; display:grid; grid-template-columns:auto auto; gap:1px 8px; padding:3px 7px; font-size:11px; line-height:1.35; white-space:nowrap; pointer-events:none;
-  background:color-mix(in srgb, var(--bg) 88%, transparent); border:1px solid var(--border); border-radius:6px; }
-.plot-counts span:first-child { font-weight:700; grid-column:1 / -1; }
-@media (max-width:560px) { .plot-counts { font-size:10px; padding:2px 5px; } }
-.export-rendering .plot-counts { font-size:13px; padding:4px 9px; }
+/* グラフの枠の外（上）の右端。縦軸の名前（.ratings-y-label。top:-28px）と同じ行 */
+.plot-counts { position:absolute; top:-28px; right:0; z-index:3; font-size:12px; line-height:1.35; white-space:nowrap; text-align:right; pointer-events:none; color:var(--muted); }
+@media (max-width:560px) { .plot-counts { font-size:10px; } }
+.export-rendering .plot-counts { font-size:13px; }

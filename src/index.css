@@ -3052,6 +3052,13 @@ table.rankings-table-compact {
   white-space: nowrap;
 }
 
+/* 登録区分名つきのタイトル（ConditionTitle の classLabel）。項目名は1つのかたまりで、区分名と同じ行に入らなければ次の行へ送る */
+.condition-title .title-rest {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
+}
+
 /* スマホ幅の画面では、1語が行の幅を超えるときだけ途中で折り返す（「強制ターンオーバー（合計）ランキング」が画面の外にはみ出さないように）。
  * 画面の幅（メディアクエリ）で切り替える。保存のときに複製側のクラスを付け替えて切り替えると、文字の組みが画像でずれる（240-3章） */
 @media (max-width: 560px) {
@@ -4786,6 +4793,11 @@ table.compare-table th .compare-condition-line {
 .filter-bar-primary {
   grid-template-columns: repeat(var(--filter-cols, 6), minmax(0, 200px));
   gap: 12px;
+}
+
+/* 2段目の行（軸を指定する項目。axis.row === 2）。1段目との間をあける */
+.filter-bar-row2 {
+  margin-top: 12px;
 }
 
 .filter-field {

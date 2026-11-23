@@ -7,7 +7,7 @@ import { enumParam } from '../lib/urlState';
 import type { SituationalFilter } from '../lib/situational';
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from '../../shared/gameType';
 import { situationalFilterLabels } from '../lib/conditionLabels';
-import { classificationFilterLabel, splitClassificationBlocked, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON } from '../lib/classificationFilter';
+import { figureClassTitle, splitClassificationBlocked, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON } from '../lib/classificationFilter';
 import { figureClassGroup } from '../lib/figureAge';
 import { teamShortName } from '../../shared/teamNames';
 import { TeamChipList } from '../components/TeamChip';
@@ -133,7 +133,8 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
     { kind: 'select', id: 'vennDisplay', label: '選手の表示', tier: 'primary', value: display, defaultValue: 'photo', options: [{ value: 'photo', label: '写真' }, { value: 'name', label: '名前' }], onChange: v => setDisplay(v as VennDisplay) },
     pf.clubAxis, pf.positionAxis, hl.axis, ratioEligibilityAxis({ id: 'vennRatio', value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio, achievable: ach.axis })];
   const [periodLabel] = situationalFilterLabels(filter);
-  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], ...venueConditionLabel(venue), classificationFilterLabel(classification), ...eligibilityLabels({ gamesRatio: minRatio / 100, achievable: ach.achievable }), ...pf.labels, ...hl.labels].filter(Boolean);
+  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], ...venueConditionLabel(venue), ...eligibilityLabels({ gamesRatio: minRatio / 100, achievable: ach.achievable }), ...pf.labels, ...hl.labels].filter(Boolean);
+  const classTitle = figureClassTitle(classification);
   const baseDate = { kind: 'season' as const, season, gameType };
   const columns: Column<PlayerFigurePoint>[] = [
     { key: 'player', label: '選手名（チーム）', align: 'left', sortValue: p => p.name, render: p => <button className="ratings-team-button" onClick={() => setHover(p.id)}>{playerLabel(p.name)}（<TeamChipList ids={p.teamIds} labelOf={abbrOf} />）{p.teamIds.length > 1 ? '合算' : ''}</button> },
@@ -165,9 +166,9 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
       </div>)}
     </div>
     {blocked ? <p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p> : request.loading ? <p role="status">選手の試合データを読み込み中…</p> : request.error ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : !model ? <p className="empty-message">この条件で表示できる選手がいません。</p> : <>
-      <FigureExportButton targetRef={target} filename={`選手_ベン図_${circleNames.join('_')}_${conditions.slice(0, 2).join('_')}`} baseDate={baseDate} />
+      <FigureExportButton targetRef={target} filename={`選手_ベン図_${circleNames.join('_')}_${[...conditions.slice(0, 2), classTitle].filter(Boolean).join('_')}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="ratings-export venn-export" baseDate={baseDate}>
-        <ConditionTitle title={circleNames.join('・')} exportScope={`${season}シーズン`} conditions={conditions} />
+        <ConditionTitle title={circleNames.join('・')} classLabel={classTitle} exportScope={`${season}シーズン`} conditions={conditions} />
         <div onPointerDown={e => { if (!(e.target as Element).closest('.venn-team')) setHover(null); }}>
           <VennChart {...chartProps} />
           <VennChart {...chartProps} exportOnly />

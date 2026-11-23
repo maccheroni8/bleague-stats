@@ -67,6 +67,8 @@ interface FilterAxisBase {
   label: string;
   /** primary=常時表示、advanced=「詳細フィルタ」内 */
   tier: "primary" | "advanced";
+  /** 常時表示（primary）の軸を2段目の行に出す（図解の散布図で、軸を指定する項目を2段目にまとめる。DESIGN.md 475章）。指定しなければ1段目 */
+  row?: 2;
   value: string;
   /** 既定値。value !== defaultValue の軸だけがチップとして出る */
   defaultValue: string;
@@ -741,4 +743,9 @@ export function situationalAxes(
   axes.push(dateAxis("s.dateStart", "期間指定（開始）", "start"), dateAxis("s.dateEnd", "期間指定（終了）", "end"));
 
   return axes;
+}
+
+/** 指定した id の軸を2段目の行に移す（FilterBar。常時表示の軸のうち、軸を指定する項目だけを2段目にまとめる） */
+export function inSecondRow(axes: FilterAxis[], ids: readonly string[]): FilterAxis[] {
+  return axes.map((a) => (ids.includes(a.id) ? { ...a, row: 2 as const } : a));
 }

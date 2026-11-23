@@ -26,9 +26,9 @@ function ConditionLabel({ label }: { label: string }) {
  * 大見出しは、半角スペースの位置と文節の切れ目（titlePhrases）でだけ折り返す（「2026-27シーズン 得点ランキング」「A vs B」。単語や名前の途中で
  * 「組み/合わせ」「名古/屋〜」のように切れないように。DESIGN.md 239章）
  */
-function renderTitle(title: string) {
+function renderTitle(title: string, classLabel?: string) {
   const parts = title.split(" ");
-  return parts.map((part, i) => (
+  const body = parts.map((part, i) => (
     <Fragment key={i}>
       {i > 0 && " "}
       {titlePhrases(part).map((phrase, j) => (
@@ -38,6 +38,15 @@ function renderTitle(title: string) {
       ))}
     </Fragment>
   ));
+  if (!classLabel) return body;
+  // 登録区分名はタイトルの頭。1行に収まらないときは、1行目に区分名・2行目に項目名（項目名は1つのかたまりとして次の行へ送る。DESIGN.md 475章）
+  return (
+    <>
+      <span className="title-nowrap title-class">{classLabel}</span>
+      {" "}
+      <span className="title-rest">{body}</span>
+    </>
+  );
 }
 
 /**
@@ -62,8 +71,11 @@ export function ConditionTitle({
   exportOmitLabels,
   exportTitle,
   exportConditions,
+  classLabel,
 }: {
   title: string;
+  /** 登録区分名（「日本人」）。選んでいるときだけ渡す。タイトルの頭に付ける（画面・保存画像とも。条件の行には入れない。DESIGN.md 475章） */
+  classLabel?: string;
   /** 保存画像の見出しにだけ使うタイトル（画面の見出しは title のまま。登録区分を頭に付ける個人のランキングなど。DESIGN.md 472章） */
   exportTitle?: string;
   /** 保存画像の条件の行にだけ使うラベル（画面の条件の行は conditions のまま） */
@@ -106,10 +118,10 @@ export function ConditionTitle({
     <div className={`condition-title${section ? " condition-title-section" : ""}`}>
       {/* クラッチタイムの条件のときの目印。保存画像のフッターに定義を足す（lib/exportImage.ts。設計書387章） */}
       {hasClutchTimeLabel(shown) && <span data-clutch-time hidden />}
-      <h2 className="export-hide">{renderTitle(title)}</h2>
+      <h2 className="export-hide">{renderTitle(title, classLabel)}</h2>
       <div className="export-only export-heading">
         {!exportScopeHidden && <p className="export-heading-scope">{heading.scope}</p>}
-        {!exportNameHidden && <h2>{renderTitle(heading.name)}</h2>}
+        {!exportNameHidden && <h2>{renderTitle(heading.name, classLabel)}</h2>}
       </div>
       {(shown.length > 0 || (splitConditions && exportShown.length > 0)) &&
         (splitConditions ? (

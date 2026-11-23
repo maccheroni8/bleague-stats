@@ -65,7 +65,8 @@ export function FigurePresets({ entity, figureId, params, onApply }: {
     try { await navigator.clipboard.writeText(url); setManualUrl(''); setMessage('URLをコピーしました。'); }
     catch { setManualUrl(url); setMessage('コピーできませんでした。下のURLを選んでコピーしてください。'); }
   };
-  const apply = (p: FigurePreset) => { setRowEdit(null); setMessage(''); onApply(applyPresetParams(params, p)); };
+  // 保存した設定を選んだら、開いている「図の設定」の欄は閉じる（チーム・選手とも全部の図で共通。DESIGN.md 475章）
+  const apply = (p: FigurePreset) => { setRowEdit(null); setMessage(''); setSaving(null); setManualUrl(''); onApply(applyPresetParams(params, p)); setOpen(false); };
   return <div className="figure-presets" role="group" aria-label="図の設定の保存">
     <button type="button" className="figure-presets-toggle" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(v => !v)}>
       図の設定<span aria-hidden="true">{open ? '▴' : '▾'}</span>

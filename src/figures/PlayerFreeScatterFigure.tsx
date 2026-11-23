@@ -7,11 +7,11 @@ import { enumParam, numberParam, situationalParam, useUrlState, type UrlCodec } 
 import { venueAxis, venueCodec, venueConditionLabel } from '../lib/figureVenue';
 import { defaultInvert, invertCodec, invertedName } from '../lib/figureInvert';
 import { invertAxis } from './axisInvert';
-import { classificationAxis, gameTypeAxis, situationalAxes, type FilterAxis } from '../lib/filterAxes';
+import { classificationAxis, gameTypeAxis, inSecondRow, situationalAxes, type FilterAxis } from '../lib/filterAxes';
 import type { SituationalFilter } from '../lib/situational';
 import { figureClassGroup } from '../lib/figureAge';
 import { CLASSIFICATION_PARAM, GAME_TYPE_PARAM } from '../lib/urlFilterParams';
-import { classificationFilterLabel, splitClassificationBlocked, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON } from '../lib/classificationFilter';
+import { figureClassTitle, splitClassificationBlocked, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON } from '../lib/classificationFilter';
 import { situationalFilterLabels } from '../lib/conditionLabels';
 import { useTeamLabel } from '../lib/teamLabel';
 import { usePlayerLabel } from '../lib/playerLabel';
@@ -120,7 +120,7 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
     options: playerFreeItems(season).map(i => { const reason = playerFreeItemBlock(i, players, category, reasons, season); return { value: i.id, label: i.label, group: i.categoryLabel, disabled: !!reason, disabledReason: reason }; }),
     onChange,
   });
-  const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season, { disabledReason: rangeReason }),
+  const axes: FilterAxis[] = inSecondRow([...rangeAxes, gameTypeAxis(gameType, setGameType, season, { disabledReason: rangeReason }),
     itemAxis('pfreeY', '縦軸', yItem.id, DEFAULT_PLAYER_FREE_Y, v => pickItem(v, setYId, setInvY)),
     invertAxis({ id: 'pfreeYInvert', label: '縦軸の反転', checked: invY, onChange: setInvY }),
     itemAxis('pfreeX', '横軸', xItem.id, DEFAULT_PLAYER_FREE_X, v => pickItem(v, setXId, setInvX)),
@@ -129,10 +129,11 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
     { kind: 'select', id: 'pfreeMode', label: '平均／合計', tier: 'primary', value: mode, defaultValue: 'perGame', options: [{ value: 'perGame', label: '1試合平均' }, { value: 'total', label: '合計' }], onChange: v => setMode(v as 'perGame' | 'total') },
     classificationAxis(classification, setClassification, { season }),
     pf.clubAxis, pf.positionAxis, hl.axis,
-    ratioEligibilityAxis({ id: 'pfreeRatio', value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio, achievable: ach.axis })];
+    ratioEligibilityAxis({ id: 'pfreeRatio', value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio, achievable: ach.axis })], ['pfreeY', 'pfreeYInvert', 'pfreeX', 'pfreeXInvert']);
   const [periodLabel] = situationalFilterLabels(seasonTotals ? { range: { kind: 'all' } } : filter);
-  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[seasonTotals ? 'regular' : gameType], ...(seasonTotals ? [] : venueConditionLabel(venue)), mode === 'total' ? '合計' : '1試合平均', classificationFilterLabel(classification),
+  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[seasonTotals ? 'regular' : gameType], ...(seasonTotals ? [] : venueConditionLabel(venue)), mode === 'total' ? '合計' : '1試合平均',
     ...pf.labels, ...eligibilityLabels({ gamesRatio: minRatio / 100, achievable: ach.achievable }), ...hl.labels].filter(Boolean);
+  const classTitle = figureClassTitle(classification);
   const baseDate = { kind: 'season' as const, season, gameType: seasonTotals ? 'regular' as const : gameType };
   const pick = (p: PlayerFigurePoint) => setHover(p.id);
   type Row = typeof items[number];
@@ -147,9 +148,9 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
     <FilterBar axes={axes} stateKey="figures:player-free-scatter" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setVenue('all'); setInvX(false); setInvY(false); setYId(DEFAULT_PLAYER_FREE_Y); setXId(DEFAULT_PLAYER_FREE_X); setMode('perGame'); pf.reset(); setMinRatio(DEFAULT_RATIO); ach.reset(); hl.setIds([]); setHover(null); }} />
     {splitClassificationBlocked(figureClassGroup(classification), season) ? <p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p> : request.loading ? <p role="status">選手の試合データを読み込み中…</p> : request.error ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : !items.length ? <p>この条件に該当する選手はいません。</p> : <>
       <p className="figure-count">{items.length}人を表示</p>
-      <FigureExportButton targetRef={target} filename={`選手_${yName}_${xName}_${conditions.join('_')}`} baseDate={baseDate} />
+      <FigureExportButton targetRef={target} filename={`選手_${yBase}_${xBase}_${[classTitle, ...conditions].filter(Boolean).join('_')}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="ratings-export scorers-export axis-scatter-export" baseDate={baseDate}>
-        <ConditionTitle title={`${yBase} × ${xBase}`} exportScope={`${season}シーズン`} conditions={conditions} />
+        <ConditionTitle title={`${yBase} × ${xBase}`} classLabel={classTitle} exportScope={`${season}シーズン`} conditions={conditions} />
         <AxisScatter points={items} xDomain={xDomain} yDomain={yDomain} xLabel={xName} yLabel={yName}
           xTick={v => freeTickText(v, xKind, xDomain)} yTick={v => freeTickText(v, yKind, yDomain)}
           xReversed={invX} yReversed={invY} avgX={avgX} avgY={avgY} avgXText={avgX === null ? '' : avgText(avgX, xKind)} avgYText={avgY === null ? '' : avgText(avgY, yKind)}

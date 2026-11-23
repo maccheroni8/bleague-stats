@@ -8,7 +8,7 @@ import type { SituationalFilter } from "../lib/situational";
 import { figureClassGroup } from "../lib/figureAge";
 import { CLASSIFICATION_PARAM, GAME_TYPE_PARAM } from "../lib/urlFilterParams";
 import { splitClassificationBlocked, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON } from "../lib/classificationFilter";
-import { classificationLabels, eligibilityLabels, situationalFilterLabels, visibleConditionLabels } from "../lib/conditionLabels";
+import { classificationConditionLabels, classTitleLabel, eligibilityLabels, situationalFilterLabels, visibleConditionLabels } from "../lib/conditionLabels";
 import { buildPlayerFigurePoints, passesRatio, type PlayerFigurePoint } from "../lib/figurePlayerPoints";
 import { playerShootCells, shootReference } from "../lib/figureShootTableData";
 import {
@@ -108,7 +108,8 @@ export default function PlayerShootTableFigure({ season, category }: FigureProps
     ratioEligibilityAxis({ id: "shootRatio", value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio, achievable: ach.axis })];
   const [periodLabel] = situationalFilterLabels(filter);
   const sortText = shootSortLabel(shown.find(c => c.key === sortKey.key)?.label ?? "PTS", sortKey.descending);
-  const conditions = visibleConditionLabels(playerShootConditions({ scope: `${season} ${periodLabel}`, gameType: seasonGameTypeLabels(season)[gameType], selection, classification: classificationLabels(classification), filters: pf.labels, eligibility: eligibilityLabels({ gamesRatio: minRatio / 100, achievable: ach.achievable }), highlights: hl.labels, sort: sortText }));
+  const conditions = visibleConditionLabels(playerShootConditions({ scope: `${season} ${periodLabel}`, gameType: seasonGameTypeLabels(season)[gameType], selection, classification: classificationConditionLabels(classification), filters: pf.labels, eligibility: eligibilityLabels({ gamesRatio: minRatio / 100, achievable: ach.achievable }), highlights: hl.labels, sort: sortText }));
+  const classTitle = classTitleLabel(classification);
   const baseDate = { kind: "season" as const, season, gameType };
   const toggleSort = (key: string) => setSort(prev => ({ key, descending: prev.key === key ? !prev.descending : true }));
   // 移籍した選手は、表示中の範囲で最後に出場した試合のチームの略称
@@ -117,9 +118,9 @@ export default function PlayerShootTableFigure({ season, category }: FigureProps
     <FilterBar axes={axes} stateKey="figures:player-shoot-table" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType("regular"); setClassification("all"); setKind("min"); setMinPts(DEFAULT_SHOOT_MIN_PTS); setTopN(DEFAULT_SHOOT_TOP_N); setSort(DEFAULT_SORT); pf.reset(); setMinRatio(DEFAULT_RATIO); ach.reset(); hl.setIds([]); }} />
     {splitClassificationBlocked(figureClassGroup(classification), season) ? <p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p> : request.loading ? <p role="status">選手の試合データを読み込み中…</p> : request.error ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : !sorted.length ? <p className="empty-message">この条件に該当する選手はいません。</p> : <>
       <p className="figure-count">{sorted.length}人を表示</p>
-      <FigureExportButton targetRef={target} filename={`シュート成功率_${conditions.join("_")}`} baseDate={baseDate} />
+      <FigureExportButton targetRef={target} filename={`シュート成功率_${[classTitle, ...conditions].filter(Boolean).join("_")}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="ratings-export shoot-export" baseDate={baseDate}>
-        <ConditionTitle title={shootTitle(null)} exportScope={`${season}シーズン`} conditions={conditions} />
+        <ConditionTitle title={shootTitle(null)} classLabel={classTitle} exportScope={`${season}シーズン`} conditions={conditions} />
         <PlayerNamePool names={names}>
           <ShootTableView rows={sorted} rowKey={p => p.id} columns={columns} sort={sortKey} onSort={toggleSort} ranks={ranks} nameHeader="PLAYER" highlight={p => hl.has(p.teamIds)} ariaLabel="シュート成功率（選手）"
             renderName={p => <div className="shoot-who">

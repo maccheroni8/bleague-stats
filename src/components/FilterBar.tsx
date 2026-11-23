@@ -220,7 +220,9 @@ function FilterField({ axis }: { axis: FilterAxis }) {
 export function FilterBar({ axes, stateKey, onClearAll, simple = false, compact = false, wide = false, advancedExtra, trailing }: FilterBarProps) {
   const [advancedOpen, setAdvancedOpen] = usePageState<boolean>(`${stateKey}:advancedOpen`, false);
   const panelId = useId();
-  const primary = axes.filter((a) => a.tier === "primary");
+  const primaryAll = axes.filter((a) => a.tier === "primary");
+  const primary = primaryAll.filter((a) => a.row !== 2);
+  const primaryRow2 = primaryAll.filter((a) => a.row === 2);
   const advanced = simple ? [] : axes.filter((a) => a.tier === "advanced");
   const chips = simple ? [] : axes.filter(isAxisChipped);
   const extra = simple ? undefined : advancedExtra;
@@ -251,6 +253,16 @@ export function FilterBar({ axes, stateKey, onClearAll, simple = false, compact 
       </div>
       {trailing && <div className="filter-bar-trailing">{trailing}</div>}
       </div>
+      {primaryRow2.length > 0 && (
+        <div
+          className="filter-bar-grid filter-bar-primary filter-bar-row2"
+          style={{ "--filter-cols": primaryRow2.length } as React.CSSProperties}
+        >
+          {primaryRow2.map((a) => (
+            <FilterField key={a.id} axis={a} />
+          ))}
+        </div>
+      )}
       {disabledReasons.length > 0 && <p className="filter-bar-note">{disabledReasons.join(" ")}</p>}
       {hasAdvanced && (
         <div className="filter-bar-advanced-row">

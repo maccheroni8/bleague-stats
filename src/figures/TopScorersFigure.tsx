@@ -13,7 +13,7 @@ import type { SeasonGameTypeFilter } from '../../shared/gameType';
 import { seasonGameTypeLabels } from '../../shared/gameType';
 import { figureClassGroup } from '../lib/figureAge';
 import { CLASSIFICATION_PARAM } from '../lib/urlFilterParams';
-import { classificationFilterLabel, splitClassificationBlocked, splitClassificationSeason, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON } from '../lib/classificationFilter';
+import { figureClassTitle, splitClassificationBlocked, splitClassificationSeason, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON } from '../lib/classificationFilter';
 import { buildTopScorers, scorerDomain, SCORER_AXES, SCORER_LABELS, scorerAxisTitle, type ScorerAxis, type ScorerPoint } from '../lib/figureTopScorers';
 import { DIVISION_LABELS, divisionOrder } from '../lib/divisionGroups';
 import { DIVISION_RATING_COLORS } from '../lib/figureRatings';
@@ -87,7 +87,8 @@ export default function TopScorersFigure({season,category}:FigureProps){
  pf.clubAxis, pf.positionAxis,
  hl.axis,
  ratioEligibilityAxis({id:'scorerRatio',value:minRatio,defaultValue:DEFAULT_RATIO,onChange:setMinRatio,achievable:ach.axis})];
- const conditions=[season,seasonGameTypeLabels(season)[gameType],...situationalFilterLabels(filter),classificationFilterLabel(classification),...pf.labels,...eligibilityLabels({gamesRatio:minRatio/100,achievable:ach.achievable}),...hl.labels];
+ const conditions=[season,seasonGameTypeLabels(season)[gameType],...situationalFilterLabels(filter),...pf.labels,...eligibilityLabels({gamesRatio:minRatio/100,achievable:ach.achievable}),...hl.labels];
+ const classTitle=figureClassTitle(classification);
  const baseDate={kind:'season' as const,season,gameType};
  const select=(p:ScorerPoint)=>{setHover(p.id);};
  const columns:Column<ScorerPoint>[]=[
@@ -101,16 +102,16 @@ export default function TopScorersFigure({season,category}:FigureProps){
   <FilterBar axes={axes} stateKey="figures:top-scorers" advancedExtra={pf.advancedExtra} onClearAll={()=>{setFilter(DEFAULT);setGameType('regular');setClassification('all');pf.reset();setMinRatio(DEFAULT_RATIO);ach.reset();setX('win');hl.setIds([]);}}/>
   {splitClassificationBlocked(figureClassGroup(classification),season)?<p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p>:request.loading?<p role="status">選手の試合データを読み込み中…</p>:request.error?<p role="alert">データを読み込めませんでした。ページを読み直してください。</p>:!visible.length?<p>この条件に該当する選手はいません。</p>:<>
   <p className="figure-count">{plotted.length}人を表示</p>
-  <FigureExportButton targetRef={target} filename={`トップスコアラー_${SCORER_LABELS[axis]}_${conditions.join('_')}`} baseDate={baseDate}/>
+  <FigureExportButton targetRef={target} filename={`トップスコアラー_${SCORER_LABELS[axis]}_${[classTitle,...conditions].filter(Boolean).join('_')}`} baseDate={baseDate}/>
   <ExportTarget ref={target} className="ratings-export scorers-export" baseDate={baseDate}>
-   <ConditionTitle title={`各チームのトップスコアラー3人：${SCORER_LABELS[axis]} × 平均得点`} exportScope={`${season}シーズン`} conditions={conditions}/>
+   <ConditionTitle title={`各チームのトップスコアラー3人：${SCORER_LABELS[axis]} × 平均得点`} classLabel={classTitle} exportScope={`${season}シーズン`} conditions={conditions}/>
    <div className="ratings-chart" onPointerDown={e=>{if(!(e.target as Element).closest('.ratings-point'))setHover(null);}}><div className="ratings-plot-wrap">
     <span className="ratings-y-label">↑ 平均得点（PTS）</span>
     <div className="ratings-plot">
      {xDomain.ticks.map(t=><span key={`x${t}`} className={`ratings-grid-v scoring-grid ${major(t,xDomain.step)?'is-major':'is-minor'}`} style={{left:`${x(t)}%`}}/>)}
      {yDomain.ticks.map(t=><span key={`y${t}`} className={`ratings-grid-h scoring-grid ${major(t,yDomain.step)?'is-major':'is-minor'}`} style={{top:`${y(t)}%`}}/>)}
      {plotted.map(p=><ScorerPhoto key={p.id} point={p} season={season} teamId={p.teamId} label={`${playerLabel(p.name)}：平均得点 ${formatDecimal(p.pts)}、${SCORER_LABELS[axis]} ${valueText(p.values[axis],axis)}`} selected={hl.has([p.teamId])} expanded={hover===p.id} left={x(p.values[axis]!)} top={y(p.pts)} onSelect={()=>select(p)} onDismiss={()=>setHover(null)}/>)}
-     <PlotCounts points={plotted.map(p=>({left:x(p.values[axis]!),top:y(p.pts)}))} lines={countLines}/>
+     <PlotCounts lines={countLines}/>
      {tip&&<div className="ratings-tooltip scoring-tooltip" role="tooltip" style={{left:`clamp(0px, calc(${x(tip.values[axis]!)}% - 130px), calc(100% - 260px))`,top:`clamp(0px, calc(${y(tip.pts)}% + 24px), calc(100% - 120px))`}}><strong>{playerLabel(tip.name)}（{teamLabel(tip.teamId,tip.teamName)}）</strong><span>平均得点 {formatDecimal(tip.pts)}</span><span>{SCORER_LABELS[axis]} {valueText(tip.values[axis],axis)}</span><span>{tip.games}試合・{tip.wins}勝{tip.games-tip.wins}敗</span></div>}
     </div>
     {xDomain.ticks.filter(t=>major(t,xDomain.step)).map(t=><span className={`ratings-tick-x${Math.abs(t/(xDomain.step*4)-Math.round(t/(xDomain.step*4)))<1e-6?'':' scorer-tick-secondary'}`} key={t} style={{left:`${x(t)}%`}}>{axis==='ppp'||axis==='pps'?t.toFixed(1):t}</span>)}

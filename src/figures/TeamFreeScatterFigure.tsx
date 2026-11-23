@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { fetchTeams, fetchTeamGameLogs, fetchDivisionHistory, teamLogoUrl } from '../lib/data';
 import { useJsonData } from '../lib/useJsonData';
 import { enumParam, situationalParam, useUrlState, type UrlCodec } from '../lib/urlState';
-import { gameTypeAxis, situationalAxes, type FilterAxis } from '../lib/filterAxes';
+import { gameTypeAxis, inSecondRow, situationalAxes, type FilterAxis } from '../lib/filterAxes';
 import { GAME_TYPE_PARAM } from '../lib/urlFilterParams';
 import type { SituationalFilter } from '../lib/situational';
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from '../../shared/gameType';
@@ -186,7 +186,7 @@ export default function TeamFreeScatterFigure({ season, category }: FigureProps)
     summary: minGames > 0 ? `${minGames}試合以上` : '指定なし', chipValue: `${minGames}試合以上`,
     content: <EligibilitySlider label="条件の試合数" value={minGames} min={0} max={MIN_GAMES_MAX} step={1} format={v => `${v}試合`} onChange={setMinGames} />,
   };
-  const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season, { disabledReason: rangeReason }),
+  const axes: FilterAxis[] = inSecondRow([...rangeAxes, gameTypeAxis(gameType, setGameType, season, { disabledReason: rangeReason }),
     itemAxis('freeY', '縦軸', yItem.id, DEFAULT_FREE_Y, v => pickItem(v, persp.y, setYId, setInvY)), ...(yFixed ? [] : [perspAxis('freeYPersp', '縦軸の視点', persp.y, v => { setPersp(p => ({ ...p, y: v })); setInvY(defaultInvert(yItem.key, v === 'opp' ? 'opp' : 'own')); })]),
     invertAxis({ id: 'freeYInvert', label: '縦軸の反転', checked: invY, onChange: setInvY }),
     itemAxis('freeX', '横軸', xItem.id, DEFAULT_FREE_X, v => pickItem(v, persp.x, setXId, setInvX)), ...(xFixed ? [] : [perspAxis('freeXPersp', '横軸の視点', persp.x, v => { setPersp(p => ({ ...p, x: v })); setInvX(defaultInvert(xItem.key, v === 'opp' ? 'opp' : 'own')); })]),
@@ -194,7 +194,7 @@ export default function TeamFreeScatterFigure({ season, category }: FigureProps)
     venueAxis(venue, setVenue, rangeReason),
     ...(usesCond ? [minGamesAxis] : []),
     { kind: 'select', id: 'freeMode', label: '平均／合計', tier: 'primary', value: mode, defaultValue: 'perGame', options: [{ value: 'perGame', label: '1試合平均' }, { value: 'total', label: '合計' }], onChange: v => setMode(v as 'perGame' | 'total') },
-    hl.axis];
+    hl.axis], ['freeY', 'freeYPersp', 'freeYInvert', 'freeX', 'freeXPersp', 'freeXInvert', 'freeMinGames']);
   const [periodLabel] = situationalFilterLabels(seasonTotals ? { range: { kind: 'all' } } : filter);
   const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[seasonTotals ? 'regular' : gameType], ...(xFixed && yFixed ? [] : [mode === 'total' ? '合計' : '1試合平均']), ...(seasonTotals ? [] : venueConditionLabel(venue)), ...(usesStrength ? ['相手の強さはシーズン全体の値'] : []), ...(usesCond && minGames > 0 ? [`条件の試合数 ${minGames}試合以上`] : []), ...hl.labels];
   const baseDate = { kind: 'season' as const, season, gameType: seasonTotals ? 'regular' as const : gameType };
@@ -212,7 +212,7 @@ export default function TeamFreeScatterFigure({ season, category }: FigureProps)
       {xItem.id === WINPCT_COND_ITEM_ID && <CondPicker env={env} spec={cx} label="横軸" onChange={setCondX} />}
     </div>}
     {request.loading || (usesStrength && strengths.loading) || (usesWin && envLoading && !request.error) ? <p role="status">読み込み中…</p> : request.error || request.data?.missing ? <p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p> : !points.length || !model?.league ? <p className="empty-message">この条件で表示できるチームがありません。</p> : <>
-      <FigureExportButton targetRef={target} filename={`${yName}_${xName}_${conditions.join('_')}`} baseDate={baseDate} />
+      <FigureExportButton targetRef={target} filename={`${yBase}_${xBase}_${conditions.join('_')}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="ratings-export axis-scatter-export" baseDate={baseDate}>
         <ConditionTitle title={`${yBase} × ${xBase}`} exportScope={`${season}シーズン`} conditions={conditions} />
         <AxisScatter points={points} xDomain={xDomain} yDomain={yDomain} xLabel={`${xName}${unitText(xKind, px)}`} yLabel={`${yName}${unitText(yKind, py)}`} zeroLines={px === 'diff' || py === 'diff'} xReversed={invX} yReversed={invY}

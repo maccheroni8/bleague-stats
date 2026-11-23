@@ -42,7 +42,7 @@ export function AxisScatter<T extends ScatterPoint>({ points, xDomain, yDomain, 
       {avgX !== null && <span className="ratings-average-v" style={{ left: `${x(avgX)}%` }}><span className="avg-line-label avg-line-label-v">{avgXText}</span></span>}
       {avgY !== null && <span className="ratings-average-h" style={{ top: `${y(avgY)}%` }}><span className="avg-line-label avg-line-label-h">{avgYText}</span></span>}
       {points.map(p => renderMarker(p, x(p.x), y(p.y)))}
-      {countLines && <PlotCounts points={points.map(p => ({ left: x(p.x), top: y(p.y) }))} lines={countLines} />}
+      {countLines && <PlotCounts lines={countLines} />}
       {tooltip && <div className="ratings-tooltip scoring-tooltip" role="tooltip" style={{ left: `clamp(0px, calc(${x(tooltip.point.x)}% - 130px), calc(100% - 260px))`, top: `clamp(0px, calc(${y(tooltip.point.y)}% + 24px), calc(100% - 130px))` }}>{tooltip.node}</div>}
     </div>
     {xDomain.ticks.filter(t => major(t, xDomain.step)).map(t => <span className="ratings-tick-x" key={t} style={{ left: `${x(t)}%` }}>{xTick(t)}</span>)}

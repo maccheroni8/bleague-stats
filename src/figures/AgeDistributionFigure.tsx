@@ -130,7 +130,7 @@ function AgeDistrict({ divisionLabel, teams, model, colors, season, min, classif
       <FigureExportButton label={divisionLabel} targetRef={target} filename={`年齢分布_${season}_${divisionLabel}_${min}-00_${classification}_${gameType}_${line}${ratioLabel ? `_gp${ratioRange[0]}-${ratioRange[1]}${achievable ? "_ach" : ""}` : ""}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="figure-age-export" baseDate={baseDate}>
         {/* 見出しと条件の行はほかのページと同じ部品（区切りは「／」、初期値〔全選手など〕は書かない。DESIGN.md 239章・296章） */}
-        <ConditionTitle title={title} exportScope={`${season}シーズン`} conditions={[season, divisionLabel, gameLabels[gameType], classLabel, ...ratioLabels]} />
+        <ConditionTitle title={title} exportScope={`${season}シーズン`} classLabel={classLabel === "全選手" ? undefined : classLabel} conditions={[season, divisionLabel, gameLabels[gameType], ...ratioLabels]} />
         <p className="figure-marker-legend figure-age-legend"><span><span aria-hidden="true" className={`figure-marker figure-marker-${figureMarkerShape("jp")}`} />日本人</span>
           {splitMarks ? <><span><span aria-hidden="true" className={`figure-marker figure-marker-${figureMarkerShape("foreign")}`} />外国籍</span><span><span aria-hidden="true" className={`figure-marker figure-marker-${figureMarkerShape("naturalized")}`} />帰化・アジア特別枠</span></>
             : <span><span aria-hidden="true" className={`figure-marker figure-marker-${figureMarkerShape("intl")}`} />外国籍・帰化・アジア</span>}

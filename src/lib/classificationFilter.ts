@@ -128,6 +128,12 @@ export function classificationFilterLabel(filter: string): string {
   return names.join("・");
 }
 
+/** 図解のタイトルの頭に付ける登録区分名（「日本人」）。区分を選んでいない（全選手）ときは undefined。DESIGN.md 475章 */
+export function figureClassTitle(filter: string): string | undefined {
+  const label = classificationFilterLabel(filter);
+  return label === "全選手" ? undefined : label;
+}
+
 /** 「外国籍・帰化・アジア特別枠をまとめて選ぶ」ボタンで入れる区分（分けて選べるシーズンは3つ、そうでなければまとめ） */
 export function bulkIntlTokens(season: string | null): ClassificationGroup[] {
   return season !== null && splitClassificationSeason(season) ? [...SPLIT_CLASSIFICATION_GROUPS] : [COMBINED_INTL_GROUP];
