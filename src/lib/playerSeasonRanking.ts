@@ -36,7 +36,7 @@ import {
 import { teamTotalsForPlayedGames } from "../../shared/playedTeamTotals";
 import { shotTypeEntityColumns, SHOT_TYPE_DISPLAY_ORDER } from "./shotTypeBreakdown";
 import { useAllTeamGameLogs, useLeagueSituationalContext } from "./teamRankingData";
-import { OVERTIME_MIN_GAMES, overtimeCandidates, seasonPeriodOption, seasonPeriodTotalsOf, useSeasonPeriodSources } from "./seasonPeriod";
+import { CLUTCH_RATIO_DEFAULT, OVERTIME_MIN_GAMES, clutchCandidates, overtimeCandidates, seasonPeriodOption, seasonPeriodTotalsOf, useSeasonPeriodSources } from "./seasonPeriod";
 import { isRookieFilter, matchesPositionFilter, type PlayerGroupFilter } from "./classificationFilter";
 import { needsClassificationRecompute, scopedPlayerMatches, scopeLogsByClassification, useClassScopedPlayers } from "./registrationScope";
 import { EXTRA_ELIGIBILITY_RULES, filterEligiblePlayers, filterShotPctMinAttempts } from "./playerRankingEligibility";
@@ -497,6 +497,8 @@ export interface PlayerRankingParams {
   role?: RoleFilter;
   /** 片方だけのとき、その形で出た試合が出場した試合の何%以上の人を載せるか（%の整数） */
   rolePercent?: number;
+  /** クラッチのとき、チームのクラッチになった試合の何%以上に出た選手を載せるか（%。省略は50。最低3試合は別に残る）。設計書479章 */
+  clutchRatio?: number;
 }
 
 /**
@@ -516,6 +518,8 @@ export function usePlayerSeasonRanking(
   const role: RoleFilter = params.role ?? "both";
   const rolePercent = params.rolePercent ?? 50;
   const rookieActive = isRookieFilter(group);
+  // クラッチは、チームのクラッチになった試合のうち、この割合（%）以上に出た選手（最低3試合。設計書479章）
+  const clutchRatio = params.clutchRatio ?? CLUTCH_RATIO_DEFAULT;
 
   // シーズンを切り替えた直後は、読み込み中の間、前のシーズンのデータが残る（useJsonData）。別のシーズンのデータで集計しないよう、どのシーズンのデータかを添えて読み、今のシーズンと一致するときだけ使う
   const { data: playersData, loading: playersFetching, error: playersError } = useJsonData(
@@ -586,8 +590,13 @@ export function usePlayerSeasonRanking(
   );
   const periodSource = periodSources.get(season) ?? null;
   const overtimeIds = useMemo(
-    () => (overtimeActive && periodFiltersApply && periodSource ? overtimeCandidates(periodSource, OVERTIME_MIN_GAMES, period === "clutch" ? "clutch" : "ot") : null),
-    [overtimeActive, periodFiltersApply, periodSource, period],
+    () =>
+      overtimeActive && periodFiltersApply && periodSource
+        ? period === "clutch"
+          ? clutchCandidates(periodSource, OVERTIME_MIN_GAMES, clutchRatio)
+          : overtimeCandidates(periodSource, OVERTIME_MIN_GAMES, "ot")
+        : null,
+    [overtimeActive, periodFiltersApply, periodSource, period, clutchRatio],
   );
 
   const eligible: PlayerSummary[] = useMemo(() => {

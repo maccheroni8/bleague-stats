@@ -8,7 +8,7 @@
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
 import { leagueCacheKey, type League } from "./league";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GAME_FLAG_SHORT, ROW_FLAG_STARTER } from "../../shared/gameIndex";
+import { GAME_FLAG_SHORT, ROW_FLAG_HOME, ROW_FLAG_STARTER } from "../../shared/gameIndex";
 import { ON_COURT_QUALITY_SHARES } from "../../shared/playerOnCourt";
 import {
   PERIOD_ATOMS,
@@ -300,6 +300,93 @@ export function overtimeCandidates(source: SeasonPeriodSource, minGames: number,
   }
   const ids = new Set<string>();
   for (const [p, n] of counts) if (n >= minGames) ids.add(pv.file.players[p]![0]);
+  return ids;
+}
+
+/** クラッチ出場率の初期値（%）。つまみは0〜100%・10%刻み（ランキング（個人）のクラッチの掲載基準。設計書479章） */
+export const CLUTCH_RATIO_DEFAULT = 50;
+export const CLUTCH_RATIO_STEP = 10;
+/** 掲載基準の書き方（条件の行・保存画像のサブタイトル）。「クラッチ出場率50%以上」 */
+export function clutchRatioLabel(percent: number): string {
+  return `クラッチ出場率${percent}%以上`;
+}
+export const CLUTCH_RATIO_REASON = `クラッチは、チームのクラッチになった試合のうち一定の割合以上に出場した選手が対象です（最低${OVERTIME_MIN_GAMES}試合。出場率などの掲載基準は使いません）。`;
+
+/** 1人のクラッチ出場の数: played＝クラッチタイムに1秒以上出た試合、teamGames＝所属していた期間（チームごとの最初〜最後の出場試合の間）のチームのクラッチになった試合 */
+export interface ClutchAppearance {
+  played: number;
+  teamGames: number;
+}
+
+/**
+ * クラッチ出場率の元になる数を、選手ごとに数える（索引だけから。保存キーの対象のファイルは使わない）。
+ * チームのクラッチになった試合＝チームのピリオド別の索引のクラッチの区間に値がある試合（前後半5分の特別な試合・判定できない試合は無し）。
+ * 所属していた期間＝その選手が出場した試合の索引の行（出場した試合だけ）で、チームごとに最初の試合から最後の試合まで。途中で移籍した選手はチームごとの分母を足す
+ */
+export function clutchAppearances(source: SeasonPeriodSource): Map<string, ClutchAppearance> {
+  const atom = PERIOD_ATOMS.indexOf("clutch");
+  const { player: pv, period, teamGameNo, teamPeriod } = source;
+  const { rows, games, teams, players } = pv.file;
+  const clutchPts = teamPeriod.rows.counts["clutch.pts"];
+  const teamId = (g: number, home: boolean) => teams[(home ? games.home : games.away)[g]!]![0];
+  // チームごとの、クラッチになった試合の試合の番号（索引の試合の並び順）
+  const clutchGamesByTeam = new Map<string, number[]>();
+  for (let g = 0; g < games.key.length; g++) {
+    const no = teamGameNo.get(games.key[g]!);
+    if (no === undefined || !clutchPts) continue;
+    for (const home of [true, false]) {
+      if ((clutchPts[no * 2 + (home ? 0 : 1)] ?? -1) < 0) continue;
+      const id = teamId(g, home);
+      const list = clutchGamesByTeam.get(id);
+      if (list) list.push(g);
+      else clutchGamesByTeam.set(id, [g]);
+    }
+  }
+  // 選手×チームごとに、最初・最後に出場した試合の番号と、クラッチに出た試合数
+  const spans = new Map<string, { player: number; team: string; first: number; last: number; played: number }>();
+  for (let i = 0; i < pv.size; i++) {
+    const p = rows.player[i]!;
+    const g = rows.game[i]!;
+    const team = teamId(g, (rows.flags[i]! & ROW_FLAG_HOME) !== 0);
+    const k = `${p}|${team}`;
+    let sp = spans.get(k);
+    if (!sp) {
+      sp = { player: p, team, first: g, last: g, played: 0 };
+      spans.set(k, sp);
+    }
+    if (g < sp.first) sp.first = g;
+    if (g > sp.last) sp.last = g;
+    const from = period.start[i]!;
+    if (from === -1) continue;
+    for (let q = from; q < period.end[i]!; q++) {
+      if (period.file.rows.period[q] === atom) {
+        sp.played += 1;
+        break;
+      }
+    }
+  }
+  const out = new Map<string, ClutchAppearance>();
+  for (const sp of spans.values()) {
+    const list = clutchGamesByTeam.get(sp.team) ?? [];
+    let n = 0;
+    for (const g of list) if (g >= sp.first && g <= sp.last) n += 1;
+    const id = players[sp.player]![0];
+    const cur = out.get(id) ?? { played: 0, teamGames: 0 };
+    cur.played += sp.played;
+    cur.teamGames += n;
+    out.set(id, cur);
+  }
+  return out;
+}
+
+/** クラッチのランキングの対象: クラッチに出た試合が minGames 以上で、クラッチ出場率（出た試合÷チームのクラッチになった試合）が minPercent% 以上の選手の選手ID */
+export function clutchCandidates(source: SeasonPeriodSource, minGames: number, minPercent: number): Set<string> {
+  const ids = new Set<string>();
+  for (const [id, a] of clutchAppearances(source)) {
+    if (a.played < minGames) continue;
+    if (minPercent > 0 && !(a.teamGames > 0 && a.played * 100 >= minPercent * a.teamGames)) continue;
+    ids.add(id);
+  }
   return ids;
 }
 
