@@ -18,6 +18,7 @@
 import type { PlayerSummary, TeamSummary } from "../../shared/types";
 import { MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterPlayersByGamesPlayedRatio } from "./statDefs";
 import { safeDiv } from "../../shared/formulas";
+import { matchesGamesPlayedRatioRange } from "./gamesPlayedRatio";
 
 export { MIN_GAMES_PLAYED_RATIO_FOR_RANKING };
 
@@ -102,9 +103,9 @@ export function filterAchievablePlayers<T extends { teamId: string; gamesPlayed:
 }
 
 /**
- * 出場率（gamesRatio）とスタッツ固有の追加基準（statKeyに応じてEXTRA_ELIGIBILITY_RULESから
+ * 出場率（gamesRatio＝下限、gamesRatioMax＝上限。0〜1。上限は省略で上限なし）とスタッツ固有の追加基準（statKeyに応じてEXTRA_ELIGIBILITY_RULESから
  * 引く。extraThresholdはスライダーで動かした現在値）を両方満たす選手だけを残す。
- * remainingByTeam を渡すと、出場率は「達成可能」（filterAchievablePlayers）で判定する
+ * remainingByTeam を渡すと、出場率の範囲に加えて「85%以上達成可能」（残り試合に全部出れば85%以上。基準は動かない）も条件にする（matchesGamesPlayedRatioRange。DESIGN.md 476章）
  */
 export function filterEligiblePlayers(
   players: PlayerSummary[],
@@ -113,10 +114,14 @@ export function filterEligiblePlayers(
   statKey: string,
   extraThreshold: number,
   remainingByTeam?: ReadonlyMap<string, number>,
+  gamesRatioMax = 1,
 ): PlayerSummary[] {
-  const base = remainingByTeam
-    ? filterAchievablePlayers(players, teams, remainingByTeam, gamesRatio)
-    : filterPlayersByGamesPlayedRatio(players, teams, gamesRatio);
+  const teamGamesById = new Map(teams.map((t) => [t.teamId, t.gamesPlayed]));
+  const lo = Math.round(gamesRatio * 100);
+  const hi = Math.round(gamesRatioMax * 100);
+  const base = players.filter((p) =>
+    matchesGamesPlayedRatioRange(p.gamesPlayed, teamGamesById.get(p.teamId), lo, hi, remainingByTeam ? remainingByTeam.get(p.teamId) ?? 0 : undefined),
+  );
   const rule = EXTRA_ELIGIBILITY_RULES[statKey];
   if (!rule) return base;
   return base.filter((p) => rule.perGameValue(p) >= extraThreshold);

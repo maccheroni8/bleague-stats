@@ -31,6 +31,7 @@ import {
 import { useAchievableSupport } from "../lib/achievableSupport";
 import { ACHIEVABLE_PARAM } from "../lib/achievableGames";
 import { AchievableCheckbox } from "../components/AchievableCheckbox";
+import { GamesPlayedRatioSlider } from "../components/GamesPlayedRatioSlider";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { fetchPlayerPageSeasons, fetchTeamColors } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
@@ -319,7 +320,18 @@ function isStatKeyLike(v: string): boolean {
 function playerDefaultStatKey(category: PlayerRankCategory): string {
   return category === "shooting" ? `${SHOT_TYPE_DISPLAY_ORDER[0]}_2pm` : category === "profile" ? "height" : category === "career" ? "titles" : "pts";
 }
-/** 掲載基準の出場率は、URLでは%の整数（elig=70）、中では割合（0.7） */
+/** 掲載基準の出場率の上限。URLでは%の整数（eligmax=84）、書かなければ100＝上限なし（古いURLは下限だけで今までどおり開ける。DESIGN.md 476章） */
+const GAMES_RATIO_MAX_PARAM: UrlCodec<number> = {
+  keys: ["eligmax"],
+  read: (p) => {
+    const v = Number(p.get("eligmax"));
+    return p.get("eligmax") !== null && Number.isFinite(v) && v >= 0 && v <= 100 ? v / 100 : undefined;
+  },
+  write: (p, v) => {
+    if (Math.round(v * 100) < 100) p.set("eligmax", String(Math.round(v * 100)));
+  },
+};
+/** 掲載基準の出場率（下限）は、URLでは%の整数（elig=70）、中では割合（0.7） */
 const GAMES_RATIO_ELIG_PARAM: UrlCodec<number> = {
   keys: ["elig"],
   read: (p) => {
@@ -819,6 +831,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
   const [rawPlayerStatKey, setStatKey] = useUrlState(stringParam("stat", defaultPlayerStat, isStatKeyLike), defaultPlayerStat);
   const statKey = canonicalStatKey(rawPlayerStatKey);
   const [gamesRatio, setGamesRatio] = useUrlState(GAMES_RATIO_ELIG_PARAM, MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
+  const [gamesRatioMax, setGamesRatioMax] = useUrlState(GAMES_RATIO_MAX_PARAM, 1);
   const [urlAchievable, setAchievable] = useUrlState(ACHIEVABLE_PARAM, false);
   // 掲載基準の「達成可能」は、残り試合数が正しいときだけ（B.ONE は、クラブの日程が60試合そろうまで出さない）
   const achievableSupported = useAchievableSupport(season, league);
@@ -890,6 +903,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
     category,
     statKey,
     gamesRatio,
+    gamesRatioMax,
     achievable,
     extraThreshold,
     group: selectedClassification,
@@ -934,6 +948,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
       statKey,
       // 掲載基準（出場率・達成可能・追加の基準）は今季だけに当てはめる。前季は、基準を満たしていなくても値を出す
       gamesRatio: 0,
+      gamesRatioMax: 1,
       achievable: false,
       extraThreshold: 0,
       group: classPartOf(selectedClassification),
@@ -1051,7 +1066,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
         // 切り替えの対象外の項目（割合・Profile・Career）では書かない
         modeApplies ? displayModeLabels(rankMode) : [],
         playerScopeLabels,
-        registeredTarget ? "登録選手" : overtimeActive ? (subsetEligibilityLabel(period) ?? OVERTIME_ELIGIBILITY_LABEL) : eligibilityLabels({ gamesRatio, achievable, extra: extraRule, extraThreshold }),
+        registeredTarget ? "登録選手" : overtimeActive ? (subsetEligibilityLabel(period) ?? OVERTIME_ELIGIBILITY_LABEL) : eligibilityLabels({ gamesRatio, gamesRatioMax, achievable, extra: extraRule, extraThreshold }),
       );
   const playerStatJa = statJa(selectedItem.label);
   const playerScreenTitle = makeRankingTitle("個人", season, playerStatJa, playerConditions(false));
@@ -1074,7 +1089,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
           ? "このカテゴリは試合種別・シチュエーション別フィルタ・Q別/前後半の対象外です（登録区分・ポジションのみ適用されます）。"
         : undefined;
   const eligibilityDefaultExtra = extraRule?.defaultValue ?? 0;
-  const eligibilitySummary = eligibilityLabels({ gamesRatio, achievable, extra: extraRule, extraThreshold }).join(LABEL_SEPARATOR);
+  const eligibilitySummary = eligibilityLabels({ gamesRatio, gamesRatioMax, achievable, extra: extraRule, extraThreshold }).join(LABEL_SEPARATOR);
   const eligibilityAxis: FilterAxis = {
     kind: "popover",
     id: "eligibility",
@@ -1085,10 +1100,11 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
       : overtimeActive
         ? (subsetEligibilityReason(period) ?? OVERTIME_ELIGIBILITY_REASON)
         : undefined,
-    value: `${Math.round(gamesRatio * 100)}|${extraRule ? extraThreshold : ""}|${achievable ? "ach" : ""}`,
-    defaultValue: `${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}|${extraRule ? eligibilityDefaultExtra : ""}|`,
+    value: `${Math.round(gamesRatio * 100)}-${Math.round(gamesRatioMax * 100)}|${extraRule ? extraThreshold : ""}|${achievable ? "ach" : ""}`,
+    defaultValue: `${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}-100|${extraRule ? eligibilityDefaultExtra : ""}|`,
     onChange: () => {
       setGamesRatio(MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
+      setGamesRatioMax(1);
       setAchievable(false);
       setExtraThreshold(eligibilityDefaultExtra);
     },
@@ -1096,17 +1112,17 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
     chipValue: eligibilitySummary,
     content: (
       <>
-        <EligibilitySlider
+        <GamesPlayedRatioSlider
           label="出場率"
-          value={Math.round(gamesRatio * 100)}
-          min={0}
-          max={100}
-          step={1}
-          format={(v) => `${v}%`}
-          onChange={(v) => setGamesRatio(v / 100)}
+          min={Math.round(gamesRatio * 100)}
+          max={Math.round(gamesRatioMax * 100)}
+          onChange={(a, b) => {
+            setGamesRatio(a / 100);
+            setGamesRatioMax(b / 100);
+          }}
         />
         {achievableSupported && (
-          <AchievableCheckbox ratioPercent={Math.round(gamesRatio * 100)} checked={achievable} onChange={setAchievable} />
+          <AchievableCheckbox checked={achievable} onChange={setAchievable} />
         )}
         {extraRule && (
           <EligibilitySlider

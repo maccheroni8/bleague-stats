@@ -15,6 +15,7 @@
 // P=Q別/前後半、D=平均/合計/30分換算、V=自チーム/opp/+/-
 
 import { opponentStrengthLabel } from "./opponentStrength";
+import { ratioRangeLabel } from "./gamesPlayedRatio";
 import type { PeriodRangeOption } from "./periodRange";
 import { MARGIN_CONDITION_LABELS, type SeasonHalfBoundary, type ShotChartGameFilters, type SituationalAndFilters, type SituationalFilter } from "./situational";
 import {
@@ -180,7 +181,9 @@ export function classificationConditionLabels(filter: PlayerGroupFilter): string
 export interface EligibilityLabelInput {
   /** 出場率の下限（0〜1） */
   gamesRatio: number;
-  /** 出場率を「達成可能」（今の出場試合数＋チームの残り試合数で、出場率に届く）で判定している。指定したときだけ「達成可能」と書く */
+  /** 出場率の上限（0〜1。省略・1は上限なし＝「〜以上」。下げると「0〜84%」の書き方。DESIGN.md 476章） */
+  gamesRatioMax?: number;
+  /** 出場率の「85%以上達成可能」（今の出場試合数＋チームの残り試合数で85%以上に届く）も条件にしている。指定したときだけ「達成可能」と書く */
   achievable?: boolean;
   /** スタッツ固有の追加基準（EXTRA_ELIGIBILITY_RULESの該当ルールがあるときのみ） */
   extra?: { label: string; unit: string } | null;
@@ -188,8 +191,8 @@ export interface EligibilityLabelInput {
 }
 
 /** ランキングの掲載基準（出場率＋スタッツ固有の追加基準） */
-export function eligibilityLabels({ gamesRatio, achievable, extra, extraThreshold }: EligibilityLabelInput): string[] {
-  const labels = [`出場率${Math.round(gamesRatio * 100)}%以上${achievable ? "達成可能" : ""}`];
+export function eligibilityLabels({ gamesRatio, gamesRatioMax, achievable, extra, extraThreshold }: EligibilityLabelInput): string[] {
+  const labels = [ratioRangeLabel(gamesRatio * 100, (gamesRatioMax ?? 1) * 100, !!achievable)];
   if (extra && extraThreshold !== undefined) labels.push(`${extra.label} ${extraThreshold.toFixed(1)}以上`);
   return labels;
 }
@@ -237,11 +240,9 @@ export function clubSelectionLabels(
   return [text ? `${prefix}: ${text}` : allLabel];
 }
 
-/** 出場試合率の範囲スライダー（下限〜上限、%） */
+/** 出場率の範囲スライダー（下限〜上限、%）。ランキングの掲載基準と同じ書き方 */
 export function gamesPlayedRatioRangeLabels(minPct: number, maxPct: number, achievable = false): string[] {
-  // 達成可能のときは下限をランキングと同じ書き方（「出場率85%以上達成可能」）にし、上限が100%でなければ今の出場試合率の上限を別に書く
-  if (achievable) return [...eligibilityLabels({ gamesRatio: minPct / 100, achievable: true }), ...(maxPct < 100 ? [`出場試合率${maxPct}%以下`] : [])];
-  return [`出場試合率${minPct}%〜${maxPct}%`];
+  return [ratioRangeLabel(minPct, maxPct, achievable)];
 }
 
 /** 歴代記録の会場（トータル/ホーム/アウェイ）。歴代記録タブのボタン表示と共通 */

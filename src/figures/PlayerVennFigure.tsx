@@ -28,7 +28,7 @@ import { ExportTarget } from '../components/ExportTarget';
 import { ConditionTitle } from '../components/ConditionTitle';
 import { SortableTable, type Column } from '../components/SortableTable';
 import { FigureExportButton } from './FigureExport';
-import { ratioEligibilityAxis } from './eligibilityAxis';
+import { ratioEligibilityAxis, ratioMaxParam } from './eligibilityAxis';
 import { useFigureAchievable } from './useFigureAchievable';
 import { eligibilityLabels } from '../lib/conditionLabels';
 
@@ -52,6 +52,7 @@ const rangeCodec: UrlCodec<SituationalFilter> = {
 };
 const gameCodec = { ...enumParam<SeasonGameTypeFilter>('gt', ['regular', 'playoff', 'both'], 'regular'), read: GAME_TYPE_PARAM.read };
 const ratioCodec = numberParam('vpr', DEFAULT_RATIO, { min: 0, max: 100 });
+const ratioMaxCodec = ratioMaxParam('vprx');
 // 円の中の選手の表示（写真／名前）。初期は写真
 type VennDisplay = 'photo' | 'name';
 const displayCodec = enumParam<VennDisplay>('vsh', ['photo', 'name'], 'photo');
@@ -79,6 +80,7 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
   const [venue, setVenue] = useUrlState(venueCodec, 'all');
   const [classification, setClassification] = useUrlState(CLASSIFICATION_PARAM, 'all');
   const [minRatio, setMinRatio] = useUrlState(ratioCodec, DEFAULT_RATIO);
+  const [maxRatio, setMaxRatio] = useUrlState(ratioMaxCodec, 100);
   const [selParam, setSel] = useUrlState(selectionCodec, NO_SELECTION);
   const [thrParam, setThr] = useUrlState(thresholdCodec, NO_THRESHOLDS);
   const [display, setDisplay] = useUrlState(displayCodec, 'photo');
@@ -92,7 +94,7 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
   const blocked = splitClassificationBlocked(figureClassGroup(classification), season);
   const base = useMemo(() => request.data && !blocked ? buildPlayerFigurePoints(request.data, { season, category, range: filter.range, gameType, classification, venue }) : [], [request.data, blocked, season, category, filter, gameType, classification, venue]);
   const ach = useFigureAchievable(season, category, { range: filter.range, gameType, venue });
-  const ratioPassed = useMemo(() => base.filter(p => passesRatio(p, minRatio, ach.remaining)), [base, minRatio, ach.remaining]);
+  const ratioPassed = useMemo(() => base.filter(p => passesRatio(p, minRatio, maxRatio, ach.remaining)), [base, minRatio, maxRatio, ach.remaining]);
   // 表示するクラブと詳細フィルター（スタッツの条件）。円の中の選手・人数・一覧・保存画像のすべてに効く
   const pf = usePlayerFigureFilter({ season, category, teams, divisionOf, ratioPassed, clubKey: 'vcl', axisId: 'vennClubs' });
   const eligible = pf.eligible;
@@ -131,9 +133,9 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
     .map(a => a.kind === 'select' ? { ...a, options: a.options.filter(o => ['all', 'recent:5', 'recent:10', 'custom'].includes(o.value)) } : { ...a, tier: 'primary' as const });
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), venueAxis(venue, setVenue), classificationAxis(classification, setClassification, { season }),
     { kind: 'select', id: 'vennDisplay', label: '選手の表示', tier: 'primary', value: display, defaultValue: 'photo', options: [{ value: 'photo', label: '写真' }, { value: 'name', label: '名前' }], onChange: v => setDisplay(v as VennDisplay) },
-    pf.clubAxis, pf.positionAxis, hl.axis, ratioEligibilityAxis({ id: 'vennRatio', value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio, achievable: ach.axis })];
+    pf.clubAxis, pf.positionAxis, hl.axis, ratioEligibilityAxis({ id: 'vennRatio', value: minRatio, max: maxRatio, defaultValue: DEFAULT_RATIO, onChange: (a, b) => { setMinRatio(a); setMaxRatio(b); }, achievable: ach.axis })];
   const [periodLabel] = situationalFilterLabels(filter);
-  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], ...venueConditionLabel(venue), ...eligibilityLabels({ gamesRatio: minRatio / 100, achievable: ach.achievable }), ...pf.labels, ...hl.labels].filter(Boolean);
+  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], ...venueConditionLabel(venue), ...eligibilityLabels({ gamesRatio: minRatio / 100, gamesRatioMax: maxRatio / 100, achievable: ach.achievable }), ...pf.labels, ...hl.labels].filter(Boolean);
   const classTitle = figureClassTitle(classification);
   const baseDate = { kind: 'season' as const, season, gameType };
   const columns: Column<PlayerFigurePoint>[] = [
@@ -147,7 +149,7 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
   const thrInputs = useRef<(NumberTextInputHandle | null)[]>([]);
   const signed = itemIds.map((_, i) => (thresholds[i] ?? 0) < 0 || sampleValues[i]!.some(v => v.value < 0 || /^[+-]/.test(v.text.trim())));
   return <section aria-label="ベン図">
-    <FilterBar axes={axes} stateKey="figures:player-venn" advancedExtra={pf.advancedExtra} onClearAll={() => { pf.reset(); setFilter(DEFAULT); setGameType('regular'); setVenue('all'); setClassification('all'); setMinRatio(DEFAULT_RATIO); ach.reset(); setDisplay('photo'); setSel(NO_SELECTION); setThr(NO_THRESHOLDS); hl.setIds([]); setHover(null); setOpenMask(null); }} />
+    <FilterBar axes={axes} stateKey="figures:player-venn" advancedExtra={pf.advancedExtra} onClearAll={() => { pf.reset(); setFilter(DEFAULT); setGameType('regular'); setVenue('all'); setClassification('all'); setMinRatio(DEFAULT_RATIO); setMaxRatio(100); ach.reset(); setDisplay('photo'); setSel(NO_SELECTION); setThr(NO_THRESHOLDS); hl.setIds([]); setHover(null); setOpenMask(null); }} />
     <div className="venn-pickers">
       {itemIds.map((id, i) => <div key={i} className={`venn-picker ${SLOT_COLORS[i]}`}>
         <span className="venn-dot" aria-hidden="true" />

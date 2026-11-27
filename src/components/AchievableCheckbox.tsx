@@ -1,9 +1,11 @@
-/** 掲載基準の「◯%以上達成可能」のチェック（ランキングと同じ見た目。DESIGN.md 249章・365章）。ratioPercent は出場率の下限（%） */
-export function AchievableCheckbox({ ratioPercent, checked, onChange }: { ratioPercent: number; checked: boolean; onChange: (checked: boolean) => void }) {
+import { ACHIEVABLE_BASE_PERCENT } from "../lib/gamesPlayedRatio";
+
+/** 掲載基準の「85%以上達成可能」のチェック（基準は85%で固定。スライダーの値では動かない。DESIGN.md 249章・365章・476章） */
+export function AchievableCheckbox({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
   return (
     <label className="filter-multi-item">
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      {ratioPercent}%以上達成可能
+      {ACHIEVABLE_BASE_PERCENT}%以上達成可能
     </label>
   );
 }

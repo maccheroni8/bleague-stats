@@ -45,32 +45,44 @@ const read = <T,>(p: string): T => { const f = existsSync(p) ? p : `${p}.gz`; re
 {
   const point = { ratio: (100 * 20) / 30, games: 20, teamGames: 30, teamId: "a" };
   const remaining = new Map([["a", 30]]);
-  assert.equal(passesRatio(point, 85), false); assert.equal(passesRatio(point, 85, new Map([["a", 30]])), false, "20試合は届かない");
-  assert.equal(passesRatio({ ...point, games: 26, ratio: (100 * 26) / 30 }, 85, remaining), true);
-  assert.equal(passesRatio({ ...point, games: 26, ratio: (100 * 26) / 30 }, 85), true, "26/30 = 86.7% は今の基準でも通る");
-  assert.equal(passesRatio({ ...point, games: 25, ratio: (100 * 25) / 30 }, 85), false); assert.equal(passesRatio({ ...point, games: 25, ratio: (100 * 25) / 30 }, 85, remaining), true, "25/30 は今は届かないが達成可能");
-  assert.equal(passesRatio(point, 85, new Map()), false, "残りが分からないチームは0として扱う（今の出場率と同じ）");
+  assert.equal(passesRatio(point, 85, 100), false); assert.equal(passesRatio(point, 85, 100, new Map([["a", 30]])), false, "20試合は届かない");
+  assert.equal(passesRatio({ ...point, games: 26, ratio: (100 * 26) / 30 }, 85, 100, remaining), true);
+  assert.equal(passesRatio({ ...point, games: 26, ratio: (100 * 26) / 30 }, 85, 100), true, "26/30 = 86.7% は今の基準でも通る");
+  assert.equal(passesRatio({ ...point, games: 25, ratio: (100 * 25) / 30 }, 85, 100), false); assert.equal(passesRatio({ ...point, games: 25, ratio: (100 * 25) / 30 }, 85, 100, remaining), true, "25/30 は今は届かないが達成可能");
+  assert.equal(passesRatio(point, 85, 100, new Map()), false, "残りが分からないチームは0として扱う（今の出場率と同じ）");
   // 残りを使ってよい場面: 全期間のレギュラーシーズン（とレギュラー＋ポストシーズン）だけ
   assert.equal(remainingForScope(remaining, { kind: "all" }, "regular"), remaining);
   assert.equal(remainingForScope(remaining, { kind: "all" }, "both"), remaining);
   assert.equal(remainingForScope(remaining, { kind: "all" }, "playoff"), undefined, "ポストシーズンだけのときは残りを足さない");
   assert.equal(remainingForScope(remaining, { kind: "recent", n: 5 }, "regular"), undefined, "直近5試合のときは残りを足さない");
   assert.equal(remainingForScope(undefined, { kind: "all" }, "regular"), undefined);
-  // 範囲（全選手スタッツ・年齢分布）: 下限だけ達成可能、上限は今の出場試合率
+  // 範囲（476章）: 上限は「上限+1 未満」。0〜84% と 85%以上は隙間なくつながる
   assert.equal(matchesGamesPlayedRatioRange(25, 30, 85, 100), false); assert.equal(matchesGamesPlayedRatioRange(25, 30, 85, 100, 30), true);
   assert.equal(matchesGamesPlayedRatioRange(30, 30, 0, 90, 30), false, "上限は今の出場試合率（100% > 90%）");
-  assert.equal(matchesGamesPlayedRatioRange(20, 30, 60, 100), true); assert.equal(matchesGamesPlayedRatioRange(20, 30, 60, 100, 0), true);
+  assert.equal(matchesGamesPlayedRatioRange(169, 200, 0, 84), true, "84.5% は 0〜84% に入る"); assert.equal(matchesGamesPlayedRatioRange(169, 200, 85, 100), false, "84.5% は 85%以上に入らない");
+  assert.equal(matchesGamesPlayedRatioRange(17, 20, 0, 84), false, "85.0% は 0〜84% に入らない"); assert.equal(matchesGamesPlayedRatioRange(17, 20, 85, 100), true);
+  // 達成可能の基準は85%で固定（スライダーの下限を動かしても変わらない）
+  for (const lo of [0, 30, 60, 80]) {
+    assert.equal(matchesGamesPlayedRatioRange(20, 30, lo, 100, 0), false, `下限${lo}: 20/30 は残りが無ければ85%に届かない`);
+    assert.equal(matchesGamesPlayedRatioRange(20, 30, lo, 100, 30), false, `下限${lo}: （20+30）/60=83.3% は届かない`);
+    assert.equal(matchesGamesPlayedRatioRange(25, 30, lo, 100, 30), true, `下限${lo}: 25/30 は残りに全部出れば届く`);
+  }
+  assert.equal(matchesGamesPlayedRatioRange(25, 30, 0, 84, 30), true, "0〜84% かつ達成可能: 今83.3%で、届く選手");
+  assert.equal(matchesGamesPlayedRatioRange(26, 30, 0, 84, 30), false, "0〜84% かつ達成可能: 今86.7%は範囲の外");
+  assert.equal(matchesGamesPlayedRatioRange(10, 30, 0, 84, 30), false, "0〜84% かつ達成可能: 届かない選手は外");
   assert.equal(matchesGamesPlayedRatioRange(5, undefined, 0, 100, 10), false);
   console.log("達成可能: 図解・範囲の判定 OK");
 }
 
 // ---- 4. 条件の書き方 ----
 {
-  assert.deepEqual(eligibilityLabels({ gamesRatio: 0.85, achievable: true }), ["出場率85%以上達成可能"], "ランキングと同じ書き方");
+  assert.deepEqual(eligibilityLabels({ gamesRatio: 0.85, achievable: true }), ["出場率85%以上達成可能"], "85%以上のままの達成可能は1つにまとめる");
   assert.deepEqual(eligibilityLabels({ gamesRatio: 0.85 }), ["出場率85%以上"]);
-  assert.deepEqual(gamesPlayedRatioRangeLabels(60, 100, true), ["出場率60%以上達成可能"]);
-  assert.deepEqual(gamesPlayedRatioRangeLabels(60, 90, true), ["出場率60%以上達成可能", "出場試合率90%以下"]);
-  assert.deepEqual(gamesPlayedRatioRangeLabels(60, 100), ["出場試合率60%〜100%"], "チェックなしは今までの書き方");
+  assert.deepEqual(eligibilityLabels({ gamesRatio: 0, gamesRatioMax: 0.84 }), ["出場率0〜84%"]);
+  assert.deepEqual(eligibilityLabels({ gamesRatio: 0, gamesRatioMax: 0.84, achievable: true }), ["出場率0〜84%（85%以上達成可能）"]);
+  assert.deepEqual(gamesPlayedRatioRangeLabels(60, 100, true), ["出場率60%以上（85%以上達成可能）"]);
+  assert.deepEqual(gamesPlayedRatioRangeLabels(60, 90, true), ["出場率60〜90%（85%以上達成可能）"]);
+  assert.deepEqual(gamesPlayedRatioRangeLabels(60, 100), ["出場率60%以上"]);
   console.log("達成可能: 条件の書き方 OK");
 }
 
@@ -93,13 +105,13 @@ for (const [season, category] of SETS) {
   const points = buildPlayerFigurePoints(data, { season, category, range: { kind: "all" }, gameType: "regular", classification: "all" });
   const scoped = remainingForScope(remaining, { kind: "all" }, "regular");
 
-  for (const ratio of [0.85, 0.7, 0.5]) {
+  for (const ratio of [0.85, 0.9]) {
     // ランキングで同じ条件（達成可能）にしたときの対象
     const rankingIds = new Set(filterEligiblePlayers(players, teams, ratio, "pts", 0, remaining).map(p => p.playerId));
     const rankingNow = new Set(filterEligiblePlayers(players, teams, ratio, "pts", 0).map(p => p.playerId));
     // 図解（シュート成功率・散布図・ベン図・トップスコアラーの掲載基準）: 1チームだけの選手で比べる（移籍した選手は分母が合算なのでランキングとは別）
-    const figureIds = new Set(points.filter(p => p.teamIds.length === 1 && passesRatio(p, ratio * 100, scoped)).map(p => p.playerId));
-    const figureNow = new Set(points.filter(p => p.teamIds.length === 1 && passesRatio(p, ratio * 100)).map(p => p.playerId));
+    const figureIds = new Set(points.filter(p => p.teamIds.length === 1 && passesRatio(p, ratio * 100, 100, scoped)).map(p => p.playerId));
+    const figureNow = new Set(points.filter(p => p.teamIds.length === 1 && passesRatio(p, ratio * 100, 100)).map(p => p.playerId));
     const single = new Set(points.filter(p => p.teamIds.length === 1).map(p => p.playerId));
     for (const id of single) {
       assert.equal(figureIds.has(id), rankingIds.has(id), `${label} ${ratio}: 図解の達成可能の対象とランキングが違う選手 ${id}`);
@@ -116,13 +128,13 @@ for (const [season, category] of SETS) {
     played += single.size;
   }
   // トップスコアラー: 掲載基準の判定が図解の判定と同じ（達成可能の対象は、チェックなしの対象を含む）
-  for (const ratio of [85, 60]) {
+  for (const ratio of [85, 90]) {
     const base = buildTopScorers(data, { season, category, range: { kind: "all" }, gameType: "regular", classification: "all", minRatio: ratio });
     const ach = buildTopScorers(data, { season, category, range: { kind: "all" }, gameType: "regular", classification: "all", minRatio: ratio, remainingByTeam: scoped });
     const idsOf = (xs: { playerId: string }[]) => new Set(xs.map(p => p.playerId));
     for (const x of ach) {
       const point = points.find(p => p.playerId === x.playerId)!;
-      assert.ok(passesRatio(point, ratio, scoped), `${label} トップスコアラー ${x.name}: 達成可能の対象に入っていない選手が出ている`);
+      assert.ok(passesRatio(point, ratio, 100, scoped), `${label} トップスコアラー ${x.name}: 達成可能の対象に入っていない選手が出ている`);
     }
     const without = idsOf(base), withAch = idsOf(ach);
     if (totalRemaining === 0) assert.deepEqual([...withAch].sort(), [...without].sort(), `${label} トップスコアラー ${ratio}: 終わったシーズンは同じ`);

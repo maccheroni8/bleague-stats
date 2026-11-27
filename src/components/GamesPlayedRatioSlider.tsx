@@ -5,7 +5,9 @@ export function GamesPlayedRatioSlider({
   min,
   max,
   onChange,
+  label = "出場試合率",
 }: {
+  label?: string;
   min: number;
   max: number;
   onChange: (min: number, max: number) => void;
@@ -13,7 +15,7 @@ export function GamesPlayedRatioSlider({
   return (
     <div className="dual-range">
       <div className="dual-range-labels">
-        出場試合率: {min}%〜{max}%
+        {label}: {min}%〜{max}%
       </div>
       <div className="dual-range-track-wrap">
         <div className="dual-range-track">
@@ -26,7 +28,8 @@ export function GamesPlayedRatioSlider({
           value={min}
           onChange={(e) => onChange(Math.min(Number(e.target.value), max), max)}
           className="dual-range-input"
-          aria-label="出場試合率の下限"
+          style={{ zIndex: min >= 50 && min >= max ? 2 : 1 }}
+          aria-label={`${label}の下限`}
         />
         <input
           type="range"
@@ -35,7 +38,7 @@ export function GamesPlayedRatioSlider({
           value={max}
           onChange={(e) => onChange(min, Math.max(Number(e.target.value), min))}
           className="dual-range-input"
-          aria-label="出場試合率の上限"
+          aria-label={`${label}の上限`}
         />
       </div>
     </div>

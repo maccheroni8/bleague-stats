@@ -22,7 +22,7 @@ import { PlayerPhoto } from "../components/PlayerPhoto";
 import { PlayerNamePool } from "../components/PlayerNamePool";
 import { ResponsivePlayerName } from "../components/ResponsivePlayerName";
 import { FigureExportButton } from "./FigureExport";
-import { ratioEligibilityAxis } from "./eligibilityAxis";
+import { ratioEligibilityAxis, ratioMaxParam } from "./eligibilityAxis";
 import { useFigureAchievable } from "./useFigureAchievable";
 import { usePlayerFigureData } from "./usePlayerFigureData";
 import { usePlayerFigureFilter } from "./usePlayerFigureFilter";
@@ -40,6 +40,7 @@ const rangeCodec: UrlCodec<SituationalFilter> = {
 };
 const gameCodec = { ...enumParam<SeasonGameTypeFilter>("gt", ["regular", "playoff", "both"], "regular"), read: GAME_TYPE_PARAM.read };
 const ratioCodec = numberParam("stg", DEFAULT_RATIO, { min: 0, max: 100 });
+const ratioMaxCodec = ratioMaxParam('stgx');
 const kindCodec = enumParam<"min" | "top">("stm", ["min", "top"], "min");
 const minCodec = numberParam("stv", DEFAULT_SHOOT_MIN_PTS, { min: 0, max: 100 });
 const topCodec = numberParam("stn", DEFAULT_SHOOT_TOP_N, { min: 1, max: 500 });
@@ -59,6 +60,7 @@ export default function PlayerShootTableFigure({ season, category }: FigureProps
   const [gameType, setGameType] = useUrlState(gameCodec, "regular");
   const [classification, setClassification] = useUrlState(CLASSIFICATION_PARAM, "all");
   const [minRatio, setMinRatio] = useUrlState(ratioCodec, DEFAULT_RATIO);
+  const [maxRatio, setMaxRatio] = useUrlState(ratioMaxCodec, 100);
   const [kind, setKind] = useUrlState(kindCodec, "min");
   const [minPts, setMinPts] = useUrlState(minCodec, DEFAULT_SHOOT_MIN_PTS);
   const [topN, setTopN] = useUrlState(topCodec, DEFAULT_SHOOT_TOP_N);
@@ -70,7 +72,7 @@ export default function PlayerShootTableFigure({ season, category }: FigureProps
   const base = useMemo(() => request.data ? buildPlayerFigurePoints(request.data, { season, category, range: filter.range, gameType, classification }) : [], [request.data, season, category, filter, gameType, classification]);
   // 掲載基準（出場率）を満たした全員。色の基準はこの全員の中での位置で、表示する人を絞っても変わらない
   const ach = useFigureAchievable(season, category, { range: filter.range, gameType });
-  const ratioPassed = useMemo(() => base.filter(p => passesRatio(p, minRatio, ach.remaining)), [base, minRatio, ach.remaining]);
+  const ratioPassed = useMemo(() => base.filter(p => passesRatio(p, minRatio, maxRatio, ach.remaining)), [base, minRatio, maxRatio, ach.remaining]);
   const pf = usePlayerFigureFilter({ season, category, teams, divisionOf, ratioPassed, clubKey: "stcl", axisId: "shootClubs" });
   const hl = useHighlightClubs({ season, category, teams, divisionOf });
 
@@ -105,17 +107,17 @@ export default function PlayerShootTableFigure({ season, category }: FigureProps
   };
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), selectionAxis,
     classificationAxis(classification, setClassification, { season }), pf.clubAxis, pf.positionAxis, hl.axis,
-    ratioEligibilityAxis({ id: "shootRatio", value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio, achievable: ach.axis })];
+    ratioEligibilityAxis({ id: "shootRatio", value: minRatio, max: maxRatio, defaultValue: DEFAULT_RATIO, onChange: (a, b) => { setMinRatio(a); setMaxRatio(b); }, achievable: ach.axis })];
   const [periodLabel] = situationalFilterLabels(filter);
   const sortText = shootSortLabel(shown.find(c => c.key === sortKey.key)?.label ?? "PTS", sortKey.descending);
-  const conditions = visibleConditionLabels(playerShootConditions({ scope: `${season} ${periodLabel}`, gameType: seasonGameTypeLabels(season)[gameType], selection, classification: classificationConditionLabels(classification), filters: pf.labels, eligibility: eligibilityLabels({ gamesRatio: minRatio / 100, achievable: ach.achievable }), highlights: hl.labels, sort: sortText }));
+  const conditions = visibleConditionLabels(playerShootConditions({ scope: `${season} ${periodLabel}`, gameType: seasonGameTypeLabels(season)[gameType], selection, classification: classificationConditionLabels(classification), filters: pf.labels, eligibility: eligibilityLabels({ gamesRatio: minRatio / 100, gamesRatioMax: maxRatio / 100, achievable: ach.achievable }), highlights: hl.labels, sort: sortText }));
   const classTitle = classTitleLabel(classification);
   const baseDate = { kind: "season" as const, season, gameType };
   const toggleSort = (key: string) => setSort(prev => ({ key, descending: prev.key === key ? !prev.descending : true }));
   // 移籍した選手は、表示中の範囲で最後に出場した試合のチームの略称
   const teamAbbr = (p: PlayerFigurePoint) => teamShortName(p.lastTeamId, teams.find(t => t.teamId === p.lastTeamId)?.teamName ?? p.teamName);
   return <section aria-label="シュート成功率（選手）">
-    <FilterBar axes={axes} stateKey="figures:player-shoot-table" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType("regular"); setClassification("all"); setKind("min"); setMinPts(DEFAULT_SHOOT_MIN_PTS); setTopN(DEFAULT_SHOOT_TOP_N); setSort(DEFAULT_SORT); pf.reset(); setMinRatio(DEFAULT_RATIO); ach.reset(); hl.setIds([]); }} />
+    <FilterBar axes={axes} stateKey="figures:player-shoot-table" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType("regular"); setClassification("all"); setKind("min"); setMinPts(DEFAULT_SHOOT_MIN_PTS); setTopN(DEFAULT_SHOOT_TOP_N); setSort(DEFAULT_SORT); pf.reset(); setMinRatio(DEFAULT_RATIO); setMaxRatio(100); ach.reset(); hl.setIds([]); }} />
     {splitClassificationBlocked(figureClassGroup(classification), season) ? <p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p> : request.loading ? <p role="status">選手の試合データを読み込み中…</p> : request.error ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : !sorted.length ? <p className="empty-message">この条件に該当する選手はいません。</p> : <>
       <p className="figure-count">{sorted.length}人を表示</p>
       <FigureExportButton targetRef={target} filename={`シュート成功率_${[classTitle, ...conditions].filter(Boolean).join("_")}`} baseDate={baseDate} />

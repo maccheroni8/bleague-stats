@@ -69,7 +69,7 @@ export default function AgeFigure({ season, category: league }: FigureProps) {
     { kind: "select", id: "ageLine", label: "全体の縦線", tier: "primary", value: line, defaultValue: "mean",
       options: [{ value: "mean", label: "平均" }, { value: "median", label: "中央値" }, { value: "both", label: "両方" }], onChange: v => setLine(v as typeof line) },
     classificationAxis(classification, setClassification, { season }),
-    ratioEligibilityAxis({ id: "ageRatio", value: minRatio, defaultValue: FIGURE_GAMES_RATIO_RANGE[0], onChange: v => setRatioRange([v, maxRatio]), achievable: ach.axis }),
+    ratioEligibilityAxis({ id: "ageRatio", value: minRatio, max: maxRatio, defaultValue: FIGURE_GAMES_RATIO_RANGE[0], onChange: (a, b) => setRatioRange([a, b]), achievable: ach.axis }),
   ];
   const title = min ? `平均${min}:00以上出場した選手の年齢分布` : "出場選手の年齢分布（出場時間の下限なし）";
   const teams = data ? withUnplayedTeams(data.history.at(-1)?.teams ?? [], data.race) : [];

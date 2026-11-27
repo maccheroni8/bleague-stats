@@ -29,7 +29,7 @@ import { formatDecimal, formatPct100, formatWinPct } from '../lib/format';
 import { situationalFilterLabels } from '../lib/conditionLabels';
 import { EligibilitySlider } from '../components/EligibilitySlider';
 import { FilterBar } from '../components/FilterBar';
-import { ratioEligibilityAxis } from './eligibilityAxis';
+import { ratioEligibilityAxis, ratioMaxParam } from './eligibilityAxis';
 import { useFigureAchievable } from './useFigureAchievable';
 import { eligibilityLabels } from '../lib/conditionLabels';
 
@@ -50,11 +50,13 @@ const clsCodec=CLASSIFICATION_PARAM;
 const xCodec=enumParam<ScorerAxis>('sx',SCORER_AXES,'win');
 const DEFAULT_RATIO=85;
 const ratioCodec=numberParam('sgp',DEFAULT_RATIO,{min:0,max:100});
+const ratioMaxCodec = ratioMaxParam('sgpx');
 const valueText=(v:number|null,axis:ScorerAxis)=>v===null?'—':axis==='win'?formatWinPct(v/100):axis==='min'?formatMinutesColon(v):axis==='share'||axis==='efg'?formatPct100(v):formatDecimal(v);
 export default function TopScorersFigure({season,category}:FigureProps){
  const [filter,setFilter]=useUrlState(rangeCodec,DEFAULT),[gameType,setGameType]=useUrlState(gameCodec,'regular');
  const [classification,setClassification]=useUrlState(clsCodec,'all'),[xParam,setX]=useUrlState(xCodec,'win');
  const [minRatio,setMinRatio]=useUrlState(ratioCodec,DEFAULT_RATIO);
+ const [maxRatio, setMaxRatio] = useUrlState(ratioMaxCodec, 100);
  const [hover,setHover]=useState<string|null>(null);
  const target=useRef<HTMLDivElement>(null),teamLabel=useTeamLabel();
  const request=useJsonData(async()=>{
@@ -66,11 +68,11 @@ export default function TopScorersFigure({season,category}:FigureProps){
  const divisionOf=(id:string)=>request.data?.divisions?.[category]?.[season]?.[id];
  const figurePoints=useMemo(()=>request.data?buildPlayerFigurePoints(request.data,{season,category,range:filter.range,gameType,classification}):[],[request.data,season,category,filter,gameType,classification]);
  const ach=useFigureAchievable(season,category,{range:filter.range,gameType});
- const ratioPassed=useMemo(()=>figurePoints.filter(p=>passesRatio(p,minRatio,ach.remaining)),[figurePoints,minRatio,ach.remaining]);
+ const ratioPassed=useMemo(()=>figurePoints.filter(p=>passesRatio(p,minRatio,maxRatio,ach.remaining)),[figurePoints,minRatio,maxRatio,ach.remaining]);
  const pf=usePlayerFigureFilter({season,category,teams,divisionOf,ratioPassed,clubKey:'scl',legacyDivisionKey:'dv',axisId:'scorerClubs'});
  // 絞っているときは、その選手の中から各チームの上位3人を選ぶ
  const allowed=useMemo(()=>pf.active?new Set(pf.eligible.map(p=>p.id)):undefined,[pf.active,pf.eligible]);
- const points=useMemo(()=>request.data?buildTopScorers(request.data,{season,category,range:filter.range,gameType,classification,minRatio,remainingByTeam:ach.remaining,allowed}):[],[request.data,season,category,filter,gameType,classification,minRatio,ach.remaining,allowed]);
+ const points=useMemo(()=>request.data?buildTopScorers(request.data,{season,category,range:filter.range,gameType,classification,minRatio,maxRatio,remainingByTeam:ach.remaining,allowed}):[],[request.data,season,category,filter,gameType,classification,minRatio,maxRatio,ach.remaining,allowed]);
  const playerLabel=usePlayerLabel(points.map(p=>p.name));
  const hl=useHighlightClubs({season,category,teams,divisionOf});
  const axesAvailable=SCORER_AXES.filter(a=>!onCourtShareSeasonUnsupported(season)||(a!=='on'&&a!=='share'));
@@ -86,8 +88,8 @@ export default function TopScorersFigure({season,category}:FigureProps){
  classificationAxis(classification,setClassification,{season}),
  pf.clubAxis, pf.positionAxis,
  hl.axis,
- ratioEligibilityAxis({id:'scorerRatio',value:minRatio,defaultValue:DEFAULT_RATIO,onChange:setMinRatio,achievable:ach.axis})];
- const conditions=[season,seasonGameTypeLabels(season)[gameType],...situationalFilterLabels(filter),...pf.labels,...eligibilityLabels({gamesRatio:minRatio/100,achievable:ach.achievable}),...hl.labels];
+ ratioEligibilityAxis({id:'scorerRatio',value:minRatio,max:maxRatio,defaultValue:DEFAULT_RATIO,onChange: (a, b) => { setMinRatio(a); setMaxRatio(b); }, achievable:ach.axis})];
+ const conditions=[season,seasonGameTypeLabels(season)[gameType],...situationalFilterLabels(filter),...pf.labels,...eligibilityLabels({gamesRatio:minRatio/100,gamesRatioMax:maxRatio/100,achievable:ach.achievable}),...hl.labels];
  const classTitle=figureClassTitle(classification);
  const baseDate={kind:'season' as const,season,gameType};
  const select=(p:ScorerPoint)=>{setHover(p.id);};
@@ -99,7 +101,7 @@ export default function TopScorersFigure({season,category}:FigureProps){
  ];
  const major=(tick:number,step:number)=>Math.abs(tick/(step*2)-Math.round(tick/(step*2)))<1e-6;
  return <section aria-label="各チームのトップスコアラー3人">
-  <FilterBar axes={axes} stateKey="figures:top-scorers" advancedExtra={pf.advancedExtra} onClearAll={()=>{setFilter(DEFAULT);setGameType('regular');setClassification('all');pf.reset();setMinRatio(DEFAULT_RATIO);ach.reset();setX('win');hl.setIds([]);}}/>
+  <FilterBar axes={axes} stateKey="figures:top-scorers" advancedExtra={pf.advancedExtra} onClearAll={()=>{setFilter(DEFAULT);setGameType('regular');setClassification('all');pf.reset();setMinRatio(DEFAULT_RATIO); setMaxRatio(100);ach.reset();setX('win');hl.setIds([]);}}/>
   {splitClassificationBlocked(figureClassGroup(classification),season)?<p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p>:request.loading?<p role="status">選手の試合データを読み込み中…</p>:request.error?<p role="alert">データを読み込めませんでした。ページを読み直してください。</p>:!visible.length?<p>この条件に該当する選手はいません。</p>:<>
   <p className="figure-count">{plotted.length}人を表示</p>
   <FigureExportButton targetRef={target} filename={`トップスコアラー_${SCORER_LABELS[axis]}_${[classTitle,...conditions].filter(Boolean).join('_')}`} baseDate={baseDate}/>

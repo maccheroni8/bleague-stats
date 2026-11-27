@@ -473,6 +473,8 @@ export interface PlayerRankingParams {
   category: PlayerRankCategory;
   statKey: string;
   gamesRatio: number;
+  /** 出場率の上限（0〜1。省略は上限なし） */
+  gamesRatioMax?: number;
   /** 掲載基準の出場率を「達成可能」（今の出場試合数＋チームの残り試合数で、出場率に届く）で判定する */
   achievable: boolean;
   extraThreshold: number;
@@ -505,7 +507,7 @@ export function usePlayerSeasonRanking(
   const enabled = opts.enabled ?? true;
   const league: League = opts.league ?? "premier";
   // B.ONE には、リーグをまたぐ経歴（Career）・シュートの種類（Shooting）の記録が無い。画面で選べないが、URL から来ても使わない
-  const { category, statKey, gamesRatio, achievable, extraThreshold, group, rookieIds, positions, filter, gameType, displayMode, period, statConditions } = params;
+  const { category, statKey, gamesRatio, gamesRatioMax, achievable, extraThreshold, group, rookieIds, positions, filter, gameType, displayMode, period, statConditions } = params;
   const role: RoleFilter = params.role ?? "both";
   const rolePercent = params.rolePercent ?? 50;
   const rookieActive = isRookieFilter(group);
@@ -598,7 +600,7 @@ export function usePlayerSeasonRanking(
       if (!overtimeIds) return [];
       return players.filter((p) => overtimeIds.has(p.playerId) && groupOk(p) && matchesPositionFilter(p, positionSet));
     }
-    const base = filterEligiblePlayers(players, teams, gamesRatio, extraRuleKey(statKey), extraThreshold, remainingByTeam).filter(
+    const base = filterEligiblePlayers(players, teams, gamesRatio, extraRuleKey(statKey), extraThreshold, remainingByTeam, gamesRatioMax ?? 1).filter(
       (p) => groupOk(p) && matchesPositionFilter(p, positionSet),
     );
     if (category !== "shooting") return base;
@@ -606,7 +608,7 @@ export function usePlayerSeasonRanking(
     return opts.skipEligibility ? withShots : filterShotPctMinAttempts(withShots, teams, statKey);
     // groupOk は group・rookieIds・classScope.changed から決まる
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopedPlayers, teams, gamesRatio, remainingByTeam, statKey, extraThreshold, opts.skipEligibility, group, positions, rookieActive, rookieIds, category, registeredTarget, registeredPlayers, overtimeActive, periodFiltersApply, overtimeIds, classScope.changed]);
+  }, [scopedPlayers, teams, gamesRatio, gamesRatioMax, remainingByTeam, statKey, extraThreshold, opts.skipEligibility, group, positions, rookieActive, rookieIds, category, registeredTarget, registeredPlayers, overtimeActive, periodFiltersApply, overtimeIds, classScope.changed]);
 
   // シーズンが変わったら取得済みキャッシュをリセットする
   useEffect(() => {

@@ -1228,8 +1228,8 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
       setRatio(DEFAULT_MIN_RATIO, DEFAULT_MAX_RATIO);
       setAchievable(false);
     },
-    summary: `${minRatio}%〜${maxRatio}%${achievable ? " 達成可能" : ""}`,
-    chipValue: `${minRatio}%〜${maxRatio}%${achievable ? " 達成可能" : ""}`,
+    summary: gamesPlayedRatioRangeLabels(minRatio, maxRatio, achievable).join(""),
+    chipValue: gamesPlayedRatioRangeLabels(minRatio, maxRatio, achievable).join(""),
     content: (
       <>
         <GamesPlayedRatioSlider
@@ -1239,7 +1239,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
             setRatio(mn, mx);
           }}
         />
-        {achievableSupported && <AchievableCheckbox ratioPercent={minRatio} checked={achievable} onChange={setAchievable} />}
+        {achievableSupported && <AchievableCheckbox checked={achievable} onChange={setAchievable} />}
       </>
     ),
   };
