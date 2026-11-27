@@ -58,6 +58,8 @@ import type {
 } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { TeamLogo } from "../components/TeamLogo";
+import { LeagueLogo } from "../components/LeagueLogo";
+import { LeagueLogoSeasonContext } from "../lib/leagueLogo";
 import { SeasonLink } from "../components/SeasonLink";
 import { FilterBar } from "../components/FilterBar";
 import { ConditionTitle } from "../components/ConditionTitle";
@@ -242,7 +244,7 @@ const DEFAULT_TEAMS_FILTER: SituationalFilter = { range: { kind: "all" } };
 // 順位付けする。
 // タブはURLのクエリ（view）に持つ（DESIGN.md 163章）。旧/teams/statsへのリンクは既定のタブ（全チームスタッツ）の
 // /teams に送る（下記TeamsStatsRedirect参照）
-export function TeamsListPage({ season }: { season: string }) {
+function TeamsListPageInner({ season }: { season: string }) {
   const league = useLeague();
   // ページのタブはURLのクエリ（view）に持つ（DESIGN.md 163章）。切り替えたら前のタブのフィルタのクエリは消す
   const [urlTab, setTabParam] = useUrlState(TEAMS_VIEW_PARAM, "stats");
@@ -356,7 +358,7 @@ const teamColumn: Column<AllTeamsRow> = {
   sortValue: (r) => r.team.teamName,
   render: (r) => (
     <span className="team-name-cell">
-      {r.team.teamId !== LEAGUE_TEAM_ID && <TeamLogo teamId={r.team.teamId} size={20} />}
+      {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} />}
       <ResponsiveTeamName teamId={r.team.teamId} name={r.team.teamName} />
     </span>
   ),
@@ -403,7 +405,7 @@ const TTS_TEAM_LEADING: TtsLeadingColumn<TtsTeamRow>[] = [
     sortValue: (r) => r.team.teamName,
     render: (r) => (
       <span className="team-name-cell">
-        {r.team.teamId !== LEAGUE_TEAM_ID && <TeamLogo teamId={r.team.teamId} size={20} />}
+        {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} />}
         <ResponsiveTeamName teamId={r.team.teamId} name={r.team.teamName} />
       </span>
     ),
@@ -491,7 +493,7 @@ function foreignCourtColumns(mode: "perGame" | "total", counts: readonly number[
       sortValue: (r) => r.team.teamName,
       render: (r) => (
         <span className="team-name-cell">
-          {r.team.teamId !== LEAGUE_TEAM_ID && <TeamLogo teamId={r.team.teamId} size={20} />}
+          {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} />}
           <ResponsiveTeamName teamId={r.team.teamId} name={r.team.teamName} />
         </span>
       ),
@@ -908,7 +910,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
       sortValue: (r) => r.team.teamName,
       render: (r) => (
         <span className="team-name-cell">
-          {r.team.teamId !== LEAGUE_TEAM_ID && <TeamLogo teamId={r.team.teamId} size={20} />}
+          {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} />}
           <ResponsiveTeamName teamId={r.team.teamId} name={r.team.teamName} />
         </span>
       ),
@@ -1087,7 +1089,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
       sortValue: (r) => r.team.teamName,
       render: (r) => (
         <span className="team-name-cell">
-          {r.team.teamId !== LEAGUE_TEAM_ID && <TeamLogo teamId={r.team.teamId} size={20} />}
+          {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} />}
           <ResponsiveTeamName teamId={r.team.teamId} name={r.team.teamName} />
         </span>
       ),
@@ -2561,7 +2563,7 @@ function RecentFormTab({ season, league }: { season: string; league: League }) {
       sortValue: (r) => r.team.teamName,
       render: (r) => (
         <span className="team-name-cell">
-          {r.team.teamId !== LEAGUE_TEAM_ID && <TeamLogo teamId={r.team.teamId} size={20} />}
+          {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} />}
           <ResponsiveTeamName teamId={r.team.teamId} name={r.team.teamName} />
         </span>
       ),
@@ -2643,5 +2645,13 @@ function RecentFormTab({ season, league }: { season: string; league: League }) {
         </div>
       )}
     </div>
+  );
+}
+
+export function TeamsListPage({ season }: { season: string }) {
+  return (
+    <LeagueLogoSeasonContext.Provider value={season}>
+      <TeamsListPageInner season={season} />
+    </LeagueLogoSeasonContext.Provider>
   );
 }

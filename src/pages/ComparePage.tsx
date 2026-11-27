@@ -59,6 +59,7 @@ import { useSeasonKeyedData } from "../lib/useSeasonKeyedData";
 import { usePickerSources, usePlayerPickerGroups, type PickerSources } from "../lib/usePlayerPickerGroups";
 import { pickerEntryKey, pickerPlayerIdOf } from "../lib/playerPickerOrder";
 import { TeamLogo } from "../components/TeamLogo";
+import { LeagueLogo } from "../components/LeagueLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import type { BaseDateSpec } from "../lib/dataBaseDate";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
@@ -626,7 +627,7 @@ function TeamCompareView({
           linkTo={(r) => (r.isLeague ? undefined : `/teams/${r.teamId}`)}
           teamColor={(r) => slotColorByKey.get(r.key)}
           subLabel={(r) => r.subLabel}
-          avatar={(r) => (r.isLeague ? null : <TeamLogo teamId={r.teamId} size={64} />)}
+          avatar={(r) => (r.isLeague ? <LeagueLogo season={r.season} size={64} /> : <TeamLogo teamId={r.teamId} size={64} />)}
           jaNames
           rankOf={teamRankOfDef}
           emptyMessage={anyBusy ? "データ取得中..." : "比較するチームを選んでください"}
