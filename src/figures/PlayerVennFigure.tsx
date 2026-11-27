@@ -34,6 +34,7 @@ import { eligibilityLabels } from '../lib/conditionLabels';
 
 import { usePlayerFigureData } from './usePlayerFigureData';
 import { useHighlightClubs } from './highlightClubs';
+import { usePlayerHighlight } from './usePlayerHighlight';
 import { usePlayerFigureFilter } from './usePlayerFigureFilter';
 import type { FigureProps } from './catalog';
 import './RatingsScatterFigure.css';
@@ -96,8 +97,9 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
   const ach = useFigureAchievable(season, category, { range: filter.range, gameType, venue });
   const ratioPassed = useMemo(() => base.filter(p => passesRatio(p, minRatio, maxRatio, ach.remaining)), [base, minRatio, maxRatio, ach.remaining]);
   // 表示するクラブと詳細フィルター（スタッツの条件）。円の中の選手・人数・一覧・保存画像のすべてに効く
-  const pf = usePlayerFigureFilter({ season, category, teams, divisionOf, ratioPassed, clubKey: 'vcl', axisId: 'vennClubs' });
+  const pf = usePlayerFigureFilter({ season, category, teams, divisionOf, ratioPassed, rankBase: base, clubKey: 'vcl', axisId: 'vennClubs' });
   const eligible = pf.eligible;
+  const ph = usePlayerHighlight({ clubHas: hl.has, rankIndex: pf.rankIndex, points: pf.eligible, teams });
   const items = playerVennItems(season);
   const available = useMemo(() => availablePlayerVennItems(eligible, season), [eligible, season]);
   const itemIds = resolvePlayerVennSelection(selParam, available.size ? available : new Set(items.map(i => i.id)), items.map(i => i.id));
@@ -120,7 +122,7 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
   const valueText = (p: PlayerFigurePoint, i: number) => computed?.valueOf(p.id, i)?.text ?? '-';
   const playerLabel = usePlayerLabel(eligible.map(p => p.name));
   const byId = useMemo(() => new Map(eligible.map(p => [p.id, p])), [eligible]);
-  const emphIds = useMemo(() => new Set(eligible.filter(p => hl.has(p.teamIds)).map(p => p.id)), [eligible, hl.ids.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
+  const emphIds = useMemo(() => new Set(eligible.filter(p => ph.has(p.teamIds, p.playerId)).map(p => p.id)), [eligible, hl.ids.join('|'), ph.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const abbrOf = (id: string) => teamShortName(id, teams.find(t => t.teamId === id)?.teamName ?? '');
   const abbr = (p: PlayerFigurePoint) => p.teamIds.map(id => teamShortName(id, teams.find(t => t.teamId === id)?.teamName ?? p.teamName)).join('・');
   const teamNames = (p: PlayerFigurePoint) => p.teamIds.map(id => teamLabel(id, teams.find(t => t.teamId === id)?.teamName ?? p.teamName)).join('・');
@@ -133,9 +135,9 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
     .map(a => a.kind === 'select' ? { ...a, options: a.options.filter(o => ['all', 'recent:5', 'recent:10', 'custom'].includes(o.value)) } : { ...a, tier: 'primary' as const });
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), venueAxis(venue, setVenue), classificationAxis(classification, setClassification, { season }),
     { kind: 'select', id: 'vennDisplay', label: '選手の表示', tier: 'primary', value: display, defaultValue: 'photo', options: [{ value: 'photo', label: '写真' }, { value: 'name', label: '名前' }], onChange: v => setDisplay(v as VennDisplay) },
-    pf.clubAxis, pf.positionAxis, hl.axis, ratioEligibilityAxis({ id: 'vennRatio', value: minRatio, max: maxRatio, defaultValue: DEFAULT_RATIO, onChange: (a, b) => { setMinRatio(a); setMaxRatio(b); }, achievable: ach.axis })];
+    pf.clubAxis, pf.positionAxis, hl.axis, ph.playerAxis, ph.rankAxis, ratioEligibilityAxis({ id: 'vennRatio', value: minRatio, max: maxRatio, defaultValue: DEFAULT_RATIO, onChange: (a, b) => { setMinRatio(a); setMaxRatio(b); }, achievable: ach.axis })];
   const [periodLabel] = situationalFilterLabels(filter);
-  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], ...venueConditionLabel(venue), ...eligibilityLabels({ gamesRatio: minRatio / 100, gamesRatioMax: maxRatio / 100, achievable: ach.achievable }), ...pf.labels, ...hl.labels].filter(Boolean);
+  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], ...venueConditionLabel(venue), ...eligibilityLabels({ gamesRatio: minRatio / 100, gamesRatioMax: maxRatio / 100, achievable: ach.achievable }), ...pf.labels].filter(Boolean);
   const classTitle = figureClassTitle(classification);
   const baseDate = { kind: 'season' as const, season, gameType };
   const columns: Column<PlayerFigurePoint>[] = [
@@ -149,7 +151,7 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
   const thrInputs = useRef<(NumberTextInputHandle | null)[]>([]);
   const signed = itemIds.map((_, i) => (thresholds[i] ?? 0) < 0 || sampleValues[i]!.some(v => v.value < 0 || /^[+-]/.test(v.text.trim())));
   return <section aria-label="ベン図">
-    <FilterBar axes={axes} stateKey="figures:player-venn" advancedExtra={pf.advancedExtra} onClearAll={() => { pf.reset(); setFilter(DEFAULT); setGameType('regular'); setVenue('all'); setClassification('all'); setMinRatio(DEFAULT_RATIO); setMaxRatio(100); ach.reset(); setDisplay('photo'); setSel(NO_SELECTION); setThr(NO_THRESHOLDS); hl.setIds([]); setHover(null); setOpenMask(null); }} />
+    <FilterBar axes={axes} stateKey="figures:player-venn" advancedExtra={pf.advancedExtra} onClearAll={() => { pf.reset(); setFilter(DEFAULT); setGameType('regular'); setVenue('all'); setClassification('all'); setMinRatio(DEFAULT_RATIO); setMaxRatio(100); ach.reset(); setDisplay('photo'); setSel(NO_SELECTION); setThr(NO_THRESHOLDS); hl.setIds([]); ph.reset(); setHover(null); setOpenMask(null); }} />
     <div className="venn-pickers">
       {itemIds.map((id, i) => <div key={i} className={`venn-picker ${SLOT_COLORS[i]}`}>
         <span className="venn-dot" aria-hidden="true" />
@@ -177,7 +179,7 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
         </div>
       </ExportTarget>
       <div className="table-scroll" tabIndex={0} role="region" aria-label="選手一覧"><SortableTable columns={columns} rows={eligible} rowKey={p => p.id} defaultSortKey="c0" statScope="player"
-        rowHighlightColor={p => hover === p.id || hl.has(p.teamIds) ? 'var(--accent)' : undefined} rowHighlightStrength={() => 'half'} /></div>
+        rowHighlightColor={p => hover === p.id || ph.has(p.teamIds, p.playerId) ? 'var(--accent)' : undefined} rowHighlightStrength={() => 'half'} /></div>
     </>}
   </section>;
 }

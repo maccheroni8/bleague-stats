@@ -10,7 +10,8 @@
 import { formatMinutesColon } from "./minutesFormat";
 
 
-export type StatConditionOp = "gte" | "lte";
+/** gte＝以上・lte＝以下・rank＝その項目のランキングで◯位以上（同率を含む。順位を出せる項目だけ。図解の選手の詳細フィルタ） */
+export type StatConditionOp = "gte" | "lte" | "rank";
 export type StatConditionMatch = "all" | "any";
 
 export interface StatCondition {
@@ -28,7 +29,7 @@ export interface StatConditionsState {
 
 export const DEFAULT_STAT_CONDITIONS: StatConditionsState = { match: "all", conditions: [] };
 
-export const STAT_CONDITION_OP_LABELS: Record<StatConditionOp, string> = { gte: "以上", lte: "以下" };
+export const STAT_CONDITION_OP_LABELS: Record<StatConditionOp, string> = { gte: "以上", lte: "以下", rank: "位以上" };
 export const STAT_CONDITION_MATCH_LABELS: Record<StatConditionMatch, string> = { all: "すべて満たす", any: "どれかを満たす" };
 
 /** 値の読み方。pct は「35.0%」、winPct は勝率の「.750」（どちらも%の数で比べる）、minutes は「20:15」 */
@@ -54,6 +55,8 @@ export interface StatConditionItem<R> {
   signed?: boolean;
   /** タイトル（保存画像のサブタイトル）に書く短い名前（「3PM」「2PM」等の略語）。省略は label を略語に直したもの */
   shortLabel?: string;
+  /** その行のランキングでの順位（同率は同じ順位）。順位を出せる項目だけが持つ（図解の選手の詳細フィルタ）。出せない行は null */
+  rankOf?: (row: R) => number | null;
   /** タイトルに書く値の文言（「0.5」→「チームの試合数の半分」等）。省略は数値そのまま */
   thresholdText?: (v: number) => string;
 }
@@ -186,6 +189,11 @@ export function activeStatConditions<R>(state: StatConditionsState, items: reado
   const byKey = new Map(items.map((i) => [i.key, i]));
   return state.conditions.flatMap((condition) => {
     const item = byKey.get(condition.key);
+    if (condition.op === "rank") {
+      // 順位は1以上の整数（順位を出せない項目の行は使わない）
+      const n = parseConditionInput(condition.value);
+      return item?.rankOf && n !== null && Number.isInteger(n) && n >= 1 ? [{ condition, item, threshold: n }] : [];
+    }
     const threshold = parseConditionInputFor(condition.value, item?.kind);
     return item && threshold !== null ? [{ condition, item, threshold }] : [];
   });
@@ -198,6 +206,10 @@ export function hasActiveStatConditions<R>(state: StatConditionsState, items: re
 
 /** 値が無い行（「-」）は、その条件を満たさない扱いにする */
 function satisfies<R>(row: R, c: ActiveCondition<R>): boolean {
+  if (c.condition.op === "rank") {
+    const r = c.item.rankOf?.(row) ?? null;
+    return r !== null && r <= c.threshold;
+  }
   const v = parseDisplayedValue(c.item.display(row), c.item.kind);
   if (v === null) return false;
   // 表示の丸めた値で比べる。浮動小数の誤差で「35.0 ≥ 35」が外れないよう、わずかな幅を持たせる
@@ -232,7 +244,9 @@ export function activeStatConditionKeys(state: StatConditionsState): string[] {
 export function statConditionLabels<R>(state: StatConditionsState, items: readonly StatConditionItem<R>[]): string[] {
   return activeStatConditions(state, items).map(
     ({ condition, item, threshold }) =>
-      `${item.label} ${item.kind === "minutes" ? formatMinutesColon(threshold) : `${formatThreshold(threshold)}${item.suffix}`}${STAT_CONDITION_OP_LABELS[condition.op]}`,
+      condition.op === "rank"
+        ? `${item.label} ${threshold}位以上`
+        : `${item.label} ${item.kind === "minutes" ? formatMinutesColon(threshold) : `${formatThreshold(threshold)}${item.suffix}`}${STAT_CONDITION_OP_LABELS[condition.op]}`,
   );
 }
 
@@ -312,9 +326,14 @@ export function mergedStatConditionParts<R>(state: StatConditionsState, items: r
     shown: boolean;
   }
   const groups: Group[] = [];
+  const rankLabels: string[] = [];
   let criterionLower = false;
   for (const { condition, item, threshold } of activeStatConditions(state, items)) {
     const label = item.shortLabel ?? shortStatLabel(item.label);
+    if (condition.op === "rank") {
+      rankLabels.push(`${label} ${threshold}位以上`);
+      continue;
+    }
     let g = groups.find((x) => x.label === label);
     if (!g) {
       g = { label, item, lower: null, upper: null, shown: false };
@@ -334,7 +353,7 @@ export function mergedStatConditionParts<R>(state: StatConditionsState, items: r
     if (isCriterion) g.item = item;
   }
   const text = (g: Group, v: number) =>
-    g.item.thresholdText ? g.item.thresholdText(v) : g.item.kind === "minutes" ? formatMinutesColon(v) : opts.decimalRate && g.item.kind === "rate" && Number.isInteger(v) ? v.toFixed(1) : formatThreshold(v);
+    g.item.thresholdText ? g.item.thresholdText(v) : g.item.kind === "minutes" ? formatMinutesColon(v) : opts.decimalRate && (g.item.kind === "rate" || g.item.kind === "count") && Number.isInteger(v) ? v.toFixed(1) : formatThreshold(v);
   const unit = (g: Group) => (g.item.kind === "minutes" || g.item.thresholdText ? "" : g.item.suffix);
   const criterion: string[] = [];
   const others: string[] = [];
@@ -346,6 +365,7 @@ export function mergedStatConditionParts<R>(state: StatConditionsState, items: r
     else if (g.upper !== null) label = `${g.label} ${text(g, g.upper)}${unit(g)}以下`;
     if (label) (g.label === critLabel ? criterion : others).push(label);
   }
+  others.push(...rankLabels);
   // 掲載基準を外している: 同じ項目の条件がほかに無いとき（上限だけでも入れていれば、それが基準）
   if (seed !== null && !criterionLower && !criterion.length) criterion.push("掲載基準なし");
   return { criterion, others };

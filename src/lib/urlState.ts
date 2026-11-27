@@ -249,7 +249,8 @@ export const situationalParam: UrlCodec<SituationalFilter> = {
 
 // ---- スタッツの条件（sc=min.ge.20,3ppct.ge.35 と sm=any） ----
 
-const OPS: Record<string, StatConditionOp> = { ge: "gte", le: "lte" };
+const OPS: Record<string, StatConditionOp> = { ge: "gte", le: "lte", rk: "rank" };
+const OP_CODE: Record<StatConditionOp, string> = { gte: "ge", lte: "le", rank: "rk" };
 
 export const statConditionsParam: UrlCodec<StatConditionsState> = {
   keys: ["sc", "sm"],
@@ -273,7 +274,7 @@ export const statConditionsParam: UrlCodec<StatConditionsState> = {
     if (v.conditions.length > 0) {
       p.set(
         "sc",
-        v.conditions.map((c) => `${c.key}.${c.op === "gte" ? "ge" : "le"}.${c.value.replace(/[,\s]/g, "")}`).join(","),
+        v.conditions.map((c) => `${c.key}.${OP_CODE[c.op]}.${c.value.replace(/[,\s]/g, "")}`).join(","),
       );
     }
     if (v.match === "any") p.set("sm", "any");

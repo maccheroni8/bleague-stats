@@ -7,6 +7,10 @@ import type { PlayerCareerCounts, PlayerGameLog, PlayerSummary, TeamGameLog, Div
 import { buildTopScorers, type ScorerData } from "../src/lib/figureTopScorers";
 import { buildPlayerFigurePoints } from "../src/lib/figurePlayerPoints";
 import { clubsOfDivisions, filterPlayerFigurePoints } from "../src/lib/figurePlayerFilter";
+import { buildPlayerRankIndex } from "../src/lib/figurePlayerRank";
+import { statConditionsParam } from "../src/lib/urlState";
+import { rankDirectionProps } from "../src/lib/rankDirection";
+import { passesRatio } from "../src/lib/figurePlayerPoints";
 import { DEFAULT_STAT_CONDITIONS, mergedStatConditionLabels, type StatConditionsState } from "../src/lib/statConditions";
 
 const read = <T,>(p: string): T => { const f = existsSync(p) ? p : `${p}.gz`; return JSON.parse((f.endsWith(".gz") ? gunzipSync(readFileSync(f)) : readFileSync(f)).toString()) as T; };
@@ -35,7 +39,7 @@ for (const [season, category] of [["2026-27", "premier"], ["2026-27", "one"], ["
   assert.equal(none.eligible.length, ratioPassed.length); assert.equal(none.active, false);
   // 詳細フィルタの書き方（下限だけ「3PM 1.0以上」・上限だけ「3PM 1.49以下」・両方「3PM 1.0〜1.49」。整数の下限も「1.0」・上限は丸めない）
   {
-    const pm = none.items.find(i => i.kind === "rate" && (i.shortLabel ?? i.label).includes("3PM"));
+    const pm = none.items.find(i => i.key === "3pm");
     assert.ok(pm, `${season} ${category} 3PM の項目がある`);
     const st = (...c: [string, "gte" | "lte", string][]): StatConditionsState => ({ match: "all", conditions: c.map(([key, op, value], n) => ({ id: n + 1, key, op, value })) });
     const lbl = (s: StatConditionsState) => mergedStatConditionLabels(s, none.items, { showDefaultCriterion: true, decimalRate: true });
@@ -43,6 +47,34 @@ for (const [season, category] of [["2026-27", "premier"], ["2026-27", "one"], ["
     assert.deepEqual(lbl(st([pm.key, "gte", "1"])), [`${name} 1.0以上`]);
     assert.deepEqual(lbl(st([pm.key, "lte", "1.49"])), [`${name} 1.49以下`]);
     assert.deepEqual(lbl(st([pm.key, "gte", "1"], [pm.key, "lte", "1.49"])), [`${name} 1.0〜1.49`]);
+  }
+  // ランキング◯位以上（同率を含む）: 順位は掲載基準（出場率85%）を満たした選手の中の順位。向きは rankDirection.ts、同じ表示値は同順位
+  {
+    const idx = buildPlayerRankIndex(points, season, category);
+    const pop = points.filter(p => passesRatio(p, 85, 100));
+    for (const key of ["pts", "ast", "tov", "stl", "blk", "3pm"]) {
+      if (!idx.has(key)) continue;
+      const item = idx.items.find(i => i.key === key)!;
+      const hib = rankDirectionProps(key).higherIsBetter;
+      const vals = pop.map(p => ({ p, text: item.display(p), v: Number(item.display(p)) })).filter(x => Number.isFinite(x.v));
+      vals.sort((a, b) => (hib ? b.v - a.v : a.v - b.v));
+      // 独立に数え直した順位（同じ表示値は同順位。次の順位はその分飛ばす）
+      vals.forEach((x, i) => assert.equal(idx.rankOf(key, x.p.id), i > 0 && x.text === vals[i - 1]!.text ? idx.rankOf(key, vals[i - 1]!.p.id) : i + 1, `${season} ${category} ${key} の順位`));
+      for (const n of [1, 3, 10, 30]) {
+        const top = idx.topIds(key, n);
+        const expect = vals.filter((_, i) => { const first = vals.findIndex(y => y.text === vals[i]!.text); return first + 1 <= n; }).length;
+        assert.equal(top.size, expect, `${season} ${category} ${key} ${n}位以上の人数（同率を含む）`);
+        const st: StatConditionsState = { match: "all", conditions: [{ id: 1, key, op: "rank", value: String(n) }] };
+        const r = filterPlayerFigurePoints(pop, [], st, season, { rankIndex: idx });
+        assert.deepEqual(new Set(r.eligible.map(p => p.id)), top, `${season} ${category} ${key} ${n}位以上の絞り込み`);
+        assert.deepEqual(mergedStatConditionLabels(st, r.items, { showDefaultCriterion: true, decimalRate: true }), [`${r.items.find(i => i.key === key)!.shortLabel ?? item.label} ${n}位以上`]);
+      }
+    }
+    // URL の往復（key.rk.N）と、順位を出せない項目・0や小数の人数は使わない
+    const q = new URLSearchParams(); statConditionsParam.write(q, { match: "all", conditions: [{ id: 1, key: "pts", op: "rank", value: "10" }, { id: 2, key: "3pm", op: "gte", value: "1" }] });
+    assert.equal(q.get("sc"), "pts.rk.10,3pm.ge.1"); assert.deepEqual(statConditionsParam.read(q)!.conditions.map(c => c.op), ["rank", "gte"]);
+    for (const bad of ["0", "1.5", "x", ""]) assert.equal(filterPlayerFigurePoints(pop, [], { match: "all", conditions: [{ id: 1, key: "pts", op: "rank", value: bad }] }, season, { rankIndex: idx }).eligible.length, pop.length, `順位 "${bad}" は使わない`);
+    assert.equal(filterPlayerFigurePoints(pop, [], { match: "all", conditions: [{ id: 1, key: "pts", op: "rank", value: "5" }] }, season).eligible.length, pop.length, "順位を引く部品が無いときは使わない");
   }
   // クラブ: 1クラブずつ・複数クラブ。移籍した選手は所属したクラブのどれかで残る
   const ids = teams.map(t => t.teamId);

@@ -15,7 +15,7 @@ import {
 } from "../lib/statConditions";
 
 /** 選択肢に出すだけの項目の情報（行の型に依存しない） */
-type ItemOption = Pick<StatConditionItem<unknown>, "key" | "label" | "group" | "unit"> & Partial<Pick<StatConditionItem<unknown>, "kind" | "signed">>;
+type ItemOption = Pick<StatConditionItem<unknown>, "key" | "label" | "group" | "unit"> & Partial<Pick<StatConditionItem<unknown>, "kind" | "signed">> & { rankOf?: unknown };
 
 /**
  * スタッツの条件の編集欄（詳細フィルタの一番下に幅いっぱいで置く。DESIGN.md 162章）。
@@ -93,11 +93,11 @@ export function StatConditionsEditor({
       {disabledReason && <p className="filter-bar-note">{disabledReason}</p>}
       {state.conditions.map((c, i) => {
         const item = byKey.get(c.key);
-        const invalid = c.value.trim() !== "" && parseConditionInputFor(c.value, item?.kind) === null;
-        const isMinutes = item?.kind === "minutes";
-        const quick = quickValues?.[c.key] ?? [];
+        const invalid = c.value.trim() !== "" && (c.op === "rank" ? !/^[1-9]\d*$/.test(c.value.trim()) : parseConditionInputFor(c.value, item?.kind) === null);
+        const isMinutes = item?.kind === "minutes" && c.op !== "rank";
+        const quick = c.op === "rank" ? [] : (quickValues?.[c.key] ?? []);
         // 負の値になりうる項目（または、すでに負の値が入っている行）だけ「−」のボタン（スマホの数字キーボードに無い。ベン図と同じ。DESIGN.md 339章）
-        const showSign = !!item?.signed || /^[-−－ー]/.test(c.value.trim());
+        const showSign = c.op !== "rank" && (!!item?.signed || /^[-−－ー]/.test(c.value.trim()));
         return (
           <div key={c.id}>
           <div className="stat-condition-row">
@@ -126,7 +126,7 @@ export function StatConditionsEditor({
               disabled={disabled}
               onChange={(e) => update(c.id, { op: e.target.value as StatConditionOp })}
             >
-              {(Object.keys(STAT_CONDITION_OP_LABELS) as StatConditionOp[]).map((op) => (
+              {(Object.keys(STAT_CONDITION_OP_LABELS) as StatConditionOp[]).filter((op) => op !== "rank" || !!item?.rankOf || c.op === "rank").map((op) => (
                 <option key={op} value={op}>
                   {STAT_CONDITION_OP_LABELS[op]}
                 </option>
@@ -140,13 +140,13 @@ export function StatConditionsEditor({
               id={`${baseId}-${c.id}`}
               className={`stat-condition-value${invalid ? " invalid" : ""}`}
               kind={isMinutes ? "minutes" : "text"}
-              placeholder={isMinutes ? "20:00" : "値"}
+              placeholder={c.op === "rank" ? "順位" : isMinutes ? "20:00" : "値"}
               aria-label={`条件${i + 1}の値`}
               value={c.value}
               disabled={disabled}
               onCommit={(text) => update(c.id, { value: text })}
             />
-            <span className="stat-condition-unit">{item?.unit ?? ""}</span>
+            <span className="stat-condition-unit">{c.op === "rank" ? "" : (item?.unit ?? "")}</span>
             <button
               type="button"
               className="stat-condition-remove"

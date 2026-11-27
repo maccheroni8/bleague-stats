@@ -27,6 +27,7 @@ import { useFigureAchievable } from "./useFigureAchievable";
 import { usePlayerFigureData } from "./usePlayerFigureData";
 import { usePlayerFigureFilter } from "./usePlayerFigureFilter";
 import { useHighlightClubs } from "./highlightClubs";
+import { usePlayerHighlight } from "./usePlayerHighlight";
 import { ShootLegend, ShootTableView, type ShootSort, type ShootViewColumn } from "./ShootTableView";
 import type { FigureProps } from "./catalog";
 import "./RatingsScatterFigure.css";
@@ -73,8 +74,9 @@ export default function PlayerShootTableFigure({ season, category }: FigureProps
   // 掲載基準（出場率）を満たした全員。色の基準はこの全員の中での位置で、表示する人を絞っても変わらない
   const ach = useFigureAchievable(season, category, { range: filter.range, gameType });
   const ratioPassed = useMemo(() => base.filter(p => passesRatio(p, minRatio, maxRatio, ach.remaining)), [base, minRatio, maxRatio, ach.remaining]);
-  const pf = usePlayerFigureFilter({ season, category, teams, divisionOf, ratioPassed, clubKey: "stcl", axisId: "shootClubs" });
+  const pf = usePlayerFigureFilter({ season, category, teams, divisionOf, ratioPassed, rankBase: base, clubKey: "stcl", axisId: "shootClubs" });
   const hl = useHighlightClubs({ season, category, teams, divisionOf });
+  const ph = usePlayerHighlight({ clubHas: hl.has, rankIndex: pf.rankIndex, points: pf.eligible, teams });
 
   const cells = useMemo(() => playerShootCells(ratioPassed, season), [ratioPassed, season]);
   const reference = useMemo(() => shootReference(cells.values(), PLAYER_SHOOT_COLUMNS.map(d => d.key)), [cells]);
@@ -106,25 +108,25 @@ export default function PlayerShootTableFigure({ season, category }: FigureProps
     </div>,
   };
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), selectionAxis,
-    classificationAxis(classification, setClassification, { season }), pf.clubAxis, pf.positionAxis, hl.axis,
+    classificationAxis(classification, setClassification, { season }), pf.clubAxis, pf.positionAxis, hl.axis, ph.playerAxis, ph.rankAxis,
     ratioEligibilityAxis({ id: "shootRatio", value: minRatio, max: maxRatio, defaultValue: DEFAULT_RATIO, onChange: (a, b) => { setMinRatio(a); setMaxRatio(b); }, achievable: ach.axis })];
   const [periodLabel] = situationalFilterLabels(filter);
   const sortText = shootSortLabel(shown.find(c => c.key === sortKey.key)?.label ?? "PTS", sortKey.descending);
-  const conditions = visibleConditionLabels(playerShootConditions({ scope: `${season} ${periodLabel}`, gameType: seasonGameTypeLabels(season)[gameType], selection, classification: classificationConditionLabels(classification), filters: pf.labels, eligibility: eligibilityLabels({ gamesRatio: minRatio / 100, gamesRatioMax: maxRatio / 100, achievable: ach.achievable }), highlights: hl.labels, sort: sortText }));
+  const conditions = visibleConditionLabels(playerShootConditions({ scope: `${season} ${periodLabel}`, gameType: seasonGameTypeLabels(season)[gameType], selection, classification: classificationConditionLabels(classification), filters: pf.labels, eligibility: eligibilityLabels({ gamesRatio: minRatio / 100, gamesRatioMax: maxRatio / 100, achievable: ach.achievable }), highlights: [], sort: sortText }));
   const classTitle = classTitleLabel(classification);
   const baseDate = { kind: "season" as const, season, gameType };
   const toggleSort = (key: string) => setSort(prev => ({ key, descending: prev.key === key ? !prev.descending : true }));
   // 移籍した選手は、表示中の範囲で最後に出場した試合のチームの略称
   const teamAbbr = (p: PlayerFigurePoint) => teamShortName(p.lastTeamId, teams.find(t => t.teamId === p.lastTeamId)?.teamName ?? p.teamName);
   return <section aria-label="シュート成功率（選手）">
-    <FilterBar axes={axes} stateKey="figures:player-shoot-table" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType("regular"); setClassification("all"); setKind("min"); setMinPts(DEFAULT_SHOOT_MIN_PTS); setTopN(DEFAULT_SHOOT_TOP_N); setSort(DEFAULT_SORT); pf.reset(); setMinRatio(DEFAULT_RATIO); setMaxRatio(100); ach.reset(); hl.setIds([]); }} />
+    <FilterBar axes={axes} stateKey="figures:player-shoot-table" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType("regular"); setClassification("all"); setKind("min"); setMinPts(DEFAULT_SHOOT_MIN_PTS); setTopN(DEFAULT_SHOOT_TOP_N); setSort(DEFAULT_SORT); pf.reset(); setMinRatio(DEFAULT_RATIO); setMaxRatio(100); ach.reset(); hl.setIds([]); ph.reset(); }} />
     {splitClassificationBlocked(figureClassGroup(classification), season) ? <p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p> : request.loading ? <p role="status">選手の試合データを読み込み中…</p> : request.error ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : !sorted.length ? <p className="empty-message">この条件に該当する選手はいません。</p> : <>
       <p className="figure-count">{sorted.length}人を表示</p>
       <FigureExportButton targetRef={target} filename={`シュート成功率_${[classTitle, ...conditions].filter(Boolean).join("_")}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="ratings-export shoot-export" baseDate={baseDate}>
         <ConditionTitle title={shootTitle(null)} classLabel={classTitle} exportScope={`${season}シーズン`} conditions={conditions} />
         <PlayerNamePool names={names}>
-          <ShootTableView rows={sorted} rowKey={p => p.id} columns={columns} sort={sortKey} onSort={toggleSort} ranks={ranks} nameHeader="PLAYER" highlight={p => hl.has(p.teamIds)} ariaLabel="シュート成功率（選手）"
+          <ShootTableView rows={sorted} rowKey={p => p.id} columns={columns} sort={sortKey} onSort={toggleSort} ranks={ranks} nameHeader="PLAYER" highlight={p => ph.has(p.teamIds, p.playerId)} ariaLabel="シュート成功率（選手）"
             renderName={p => <div className="shoot-who">
               <PlayerPhoto playerId={p.playerId} size={44} className="player-cell-photo" placeholder season={season} teamId={p.lastTeamId} />
               <span className="shoot-who-line"><ResponsivePlayerName name={p.name} among={names} /><span className="shoot-abbr">（<TeamChip teamId={p.lastTeamId}>{teamAbbr(p)}</TeamChip>）</span></span>

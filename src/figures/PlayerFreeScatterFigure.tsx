@@ -38,6 +38,7 @@ import { AxisScatter } from './AxisScatter';
 import { usePlayerFigureData } from './usePlayerFigureData';
 import { usePlayerFigureFilter } from './usePlayerFigureFilter';
 import { useHighlightClubs } from './highlightClubs';
+import { usePlayerHighlight } from './usePlayerHighlight';
 import type { FigureProps } from './catalog';
 import './RatingsScatterFigure.css';
 import './TopScorersFigure.css';
@@ -96,7 +97,7 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
   const divisionOf = (id: string) => request.data?.divisions?.[category]?.[season]?.[id];
   const ach = useFigureAchievable(season, category, { range: filter.range, gameType: seasonTotals ? 'regular' : gameType, venue: seasonTotals ? 'all' : venue });
   const ratioPassed = useMemo(() => base.filter(p => passesRatio(p, minRatio, maxRatio, ach.remaining)), [base, minRatio, maxRatio, ach.remaining]);
-  const pf = usePlayerFigureFilter({ season, category, teams, divisionOf, ratioPassed, clubKey: 'pcl', legacyDivisionKey: 'dv', axisId: 'pfreeClubs' });
+  const pf = usePlayerFigureFilter({ season, category, teams, divisionOf, ratioPassed, rankBase: base, clubKey: 'pcl', legacyDivisionKey: 'dv', axisId: 'pfreeClubs' });
   const eligible = pf.eligible;
   const xCol = playerFreeColumn(xItem, m, season)!, yCol = playerFreeColumn(yItem, m, season)!;
   const points = useMemo(() => eligible.flatMap(p => { const x = xCol.value(p), y = yCol.value(p); return x === null || y === null ? [] : [{ id: p.id, x, y, p }]; }), [eligible, xCol, yCol]);
@@ -109,6 +110,7 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
   const playerLabel = usePlayerLabel(eligible.map(p => p.name));
   const tip = items.find(i => i.id === hover);
   const hl = useHighlightClubs({ season, category, teams, divisionOf });
+  const ph = usePlayerHighlight({ clubHas: hl.has, rankIndex: pf.rankIndex, points: pf.eligible, teams });
   const abbrOf = (id: string, p?: PlayerFigurePoint) => teamShortName(id, teams.find(t => t.teamId === id)?.teamName ?? p?.teamName ?? '');
   const abbr = (p: PlayerFigurePoint) => p.teamIds.map(id => teamShortName(id, teams.find(t => t.teamId === id)?.teamName ?? p.teamName)).join('・');
   const names = (p: PlayerFigurePoint) => p.teamIds.map(id => teamLabel(id, teams.find(t => t.teamId === id)?.teamName ?? p.teamName)).join('・');
@@ -133,7 +135,7 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
     venueAxis(venue, setVenue, rangeReason),
     { kind: 'select', id: 'pfreeMode', label: '平均／合計', tier: 'primary', value: mode, defaultValue: 'perGame', options: [{ value: 'perGame', label: '1試合平均' }, { value: 'total', label: '合計' }], onChange: v => setMode(v as 'perGame' | 'total') },
     classificationAxis(classification, setClassification, { season }),
-    pf.clubAxis, pf.positionAxis, hl.axis,
+    pf.clubAxis, pf.positionAxis, hl.axis, ph.playerAxis, ph.rankAxis,
     { kind: 'select', id: 'pfreeSize', label: '写真の大きさ', tier: 'primary', value: photoSize, defaultValue: 'm', options: [{ value: 's', label: '小' }, { value: 'm', label: '中' }], onChange: v => setPhotoSize(v === 's' ? 's' : 'm') },
     ratioEligibilityAxis({ id: 'pfreeRatio', value: minRatio, max: maxRatio, defaultValue: DEFAULT_RATIO, onChange: (a, b) => { setMinRatio(a); setMaxRatio(b); }, achievable: ach.axis })], ['pfreeY', 'pfreeYInvert', 'pfreeX', 'pfreeXInvert']);
   const [periodLabel] = situationalFilterLabels(seasonTotals ? { range: { kind: 'all' } } : filter);
@@ -151,7 +153,7 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
     { key: 'x', label: xBase, sortValue: s => s.x, render: s => xCol.text(s.p) },
   ];
   return <section aria-label={`${yBase} × ${xBase}`}>
-    <FilterBar axes={axes} stateKey="figures:player-free-scatter" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setVenue('all'); setInvX(false); setInvY(false); setYId(DEFAULT_PLAYER_FREE_Y); setXId(DEFAULT_PLAYER_FREE_X); setMode('perGame'); pf.reset(); setPhotoSize('m'); setMinRatio(DEFAULT_RATIO); setMaxRatio(100); ach.reset(); hl.setIds([]); setHover(null); }} />
+    <FilterBar axes={axes} stateKey="figures:player-free-scatter" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setVenue('all'); setInvX(false); setInvY(false); setYId(DEFAULT_PLAYER_FREE_Y); setXId(DEFAULT_PLAYER_FREE_X); setMode('perGame'); pf.reset(); setPhotoSize('m'); setMinRatio(DEFAULT_RATIO); setMaxRatio(100); ach.reset(); hl.setIds([]); ph.reset(); setHover(null); }} />
     {splitClassificationBlocked(figureClassGroup(classification), season) ? <p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p> : request.loading ? <p role="status">選手の試合データを読み込み中…</p> : request.error ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : !items.length ? <p>この条件に該当する選手はいません。</p> : <>
       <p className="figure-count">{items.length}人を表示</p>
       <FigureExportButton targetRef={target} filename={`選手_${yBase}_${xBase}_${[classTitle, ...conditions].filter(Boolean).join('_')}`} baseDate={baseDate} />
@@ -163,11 +165,11 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
           countLines={countLines} onDismiss={() => setHover(null)}
           renderMarker={(i, left, top) => <ScorerPhoto key={i.id} point={{ playerId: i.p.playerId, name: i.p.name, division: i.p.division }} season={season} teamId={i.p.lastTeamId}
             label={`${playerLabel(i.p.name)}：${yBase} ${yCol.text(i.p)}、${xBase} ${xCol.text(i.p)}`}
-            selected={hl.has(i.p.teamIds)} expanded={i.id === hover} left={left} top={top} onSelect={() => pick(i.p)} onDismiss={() => setHover(null)} />}
+            selected={ph.has(i.p.teamIds, i.p.playerId)} expanded={i.id === hover} left={left} top={top} onSelect={() => pick(i.p)} onDismiss={() => setHover(null)} />}
           tooltip={tip ? { point: tip, node: <><strong>{playerLabel(tip.p.name)}（{names(tip.p)}）</strong><span>{yBase} {yCol.text(tip.p)} / {xBase} {xCol.text(tip.p)}</span><span>出場率 {formatPct100(tip.p.ratio)}</span><span>{tip.p.games}試合{tip.p.teamIds.length > 1 ? '・複数チームの合算' : ''}</span></> } : null} />
       </ExportTarget>
       <div className="table-scroll scorers-table" tabIndex={0} role="region" aria-label="選手一覧"><SortableTable columns={columns} rows={items} rowKey={s => s.p.id} defaultSortKey="y"
-        rowHighlightColor={s => hl.has(s.p.teamIds) ? 'var(--accent)' : undefined} rowHighlightStrength={() => 'half'} /></div>
+        rowHighlightColor={s => ph.has(s.p.teamIds, s.p.playerId) ? 'var(--accent)' : undefined} rowHighlightStrength={() => 'half'} /></div>
     </>}
   </section>;
 }
