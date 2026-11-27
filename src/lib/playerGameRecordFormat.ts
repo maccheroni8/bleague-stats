@@ -45,26 +45,32 @@ export function playerPctMinBase(key: string): { base: number; ruleKey: string; 
 
 /**
  * 区間（Q別・前後半）を選んだとき、または基準を変えた・外したときの、成功率の項目の最低成功数の判定
- * （区間の長さに合わせて下げた数。periodMinimum.ts）。minMade は基準の指定（0＝基準なし。省略は最初の基準）。成功率でない項目は null（判定しない）
+ * （区間の長さに合わせて下げた数。periodMinimum.ts）。minMade は詳細フィルタで決めた最低成功数（そのまま使う。0＝基準なし。省略は最初の基準）、
+ * madeMax は成功数の上限（省略は上限なし）。成功率でない項目は null（判定しない）
  */
-export function playerPctPeriodFilter(key: string, period: string | null, minMade?: number): ((g: PlayerRecordGame) => boolean) | null {
+export function playerPctPeriodFilter(key: string, period: string | null, minMade?: number, madeMax?: number): ((g: PlayerRecordGame) => boolean) | null {
   const m = PCT_MADE[key];
   if (!m) return null;
-  const min = scaledMinMade(minMade ?? PLAYER_PCT_MIN_MADE[m.base], period);
-  return (g) => passesMinMade(m.made(g), m.att(g), min);
+  const min = minMade ?? scaledMinMade(PLAYER_PCT_MIN_MADE[m.base], period);
+  return (g) => passesMinMade(m.made(g), m.att(g), min, madeMax);
 }
 
 /** 成功率の項目の対象の試合の条件（最低成功数。区間を選んだときは、区間の長さに合わせて下げた数）。成功率でない項目は undefined */
-export function playerGameRecordMinMadeNote(key: string, period?: { key: string; label: string }, minMade?: number): string | undefined {
+export function playerGameRecordMinMadeNote(key: string, period?: { key: string; label: string }, minMade?: number, madeMax?: number): string | undefined {
   if (key === "astedPct") return `得点が${PLAYER_ASTED_MIN_POINTS}点以上の試合が対象です。同じ率の中は得点の多い試合から並べます。`;
   const m = PCT_MADE[key];
   if (!m) return undefined;
-  // 詳細フィルタで基準を外している（0）ときは、試投のあった試合すべてが対象
-  if (minMade === 0) return `成功数の基準を外しているため、${m.label.replace("M", "A")}が1以上の${period ? `${period.label}の記録` : "試合"}すべてが対象です。同じ率の中は試投数の多い${period ? "記録" : "試合"}から並べます。`;
-  const t = `${m.label}が${scaledMinForPeriod(minMade ?? PLAYER_PCT_MIN_MADE[m.base], period?.key ?? null)}以上`;
+  const unit = period ? `${period.label}の記録` : "試合";
+  const tail = `同じ率の中は試投数の多い${period ? "記録" : "試合"}から並べます。`;
+  // 詳細フィルタで基準を変えている・外している（minMade あり）ときは、決めた数そのもの（区間の長さに合わせて下げない）
+  if (minMade !== undefined) {
+    const range = minMade > 0 ? (madeMax !== undefined ? `${m.label}が${minMade}〜${madeMax}` : `${m.label}が${minMade}以上`) : madeMax !== undefined ? `${m.label}が${madeMax}以下` : null;
+    return range ? `${range}の${unit}だけが対象です。${tail}` : `成功数の基準を外しているため、${m.label.replace("M", "A")}が1以上の${unit}すべてが対象です。${tail}`;
+  }
+  const t = `${m.label}が${scaledMinForPeriod(PLAYER_PCT_MIN_MADE[m.base], period?.key ?? null)}以上`;
   // Q別・前後半では、試合全体の基準を区間の長さに合わせて下げた数
-  if (period) return `${t}の${period.label}の記録だけが対象です（試合全体の基準を区間の長さに合わせて下げた数）。同じ率の中は試投数の多い記録から並べます。`;
-  return `${t}の試合が対象です。同じ率の中は試投数の多い試合から並べます。`;
+  if (period) return `${t}の${period.label}の記録だけが対象です（試合全体の基準を区間の長さに合わせて下げた数）。${tail}`;
+  return `${t}の試合が対象です。${tail}`;
 }
 
 export type { PlayerGameRecordEntry };

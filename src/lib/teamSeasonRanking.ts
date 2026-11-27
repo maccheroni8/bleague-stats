@@ -376,19 +376,23 @@ export function useTeamSeasonRanking(
   // シューティングカテゴリ: teams.jsonのshotTypes（チーム全選手合算、2023-24シーズン以降のみ）を
   // shotTypeEntityColumns（RankingsPage/TeamsListPage/TeamDetailPageで共通利用する既存ライブラリ）に
   // そのまま渡す。試合ログ取得・シチュエーション別フィルタは不要（シーズン集計値をそのまま使う）
+  // 視点（own／opp）は全チームスタッツ（TeamsListPage）と同じ: opp は保存済みの相手の内訳（opponentShotTypes）。成功率は相手の成功数÷相手の試投数。
+  // 平均の分母は、スポーツナビの記録がある試合の数（shotTypeGames。記録の無い試合を入れない。古いデータは出場試合数。DESIGN.md 304章）。
+  // 相手の記録が無い季（2023-24より前・B.ONE）は、行を出さず「このシーズンのデータには対応していません」
+  const shotOpp = perspective === "opp";
   const shootingColumns = useMemo(
     () =>
       shotTypeEntityColumns(
         SHOT_TYPE_DISPLAY_ORDER,
-        (t: TeamSummary) => t.shotTypes,
+        (t: TeamSummary) => (shotOpp ? t.opponentShotTypes : t.shotTypes),
         displayMode as "total" | "perGame",
-        (t) => t.gamesPlayed,
+        (t) => t.shotTypeGames ?? t.gamesPlayed,
       ),
-    [displayMode],
+    [displayMode, shotOpp],
   );
-  const teamsWithShotTypes = useMemo(() => (teams ?? []).filter((t) => !!t.shotTypes && passes(t.teamId)),
+  const teamsWithShotTypes = useMemo(() => (teams ?? []).filter((t) => !!(shotOpp ? t.opponentShotTypes : t.shotTypes) && passes(t.teamId)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [teams, passingTeamIds]);
+    [teams, passingTeamIds, shotOpp]);
   const selectedShootingColumn = shootingColumns.find((c) => c.key === statKey) ?? shootingColumns[0];
   const shootingDef: RankableStat<TeamSummary> | null = selectedShootingColumn
     ? {
@@ -396,7 +400,8 @@ export function useTeamSeasonRanking(
         label: selectedShootingColumn.label,
         value: (t) => Number(selectedShootingColumn.sortValue(t)),
         format: (t) => (selectedShootingColumn.format ? selectedShootingColumn.format(t) : String(selectedShootingColumn.sortValue(t))),
-        ...rankDirectionProps(selectedShootingColumn.key),
+        // 相手の視点は、自チームにとっての良し悪しが逆（相手の成功率は低いほうが良い）
+        ...rankDirectionProps(selectedShootingColumn.key, shotOpp ? "opp" : "own"),
       }
     : null;
 
@@ -427,6 +432,8 @@ export function useTeamSeasonRanking(
     value: (t) => selectedTurnoverItem.value(turnoverDirection === "forced" ? t.forcedTurnovers! : t.turnoversCommitted!),
     format: (t) =>
       String(selectedTurnoverItem.value(turnoverDirection === "forced" ? t.forcedTurnovers! : t.turnoversCommitted!)),
+    // 視点は共通の切り替え（own＝奪った分、opp＝記録した分〔相手に強制された〕）。opp は良し悪しが逆（相手に強制された数は少ないほうが良い）
+    ...rankDirectionProps(selectedTurnoverItem.key, turnoverDirection === "committed" ? "opp" : "own"),
   };
 
   // 表に出す行（スタッツの条件に通ったチーム）

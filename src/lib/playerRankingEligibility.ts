@@ -38,7 +38,7 @@ export interface ExtraEligibilityRule {
 
 export const EXTRA_ELIGIBILITY_RULES: Partial<Record<string, ExtraEligibilityRule>> = {
   tpPct: {
-    label: "3P成功数",
+    label: "3PM",
     unit: "本/試合",
     defaultValue: 1.5,
     min: 0,
@@ -47,7 +47,7 @@ export const EXTRA_ELIGIBILITY_RULES: Partial<Record<string, ExtraEligibilityRul
     perGameValue: (p) => safeDiv(p.totals.tpm, p.gamesPlayed),
   },
   ftPct: {
-    label: "FT成功数",
+    label: "FTM",
     unit: "本/試合",
     defaultValue: 1.0,
     min: 0,
@@ -115,6 +115,8 @@ export function filterEligiblePlayers(
   extraThreshold: number,
   remainingByTeam?: ReadonlyMap<string, number>,
   gamesRatioMax = 1,
+  /** 追加の基準の上限（詳細フィルタの基準の行の「以下」。省略は上限なし） */
+  extraMax?: number,
 ): PlayerSummary[] {
   const teamGamesById = new Map(teams.map((t) => [t.teamId, t.gamesPlayed]));
   const lo = Math.round(gamesRatio * 100);
@@ -124,16 +126,19 @@ export function filterEligiblePlayers(
   );
   const rule = EXTRA_ELIGIBILITY_RULES[statKey];
   if (!rule) return base;
-  return base.filter((p) => rule.perGameValue(p) >= extraThreshold);
+  return base.filter((p) => rule.perGameValue(p) >= extraThreshold && (extraMax === undefined || rule.perGameValue(p) <= extraMax));
 }
 
 /**
  * シュートタイプ・エリア別の成功率（キーが「…_2ppct」「…_3ppct」）の最低試投数: その期間の「チームの試合数の半分以上」（端数は切り上げ。
  * 60試合なら30本、5試合なら3本）。届かない選手には順位を付けない。チームには最低ラインを付けない。FG%・2P%・3P%・FT% は上の追加基準のまま
  */
-export function shotPctMinAttempts(teamGames: number): number {
-  return Math.ceil(teamGames / 2);
+export function shotPctMinAttempts(teamGames: number, factor = SHOT_PCT_MIN_ATTEMPTS_FACTOR): number {
+  return Math.ceil(teamGames * factor);
 }
+
+/** 最低試投数の最初の基準: チームの試合数の半分（詳細フィルタの基準の行の最初の値。倍率で持つ） */
+export const SHOT_PCT_MIN_ATTEMPTS_FACTOR = 0.5;
 
 /** シュートタイプ・エリア別の成功率の項目なら、その選手の試投数（それ以外の項目は null＝この基準の対象外） */
 export function shotPctAttemptsOf(p: PlayerSummary, statKey: string): number | null {
@@ -142,13 +147,22 @@ export function shotPctAttemptsOf(p: PlayerSummary, statKey: string): number | n
   return p.shotTypes?.[m[1]!]?.[m[2] === "2" ? "twoPoint" : "threePoint"]?.attempted ?? 0;
 }
 
-/** 上の最低試投数を満たす選手だけを残す（対象外の項目は何もしない。チームの試合数が分からない選手は残さない） */
-export function filterShotPctMinAttempts(players: PlayerSummary[], teams: Pick<TeamSummary, "teamId" | "gamesPlayed">[], statKey: string): PlayerSummary[] {
+/**
+ * 上の最低試投数を満たす選手だけを残す（対象外の項目は何もしない。チームの試合数が分からない選手は残さない）。
+ * minFactor＝下限（チームの試合数に掛ける倍率。0は基準なし）、maxFactor＝上限（省略は上限なし）
+ */
+export function filterShotPctMinAttempts(
+  players: PlayerSummary[],
+  teams: Pick<TeamSummary, "teamId" | "gamesPlayed">[],
+  statKey: string,
+  minFactor = SHOT_PCT_MIN_ATTEMPTS_FACTOR,
+  maxFactor?: number,
+): PlayerSummary[] {
   if (!/_[23]ppct$/.test(statKey)) return players;
   const games = new Map(teams.map((t) => [t.teamId, t.gamesPlayed]));
   return players.filter((p) => {
     const g = games.get(p.teamId);
     const a = shotPctAttemptsOf(p, statKey);
-    return g !== undefined && a !== null && a >= shotPctMinAttempts(g);
+    return g !== undefined && a !== null && a >= shotPctMinAttempts(g, minFactor) && (maxFactor === undefined || a <= Math.floor(g * maxFactor));
   });
 }

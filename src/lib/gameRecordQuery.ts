@@ -42,7 +42,7 @@ import {
 } from "./teamGameRecords";
 import { teamPeriodGameAt } from "./teamPeriodGames";
 import { playerPctPeriodFilter } from "./playerGameRecordFormat";
-import { passesMinMade, scaledMinMade } from "./minCriterion";
+import { passesMinMade } from "./minCriterion";
 import type { TeamPeriodIndexFile } from "../../shared/periodIndex";
 
 /** 上位何位まで返すか（同じ順位は続けて入れる）。一覧の表示も同じ件数で切る */
@@ -213,6 +213,8 @@ export interface PlayerRecordRow extends PlayerGameRecordEntry {
 export interface PlayerQuery {
   /** 成功率の項目の最低成功数を、最初の基準から変えた／外した（0）とき。省略は最初の基準 */
   minMade?: number;
+  /** 成功数の上限（詳細フィルタの基準の行の「以下」。省略は上限なし） */
+  madeMax?: number;
   views: readonly PlayerGameIndexView[];
   gameType: SeasonGameTypeFilter;
   conditions: GameRecordConditions;
@@ -316,7 +318,7 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
   let excludedNoPlusMinus = 0;
   const atoms = q.period ? PERIOD_ATOM_INDEXES[q.period.period] : null;
   // 区間を選んだとき・基準を変えた／外したとき（minMade）の、成功率の最低成功数の判定
-  const periodPctFilter = q.period || q.minMade !== undefined ? playerPctPeriodFilter(def.key, q.period?.period ?? null, q.minMade) : null;
+  const periodPctFilter = q.period || q.minMade !== undefined ? playerPctPeriodFilter(def.key, q.period?.period ?? null, q.minMade, q.madeMax) : null;
 
   /** 行の値（区間を選んでいるときは区間の値。その区間に出ていない行は null） */
   const rowOf = (view: PlayerGameIndexView, i: number): IndexedPlayerGame | IndexedPeriodGame | null => {
@@ -445,6 +447,8 @@ export function teamQueryStat(mode: TeamRecordMode, key: string): TeamQueryStat 
 export interface TeamQuery {
   /** 成功率の項目の最低成功数を、最初の基準から変えた／外した（0）とき。省略は最初の基準 */
   minMade?: number;
+  /** 成功数の上限（詳細フィルタの基準の行の「以下」。省略は上限なし） */
+  madeMax?: number;
   views: readonly TeamGameIndexView[];
   gameType: SeasonGameTypeFilter;
   conditions: GameRecordConditions;
@@ -479,7 +483,7 @@ export function queryTeamGameRecords(q: TeamQuery): GameRecordQueryResult<TeamGa
     // 基準を変えた／外した（minMade）ときは、その数（0＝基準なし）で判定する
     if (q.minMade !== undefined && stat.pctKey && stat.fraction) {
       const [made, att] = stat.fraction(row);
-      return passesMinMade(made, att, scaledMinMade(q.minMade, q.period?.period ?? null));
+      return passesMinMade(made, att, q.minMade, q.madeMax);
     }
     if (q.period) {
       const min = stat.pctKey ? teamPctMinMade(stat.pctKey, q.period.period) : null;

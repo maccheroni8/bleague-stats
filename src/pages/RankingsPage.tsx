@@ -8,7 +8,6 @@ import { TeamAttendanceRanking, ATTENDANCE_SCOPE_PARAM } from "../components/Tea
 import { TeamSeasonRecordRanking } from "../components/TeamSeasonRecordRanking";
 import { PlayerCareerRecordRanking, TeamCareerRecordRanking } from "../components/CareerRecordRanking";
 import { DEFAULT_ROLE_SHARE_PERCENT, ROLE_PARAM, ROLE_SHARE_PARAM, roleAxis, roleLabels } from "../lib/appearanceRole";
-import { EligibilitySlider } from "../components/EligibilitySlider";
 import { canonicalStatKey } from "../lib/statKeyAliases";
 import { isPaint2Key, paintOf, paintRankable, paintRecord } from "../lib/teamPaint2";
 import { noGamesRanking, teamRecordText, yahooRecordByTeam } from "../lib/teamRankingRecord";
@@ -78,8 +77,9 @@ import {
   type PlayerGroupFilter,
 } from "../lib/classificationFilter";
 import { ClassificationNotes } from "../components/ClassificationNotes";
-import { SHOT_MIN_NONE_PARAM } from "../lib/minCriterion";
-import { NoCriterionCheckbox } from "../components/NoCriterionCheckbox";
+import type { TeamPerspective } from "../lib/teamStatsColumns";
+import { criterionArgs, criterionConditionsParam, criterionItem, legacyExtraThreshold, seedConditions, withoutCriterion } from "../lib/minCriterion";
+import { SHOT_PCT_MIN_ATTEMPTS_FACTOR } from "../lib/playerRankingEligibility";
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING } from "../lib/playerRankingEligibility";
 import {
   buildExportFilename,
@@ -105,9 +105,9 @@ import { positionText } from "../lib/profileMark";
 import type { PlayerSummary, TeamColors } from "../../shared/types";
 import { useTeamLabel } from "../lib/teamLabel";
 import { usePlayerLabel } from "../lib/playerLabel";
-import { DEFAULT_STAT_CONDITIONS, statConditionsTitle } from "../lib/statConditions";
+import { CRITERION_KEY, DEFAULT_STAT_CONDITIONS, mergedStatConditionParts, mergedStatConditionsTitle } from "../lib/statConditions";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
-import { clearUrlParams, enumParam, numberParam, situationalParam, statConditionsParam, stringParam, useUrlState, type UrlCodec } from "../lib/urlState";
+import { clearUrlParams, deleteUrlParams, enumParam, situationalParam, statConditionsParam, stringParam, useUrlState, type UrlCodec } from "../lib/urlState";
 import { opponentDivisionChoices, seasonDivisions } from "../lib/divisionGroups";
 import { CLASSIFICATION_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PAIR_UNIT_PARAM, PERSPECTIVE_PARAM, PLAYER_SEASON_PERIOD_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARAM, PLAYER_GROUP_PARAM, TEAM_SEASON_PERIOD_PARAM } from "../lib/urlFilterParams";
 import { OVERTIME_ELIGIBILITY_LABEL, OVERTIME_ELIGIBILITY_REASON, OVERTIME_GAMES_NOTE, SEASON_PERIOD_OPTIONS, subsetEligibilityLabel, subsetEligibilityReason, SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason, hasShortGameSeason } from "../lib/seasonPeriod";
@@ -307,7 +307,19 @@ const PLAYER_CATEGORY_PARAM = enumParam<PlayerRankCategory>(
   "traditional",
   { traditional: "trad", advanced: "adv", shooting: "shoot" },
 );
-const TURNOVER_DIRECTION_PARAM = enumParam<TurnoverDirection>("tov", ["forced", "committed"], "forced");
+/**
+ * チームのランキングの視点（v=own／opp／diff）。Forced TOV の「奪った／記録した」は、ほかのタブと同じ視点の切り替えにそろえた
+ * （奪った＝自チーム、記録した〔相手に強制された〕＝opp）。前の書き方の tov=committed は、Forced TOV のタブで opp として読む
+ */
+const TEAM_RANK_PERSPECTIVE_PARAM: UrlCodec<TeamPerspective> = {
+  keys: [...PERSPECTIVE_PARAM.keys, "tov"],
+  read: (p) => {
+    const v = PERSPECTIVE_PARAM.read(p);
+    if (v !== undefined) return v;
+    return p.get("tov") === "committed" && p.get("cat") === "tov" ? "opp" : undefined;
+  },
+  write: (p, v) => PERSPECTIVE_PARAM.write(p, v),
+};
 const DEFAULT_RANKING_FILTER: SituationalFilter = { range: { kind: "all" } };
 const EMPTY_POSITIONS: string[] = [];
 /** 項目のキーとして読める値か（シュートタイプの項目は日本語を含む） */
@@ -374,9 +386,13 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
   const foulIndex = statKey === "offfoul" || statKey === "charge";
   const [displayMode, setDisplayMode] = useUrlState(DISPLAY_MODE_PARAM, "perGame");
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
-  const [perspective, setPerspective] = useUrlState(PERSPECTIVE_PARAM, "own");
+  const [urlPerspective, setPerspective] = useUrlState(TEAM_RANK_PERSPECTIVE_PARAM, "own");
+  // Shooting・Forced TOV は自チーム／opp だけ（+/- は選べない）。+/- のURLで開いたときは自チームとして出す
+  const twoSided = category === "shooting" || category === "forcedTurnovers";
+  const perspective: TeamPerspective = twoSided && urlPerspective === "diff" ? "own" : urlPerspective;
   const [filter, setFilter] = useUrlState(situationalParam, DEFAULT_RANKING_FILTER);
-  const [turnoverDirection, setTurnoverDirection] = useUrlState(TURNOVER_DIRECTION_PARAM, "forced");
+  // Forced TOV の方向: 自チーム＝奪った分、opp＝記録した分（相手に強制された）
+  const turnoverDirection: TurnoverDirection = perspective === "opp" ? "committed" : "forced";
   // Q別・前後半。「試合」（既定値）選択時は、既存の TeamGameLog の合計（sumTeamGameLogs）をそのまま使う。
   // 区間を選んだときは、そのシーズンのチームのピリオド別の索引から出す（DESIGN.md 256章の段階2。以前は対象チーム全員分の試合の生データを読んでいた）
   const [period, setPeriod] = useUrlState(TEAM_SEASON_PERIOD_PARAM, "all");
@@ -538,8 +554,9 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
   const teamShootingTitle = makeRankingTitle(
     "チーム",
     season,
-    statJa(shootingDef?.label ?? "", "team"),
-    composeLabels(CATEGORY_LABELS.shooting, compareActive && COMPARE_LABEL, displayModeLabels(displayMode), SEASON_TOTAL_ONLY_LABELS),
+    // 相手の視点は、ほかのタブと同じく見出し・ファイル名とも「相手の…」の形にし、条件の行にも「相手のスタッツ」を書く
+    `${perspective === "opp" ? "相手の" : ""}${statJa(shootingDef?.label ?? "", "team")}`,
+    composeLabels(CATEGORY_LABELS.shooting, compareActive && COMPARE_LABEL, displayModeLabels(displayMode), perspectiveLabels(perspective), SEASON_TOTAL_ONLY_LABELS),
   );
   const teamForcedTurnoverTitle = makeRankingTitle(
     "チーム",
@@ -550,6 +567,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
       CATEGORY_LABELS.forcedTurnovers,
       compareActive && COMPARE_LABEL,
       TURNOVER_DIRECTION_LABELS[turnoverDirection],
+      perspectiveLabels(perspective),
       ...(forcedTurnoverScoped ? [gameTypeLabels(gameType, season), situationalFilterLabels(filter)] : [SEASON_TOTAL_ONLY_LABELS]),
     ),
   );
@@ -560,15 +578,16 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
   const teamFilterDisabledReason = isBoxscore
     ? undefined
     : isTeamShooting
-      ? "このカテゴリはレギュラーシーズンの通算集計値のみ対応です（表示の平均/合計だけ連動します。2023-24シーズン以降のみ対応）。"
-      : "このカテゴリはレギュラーシーズンの通算集計値のみ対応で、上の絞り込みは連動しません（2023-24シーズン以降のみ対応）。";
+      ? "このカテゴリはレギュラーシーズンの通算集計値のみ対応です（表示の平均/合計と視点だけ連動します。2023-24シーズン以降のみ対応）。"
+      : "このカテゴリはレギュラーシーズンの通算集計値のみ対応で、視点以外の絞り込みは連動しません（2023-24シーズン以降のみ対応）。";
   const teamDisplayDisabledReason = isBoxscore || isTeamShooting ? undefined : teamFilterDisabledReason;
   // Forced TOV は試合ごとの値から出すので、試合区分・試合の条件は連動する（DESIGN.md 339章）。視点は上のトグル、区間は選べない
   const turnoverScopedOk = category === "forcedTurnovers" && forcedTurnoverScoped;
   const teamScopedReason = turnoverScopedOk ? undefined : teamFilterDisabledReason;
   const teamFilterAxes: FilterAxis[] = [
     gameTypeAxis(gameType, setGameType, season, { disabledReason: teamScopedReason }),
-    perspectiveAxis(perspective, setPerspective, { disabledReason: teamFilterDisabledReason }),
+    // Shooting・Forced TOV は自チーム／opp を選べる（+/- は対象外）
+    perspectiveAxis(perspective, setPerspective, { disabledReason: isBoxscore || twoSided ? undefined : teamFilterDisabledReason, disabledValues: twoSided ? ["diff"] : undefined }),
     classificationAxis(classFilter, setClassFilter, {
       teamCombined: true,
       disabledReason: isBoxscore ? undefined : "登録区分別の値は Traditional〜Scoring のタブでだけ見られます。",
@@ -603,7 +622,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
         axes={teamFilterAxes}
         stateKey="rankings:team"
         onClearAll={clearTeamFilters}
-        advancedExtra={statConditionsBarExtra(statConditions, setStatConditions, conditionItems, { defaultKey: "pts" })}
+        advancedExtra={statConditionsBarExtra(statConditions, setStatConditions, conditionItems, { defaultKey: "pts", summary: mergedStatConditionParts(statConditions, conditionItems).others.join(statConditions.match === "any" ? " または " : "／") })}
       />
       <div className="tab-bar-with-toggle">
         <div className="tab-bar">
@@ -636,20 +655,6 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
             {CATEGORY_LABELS.forcedTurnovers}
           </button>
         </div>
-        {category === "forcedTurnovers" ? (
-          <div className="mode-toggle">
-            {(Object.keys(TURNOVER_DIRECTION_LABELS) as TurnoverDirection[]).map((d) => (
-              <button
-                key={d}
-                className={d === turnoverDirection ? "active" : ""}
-                onClick={() => setTurnoverDirection(d)}
-                type="button"
-              >
-                {TURNOVER_DIRECTION_LABELS[d]}
-              </button>
-            ))}
-          </div>
-        ) : null}
       </div>
       {teamCategoryBlocked && <p className="standings-tab-note">{urlTeamCategory === "shooting" ? ONE_RANKING_SHOOTING_REASON : ONE_RANKING_FORCED_TOV_REASON}</p>}
 
@@ -681,13 +686,13 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
       ) : ((conditionActive || category === "shooting" || category === "forcedTurnovers") && (gameLogsLoading || !gameLogsByTeam)) || prevPending ? (
         <p className="loading">読み込み中...</p>
       ) : category === "shooting" ? (
-        !shootingDef ? (
+        !shootingDef || teamsWithShotTypes.length === 0 ? (
           <p className="empty-message">このシーズンのデータには対応していません</p>
         ) : (
           <>
             <ExportImageButton targetRef={exportRef} filename={teamShootingTitle.filename} baseDate={{ kind: "season", season, gameType: "regular" }} ranking={TEAM_EXPORT_CHOICES} />
             <ExportTarget ref={exportRef} baseDate={{ kind: "season", season, gameType: "regular" }} className={`export-target-compact export-target-rankings-team${shootingCompare ? " export-target-compare" : ""}`}>
-              <ConditionTitle title={teamShootingTitle.title} conditions={teamShootingTitle.conditions} statConditions={statConditionsTitle(statConditions, conditionItems)} />
+              <ConditionTitle title={teamShootingTitle.title} conditions={teamShootingTitle.conditions} statConditions={mergedStatConditionsTitle(statConditions, conditionItems)} />
               <RankedList
                 statScope="team"
                 rows={shootingCompare ? shootingCompare.rows : teamsWithShotTypes}
@@ -716,7 +721,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
           <>
             <ExportImageButton targetRef={exportRef} filename={teamForcedTurnoverTitle.filename} baseDate={{ kind: "season", season, gameType: forcedTurnoverScoped ? gameType : "regular" }} ranking={TEAM_EXPORT_CHOICES} />
             <ExportTarget ref={exportRef} baseDate={{ kind: "season", season, gameType: forcedTurnoverScoped ? gameType : "regular" }} className={`export-target-compact export-target-rankings-team${turnoverCompare ? " export-target-compare" : ""}`}>
-              <ConditionTitle title={teamForcedTurnoverTitle.title} conditions={teamForcedTurnoverTitle.conditions} statConditions={statConditionsTitle(statConditions, conditionItems)} />
+              <ConditionTitle title={teamForcedTurnoverTitle.title} conditions={teamForcedTurnoverTitle.conditions} statConditions={mergedStatConditionsTitle(statConditions, conditionItems)} />
               <RankedList
                 statScope="team"
                 rows={turnoverCompare ? turnoverCompare.rows : teamsWithForcedTurnovers}
@@ -764,7 +769,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
         <>
           <ExportImageButton targetRef={exportRef} filename={teamBoxscoreTitle.filename} baseDate={{ kind: "season", season, gameType }} ranking={TEAM_EXPORT_CHOICES} />
           <ExportTarget ref={exportRef} baseDate={{ kind: "season", season, gameType }} className={`export-target-compact export-target-rankings-team${boxCompare ? " export-target-compare" : ""}`}>
-            <ConditionTitle title={teamBoxscoreTitle.title} conditions={teamBoxscoreTitle.conditions} statConditions={statConditionsTitle(statConditions, conditionItems)} />
+            <ConditionTitle title={teamBoxscoreTitle.title} conditions={teamBoxscoreTitle.conditions} statConditions={mergedStatConditionsTitle(statConditions, conditionItems)} />
             <RankedList
                 statScope="team"
               rows={boxCompare ? boxCompare.rows : boxRows}
@@ -833,9 +838,13 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
   // 掲載基準の「達成可能」は、残り試合数が正しいときだけ（B.ONE は、クラブの日程が60試合そろうまで出さない）
   const achievableSupported = useAchievableSupport(season, league);
   const achievable = urlAchievable && achievableSupported;
-  const defaultExtra = EXTRA_ELIGIBILITY_RULES[extraRuleKey(statKey)]?.defaultValue ?? 0;
-  const [shotMinNone, setShotMinNone] = useUrlState(SHOT_MIN_NONE_PARAM, false);
-  const [extraThreshold, setExtraThreshold] = useUrlState(numberParam("ex", defaultExtra, { min: 0 }), defaultExtra);
+  // 項目ごとの追加の基準（3P% なら 3PM 1.5・Shooting の成功率なら試投数がチームの試合数の半分）は、詳細フィルタのスタッツの条件の1行目に最初から入っている。
+  // 数を変える・以下の行で上限をつける・行を消して基準なしにする、を詳細フィルタだけでできる（DESIGN.md 478章）
+  const extraRule = EXTRA_ELIGIBILITY_RULES[extraRuleKey(statKey)];
+  const shotMinApplies = category === "shooting" && /_[23]ppct$/.test(statKey);
+  const critSeed = extraRule ? extraRule.defaultValue : shotMinApplies ? SHOT_PCT_MIN_ATTEMPTS_FACTOR : null;
+  const critCodec = useMemo(() => criterionConditionsParam(critSeed, legacyExtraThreshold(shotMinApplies ? ["sa"] : ["ex"])), [critSeed, shotMinApplies]);
+  const critInitial = useMemo(() => seedConditions(critSeed), [critSeed]);
   // 登録区分（全選手・日本人・外国籍/帰化/アジア）と、4つ目の「ルーキー」（cls=rookie。DESIGN.md 217章）。ルーキーを選べないシーズン（2016-17）では「全選手」として扱う
   const [selectedGroup, setSelectedGroup] = useUrlState(PLAYER_GROUP_PARAM, "all");
   const rookieSupported = league === "premier" && rookieSupportedSeason(season);
@@ -858,7 +867,10 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
   // 区間を選んだときは、そのシーズンのピリオド別の索引から組み立てる（DESIGN.md 256章。以前は対象選手全員分の試合の生データを読んでいた）
   const [period, setPeriod] = useUrlState(PLAYER_SEASON_PERIOD_PARAM, "all");
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する
-  const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
+  const [allConditions, setStatConditions] = useUrlState(critCodec, critInitial);
+  const crit = criterionArgs(allConditions, critSeed);
+  const statConditions = useMemo(() => withoutCriterion(allConditions), [allConditions]);
+  const extraThreshold = extraRule ? crit.min : 0;
   // スタメン出場時／ベンチ出場時（設計書433章）
   const [role, setRole] = useUrlState(ROLE_PARAM, "both");
   const [rolePercent, setRolePercent] = useUrlState(ROLE_SHARE_PARAM, DEFAULT_ROLE_SHARE_PERCENT);
@@ -904,7 +916,8 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
     gamesRatioMax,
     achievable,
     extraThreshold,
-    noShotMin: shotMinNone,
+    extraMax: extraRule ? crit.max : undefined,
+    ...(shotMinApplies ? { shotMin: crit.min, shotMax: crit.max } : {}),
     group: selectedClassification,
     rookieIds: rookies.ids,
     positions,
@@ -964,22 +977,21 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
     { enabled: compareActive, skipConditionItems: true, skipEligibility: true, league },
   );
   // ファウルの列は、2026-27以降のシーズンではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF。そのシーズンに無い項目・条件は外す（DESIGN.md 16-8章）
-  useFoulConditionCleanup(season, statConditions, setStatConditions);
+  useFoulConditionCleanup(season, allConditions, setStatConditions);
   useFoulStatKeyCleanup(season, statKey, () => setStatKey(defaultPlayerStat));
   // シーズンで意味が変わるフィルタ（地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外す（DESIGN.md 164・165章）
   useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType, league });
 
   const selectCategory = (next: PlayerRankCategory) => {
     setCategory(next);
-    setShotMinNone(false);
     const nextKey = playerDefaultStatKey(next);
     setStatKey(nextKey);
-    setExtraThreshold(EXTRA_ELIGIBILITY_RULES[extraRuleKey(nextKey)]?.defaultValue ?? 0);
+    // 項目を変えたら、別の項目の基準の行（と前の書き方の基準）を引き継がない
+    deleteUrlParams(["sk", "ex", "sa"]);
   };
   const selectStat = (next: string) => {
     setStatKey(next);
-    setShotMinNone(false);
-    setExtraThreshold(EXTRA_ELIGIBILITY_RULES[extraRuleKey(next)]?.defaultValue ?? 0);
+    deleteUrlParams(["sk", "ex", "sa"]);
   };
 
   const registeredOnlyIds = useMemo(() => new Set((registeredPlayers ?? []).map((p) => p.playerId)), [registeredPlayers]);
@@ -1009,10 +1021,25 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
   // 身長・体重は当時の値（補った値には＊。DESIGN.md 148章）なので基準日は出さない
   const profileBaseDateLabel = category === "profile" && selectedItem.key === "age" ? ageBaseDateLabel(season) : null;
 
-  const extraRule = EXTRA_ELIGIBILITY_RULES[extraRuleKey(statKey)];
-  // シュートタイプ・エリア別の成功率には、チームの試合数の半分の最低試投数がある。詳細フィルタで外せる
-  const shotMinApplies = category === "shooting" && /_[23]ppct$/.test(statKey);
-  const shotMinLabels: string[] = shotMinApplies && shotMinNone ? ["最低試投数 基準なし"] : [];
+  // 掲載基準の行（詳細フィルタ）。同じ項目は1つにまとめて書く。シーズン成績は、最初の基準のままでも出場率と並べて書く
+  const critItems = useMemo(
+    () =>
+      critSeed === null
+        ? conditionItems
+        : [
+            extraRule
+              ? criterionItem(extraRule.label, "1試合平均", { thresholdText: (v) => v.toFixed(1) })
+              : criterionItem("試投数", "チームの試合数に対する倍率", {
+                  thresholdText: (v) => (v === SHOT_PCT_MIN_ATTEMPTS_FACTOR ? "チームの試合数の半分" : `チームの試合数の${v}倍`),
+                }),
+            ...conditionItems,
+          ],
+    [critSeed, extraRule, conditionItems],
+  );
+  const critOpts = { criterionSeed: critSeed, showDefaultCriterion: true };
+  const critParts = mergedStatConditionParts(allConditions, critItems, critOpts);
+  const critTitle = mergedStatConditionsTitle(allConditions, critItems, critOpts);
+  const critSummary = [...critParts.criterion, ...critParts.others].join(critTitle.joiner);
   const waitingForGameLogs = (rookieActive && rookies.loading) || waiting || (compareActive && prevRanking.waiting && !prevRanking.playersError);
   const comparison =
     compareActive && prevSeason && !waitingForGameLogs && !ddtdPeriodOff
@@ -1070,7 +1097,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
         // 切り替えの対象外の項目（割合・Profile・Career）では書かない
         modeApplies ? displayModeLabels(rankMode) : [],
         playerScopeLabels,
-        registeredTarget ? "登録選手" : overtimeActive ? (subsetEligibilityLabel(period) ?? OVERTIME_ELIGIBILITY_LABEL) : [...eligibilityLabels({ gamesRatio, gamesRatioMax, achievable, extra: extraRule, extraThreshold }), ...shotMinLabels],
+        registeredTarget ? "登録選手" : overtimeActive ? (subsetEligibilityLabel(period) ?? OVERTIME_ELIGIBILITY_LABEL) : [...eligibilityLabels({ gamesRatio, gamesRatioMax, achievable }), ...critParts.criterion],
       );
   const playerStatJa = statJa(selectedItem.label);
   const playerScreenTitle = makeRankingTitle("個人", season, playerStatJa, playerConditions(false));
@@ -1092,8 +1119,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
         : category === "career"
           ? "このカテゴリは試合種別・シチュエーション別フィルタ・Q別/前後半の対象外です（登録区分・ポジションのみ適用されます）。"
         : undefined;
-  const eligibilityDefaultExtra = extraRule?.defaultValue ?? 0;
-  const eligibilitySummary = [...eligibilityLabels({ gamesRatio, gamesRatioMax, achievable, extra: extraRule, extraThreshold }), ...shotMinLabels].join(LABEL_SEPARATOR);
+  const eligibilitySummary = eligibilityLabels({ gamesRatio, gamesRatioMax, achievable }).join(LABEL_SEPARATOR);
   const eligibilityAxis: FilterAxis = {
     kind: "popover",
     id: "eligibility",
@@ -1104,14 +1130,12 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
       : overtimeActive
         ? (subsetEligibilityReason(period) ?? OVERTIME_ELIGIBILITY_REASON)
         : undefined,
-    value: `${Math.round(gamesRatio * 100)}-${Math.round(gamesRatioMax * 100)}|${extraRule ? extraThreshold : ""}|${achievable ? "ach" : ""}|${shotMinApplies && shotMinNone ? "sa" : ""}`,
-    defaultValue: `${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}-100|${extraRule ? eligibilityDefaultExtra : ""}||`,
+    value: `${Math.round(gamesRatio * 100)}-${Math.round(gamesRatioMax * 100)}|${achievable ? "ach" : ""}`,
+    defaultValue: `${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}-100|`,
     onChange: () => {
       setGamesRatio(MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
       setGamesRatioMax(1);
       setAchievable(false);
-      setExtraThreshold(eligibilityDefaultExtra);
-      setShotMinNone(false);
     },
     summary: eligibilitySummary,
     chipValue: eligibilitySummary,
@@ -1128,27 +1152,6 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
         />
         {achievableSupported && (
           <AchievableCheckbox checked={achievable} onChange={setAchievable} />
-        )}
-        {shotMinApplies && <NoCriterionCheckbox label="最低試投数の基準なし" checked={shotMinNone} onChange={setShotMinNone} />}
-        {extraRule && (
-          <>
-            <NoCriterionCheckbox
-              label={`${extraRule.label}の基準なし`}
-              checked={extraThreshold <= 0}
-              onChange={(none) => setExtraThreshold(none ? 0 : eligibilityDefaultExtra)}
-            />
-            {extraThreshold > 0 && (
-              <EligibilitySlider
-                label={extraRule.label}
-                value={extraThreshold}
-                min={extraRule.step}
-                max={extraRule.max}
-                step={extraRule.step}
-                format={(v) => v.toFixed(1)}
-                onChange={setExtraThreshold}
-              />
-            )}
-          </>
         )}
       </>
     ),
@@ -1205,7 +1208,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
     setFilter({ range: { kind: "all" } });
     setCompareParam("off");
     eligibilityAxis.onChange("");
-    setStatConditions({ ...statConditions, conditions: [] });
+    setStatConditions(critInitial);
   };
 
   return (
@@ -1214,7 +1217,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
         axes={playerFilterAxes}
         stateKey="rankings:player"
         onClearAll={clearPlayerFilters}
-        advancedExtra={statConditionsBarExtra(statConditions, setStatConditions, conditionItems, { defaultKey: "min" })}
+        advancedExtra={statConditionsBarExtra(allConditions, setStatConditions, critItems, { defaultKey: critSeed !== null ? CRITERION_KEY : "min", initial: critInitial, summary: critSummary })}
       />
 
       <div className="tab-bar">
@@ -1322,7 +1325,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
               conditions={playerScreenTitle.conditions}
               exportTitle={playerTitle.title}
               exportConditions={playerTitle.conditions}
-              statConditions={statConditionsTitle(statConditions, conditionItems)}
+              statConditions={critTitle}
             />
             {profileBaseDateLabel && <p className="rule-change-footnote ranking-base-date">{profileBaseDateLabel}</p>}
             <RankedList

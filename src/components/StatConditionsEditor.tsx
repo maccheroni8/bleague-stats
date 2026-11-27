@@ -31,6 +31,7 @@ export function StatConditionsEditor({
   minConditions = 0,
   quickValues,
   hint,
+  onReset,
 }: {
   state: StatConditionsState;
   onChange: (next: StatConditionsState) => void;
@@ -46,6 +47,8 @@ export function StatConditionsEditor({
   quickValues?: Record<string, { value: number; label?: string }[]>;
   /** 行の下に出す補足 */
   hint?: ReactNode;
+  /** 最初の条件（掲載基準の行）に戻す。渡したときだけ「初期の条件に戻す」を出す（ランキングの詳細フィルタ） */
+  onReset?: () => void;
 }) {
   const baseId = useId();
   const groups: { label: string; items: ItemOption[] }[] = [];
@@ -211,6 +214,11 @@ export function StatConditionsEditor({
             条件をすべて削除
           </button>
         )}
+        {onReset && (
+          <button type="button" className="stat-conditions-clear" disabled={disabled} onClick={onReset}>
+            初期の条件に戻す
+          </button>
+        )}
       </div>
       {hint && <p className="filter-bar-note">{hint}</p>}
     </div>
@@ -219,19 +227,38 @@ export function StatConditionsEditor({
 
 /**
  * FilterBar の advancedExtra に渡す形（編集欄と「適用中」のチップ）にまとめる。
- * チップの文言はタイトルの書き出しと同じ（「MIN 20:00以上・3P% 35%以上」「… または …」）
+ * チップの文言はタイトルの書き出しと同じ（「MIN 20:00以上・3P% 35%以上」「… または …」）。
+ * ランキングの詳細フィルタでは、最初から入っている掲載基準の行（criterion）があるので、最初の状態のままならチップを出さず、
+ * 「初期の条件に戻す」で最初の状態に戻せる（reset。チップの×も同じ）。summary は同じ項目を1つにまとめた書き方（mergedStatConditionLabels）
  */
 export function statConditionsBarExtra<R>(
   state: StatConditionsState,
   onChange: (next: StatConditionsState) => void,
   items: readonly StatConditionItem<R>[],
-  opts: { defaultKey: string; disabledReason?: string },
+  opts: {
+    defaultKey: string;
+    disabledReason?: string;
+    /** 最初の状態（掲載基準の行が入った状態）。渡すと、その状態のままのときはチップを出さず、「初期の条件に戻す」を出す */
+    initial?: StatConditionsState;
+    /** チップに書く文言（省略は条件を1つずつ書いたもの） */
+    summary?: string;
+  },
 ) {
-  const summary = statConditionsSummary(state, items);
+  const initial = opts.initial;
+  const sameAsInitial = !!initial && initial.match === state.match && initial.conditions.length === state.conditions.length && initial.conditions.every((c, i) => { const o = state.conditions[i]!; return c.key === o.key && c.op === o.op && c.value === o.value; });
+  const summary = opts.summary ?? statConditionsSummary(state, items);
+  const clear = () => onChange(initial ?? { ...state, conditions: [] });
   return {
     content: (
-      <StatConditionsEditor state={state} onChange={onChange} items={items} defaultKey={opts.defaultKey} disabledReason={opts.disabledReason} />
+      <StatConditionsEditor
+        state={state}
+        onChange={onChange}
+        items={items}
+        defaultKey={opts.defaultKey}
+        disabledReason={opts.disabledReason}
+        onReset={initial && !sameAsInitial ? () => onChange(initial) : undefined}
+      />
     ),
-    chip: summary ? { label: "スタッツの条件", value: summary, onClear: () => onChange({ ...state, conditions: [] }) } : undefined,
+    chip: summary && !sameAsInitial ? { label: "スタッツの条件", value: summary, onClear: clear } : undefined,
   };
 }

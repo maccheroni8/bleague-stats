@@ -52,6 +52,10 @@ export interface StatConditionItem<R> {
    * （表の値のどれかが「-3」「+3」の形。DESIGN.md 339章）。省略は false
    */
   signed?: boolean;
+  /** タイトル（保存画像のサブタイトル）に書く短い名前（「3PM」「2PM」等の略語）。省略は label を略語に直したもの */
+  shortLabel?: string;
+  /** タイトルに書く値の文言（「0.5」→「チームの試合数の半分」等）。省略は数値そのまま */
+  thresholdText?: (v: number) => string;
 }
 
 /** 項目を作るための定義。display は今の平均/合計のもの、displayOther は平均/合計を逆にしたもの（あれば、カウント系かの判定に使う） */
@@ -255,4 +259,104 @@ export function newStatCondition(key: string): StatCondition {
 /** ConditionTitle の statConditions に渡す形 */
 export function statConditionsTitle<R>(state: StatConditionsState, items: readonly StatConditionItem<R>[]): { labels: string[]; joiner: string } {
   return { labels: statConditionLabels(state, items), joiner: statConditionJoiner(state.match) };
+}
+
+
+// ---- ランキング用: 同じ項目の条件を1つにまとめたタイトルの書き方（DESIGN.md 478章）----
+
+/** 長い項目名（チームの1試合記録の「3ポイント成功数」等）を、タイトルに書く略語にする。該当しなければそのまま */
+const SHORT_STAT_LABELS: Record<string, string> = {
+  フィールドゴール成功数: "FGM",
+  フィールドゴール試投数: "FGA",
+  フィールドゴール成功率: "FG%",
+  "2ポイント成功数": "2PM",
+  "2ポイント試投数": "2PA",
+  "2ポイント成功率": "2P%",
+  "3ポイント成功数": "3PM",
+  "3ポイント試投数": "3PA",
+  "3ポイント成功率": "3P%",
+  フリースロー成功数: "FTM",
+  フリースロー試投数: "FTA",
+  フリースロー成功率: "FT%",
+};
+export function shortStatLabel(label: string): string {
+  return SHORT_STAT_LABELS[label] ?? label;
+}
+
+/** 掲載基準の行（ランキングの詳細フィルタで最初から入っている条件。criterion.ts）の項目のキー */
+export const CRITERION_KEY = "crit";
+
+export interface MergedLabelOptions {
+  /** 掲載基準の最初の値（基準のない項目は null・省略）。基準を外している（下限なし）ときに「掲載基準なし」と書くために使う */
+  criterionSeed?: number | null;
+  /** 掲載基準が最初のままでも書く（シーズン成績。1試合記録は最初のままなら書かない） */
+  showDefaultCriterion?: boolean;
+}
+
+/**
+ * ランキングのタイトルに書く条件。同じ項目（略語で同じ名前）の条件は1つにまとめる:
+ * 下限だけ「3PM 1.0以上」・下限と上限「3PM 1.0〜1.49」・上限だけ「3PM 1.49以下」。掲載基準の下限を外していて、同じ項目の条件がほかに無いときは「掲載基準なし」。
+ * criterion＝掲載基準の項目の分（出場率と並べて書く）、others＝ほかのスタッツの条件
+ */
+export function mergedStatConditionParts<R>(state: StatConditionsState, items: readonly StatConditionItem<R>[], opts: MergedLabelOptions = {}): { criterion: string[]; others: string[] } {
+  const seed = opts.criterionSeed ?? null;
+  const critItem = items.find((i) => i.key === CRITERION_KEY);
+  const critLabel = critItem ? (critItem.shortLabel ?? shortStatLabel(critItem.label)) : null;
+  interface Group {
+    label: string;
+    item: StatConditionItem<R>;
+    lower: number | null;
+    upper: number | null;
+    shown: boolean;
+  }
+  const groups: Group[] = [];
+  let criterionLower = false;
+  for (const { condition, item, threshold } of activeStatConditions(state, items)) {
+    const label = item.shortLabel ?? shortStatLabel(item.label);
+    let g = groups.find((x) => x.label === label);
+    if (!g) {
+      g = { label, item, lower: null, upper: null, shown: false };
+      groups.push(g);
+    }
+    const isCriterion = condition.key === CRITERION_KEY;
+    if (condition.op === "gte") {
+      g.lower = g.lower === null ? threshold : Math.max(g.lower, threshold);
+      if (isCriterion) criterionLower = true;
+    } else {
+      g.upper = g.upper === null ? threshold : Math.min(g.upper, threshold);
+    }
+    // 最初の掲載基準のままの行は、書かない設定のとき「書く対象」に数えない
+    const hiddenDefault = isCriterion && !opts.showDefaultCriterion && seed !== null && condition.op === "gte" && threshold === seed;
+    if (!hiddenDefault) g.shown = true;
+    // 掲載基準の行を含む項目は、値の文言も掲載基準の項目のものを使う
+    if (isCriterion) g.item = item;
+  }
+  const text = (g: Group, v: number) => (g.item.thresholdText ? g.item.thresholdText(v) : g.item.kind === "minutes" ? formatMinutesColon(v) : formatThreshold(v));
+  const unit = (g: Group) => (g.item.kind === "minutes" || g.item.thresholdText ? "" : g.item.suffix);
+  const criterion: string[] = [];
+  const others: string[] = [];
+  for (const g of groups) {
+    if (!g.shown) continue;
+    let label: string | null = null;
+    if (g.lower !== null && g.upper !== null) label = `${g.label} ${text(g, g.lower)}〜${text(g, g.upper)}${unit(g)}`;
+    else if (g.lower !== null) label = `${g.label} ${text(g, g.lower)}${unit(g)}以上`;
+    else if (g.upper !== null) label = `${g.label} ${text(g, g.upper)}${unit(g)}以下`;
+    if (label) (g.label === critLabel ? criterion : others).push(label);
+  }
+  // 掲載基準を外している: 同じ項目の条件がほかに無いとき（上限だけでも入れていれば、それが基準）
+  if (seed !== null && !criterionLower && !criterion.length) criterion.push("掲載基準なし");
+  return { criterion, others };
+}
+
+export function mergedStatConditionLabels<R>(state: StatConditionsState, items: readonly StatConditionItem<R>[], opts: MergedLabelOptions = {}): string[] {
+  const { criterion, others } = mergedStatConditionParts(state, items, opts);
+  return [...criterion, ...others];
+}
+
+/** 掲載基準の行の項目の区切り（詳細フィルタの項目の選択肢の見出し） */
+export const CRITERION_GROUP = "掲載基準";
+
+/** ConditionTitle の statConditions に渡す形（掲載基準の項目を除いた、同じ項目を1つにまとめた書き方）。掲載基準の分は mergedStatConditionParts の criterion を条件の行に足す */
+export function mergedStatConditionsTitle<R>(state: StatConditionsState, items: readonly StatConditionItem<R>[], opts: MergedLabelOptions = {}): { labels: string[]; joiner: string } {
+  return { labels: mergedStatConditionParts(state, items, opts).others, joiner: statConditionJoiner(state.match) };
 }

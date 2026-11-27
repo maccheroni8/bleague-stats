@@ -478,8 +478,11 @@ export interface PlayerRankingParams {
   /** 掲載基準の出場率を「達成可能」（今の出場試合数＋チームの残り試合数で、出場率に届く）で判定する */
   achievable: boolean;
   extraThreshold: number;
-  /** シュートタイプ・エリア別の成功率（Shooting）の最低試投数の基準を外す（詳細フィルタの「基準なし」。省略は基準あり） */
-  noShotMin?: boolean;
+  /** 追加の基準の上限（詳細フィルタの基準の行の「以下」。省略は上限なし） */
+  extraMax?: number;
+  /** シュートタイプ・エリア別の成功率（Shooting）の最低試投数・上限（チームの試合数に掛ける倍率。詳細フィルタの基準の行。省略は最初の基準＝半分・上限なし。0は基準なし） */
+  shotMin?: number;
+  shotMax?: number;
   /** 登録区分＋ルーキー。ルーキーを選べないシーズンでは、呼び出し側が "all" にして渡す */
   group: PlayerGroupFilter;
   /** そのシーズンのルーキーの選手ID（group が "rookie" のときだけ使う。読み込み前は null） */
@@ -602,15 +605,15 @@ export function usePlayerSeasonRanking(
       if (!overtimeIds) return [];
       return players.filter((p) => overtimeIds.has(p.playerId) && groupOk(p) && matchesPositionFilter(p, positionSet));
     }
-    const base = filterEligiblePlayers(players, teams, gamesRatio, extraRuleKey(statKey), extraThreshold, remainingByTeam, gamesRatioMax ?? 1).filter(
+    const base = filterEligiblePlayers(players, teams, gamesRatio, extraRuleKey(statKey), extraThreshold, remainingByTeam, gamesRatioMax ?? 1, params.extraMax).filter(
       (p) => groupOk(p) && matchesPositionFilter(p, positionSet),
     );
     if (category !== "shooting") return base;
     const withShots = base.filter((p) => !!p.shotTypes);
-    return opts.skipEligibility || params.noShotMin ? withShots : filterShotPctMinAttempts(withShots, teams, statKey);
+    return opts.skipEligibility ? withShots : filterShotPctMinAttempts(withShots, teams, statKey, params.shotMin, params.shotMax);
     // groupOk は group・rookieIds・classScope.changed から決まる
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopedPlayers, teams, gamesRatio, gamesRatioMax, remainingByTeam, statKey, extraThreshold, opts.skipEligibility, params.noShotMin, group, positions, rookieActive, rookieIds, category, registeredTarget, registeredPlayers, overtimeActive, periodFiltersApply, overtimeIds, classScope.changed]);
+  }, [scopedPlayers, teams, gamesRatio, gamesRatioMax, remainingByTeam, statKey, extraThreshold, params.extraMax, opts.skipEligibility, params.shotMin, params.shotMax, group, positions, rookieActive, rookieIds, category, registeredTarget, registeredPlayers, overtimeActive, periodFiltersApply, overtimeIds, classScope.changed]);
 
   // シーズンが変わったら取得済みキャッシュをリセットする
   useEffect(() => {
