@@ -1065,11 +1065,13 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
       ? turnoverDataFor(leagueAverage.team.forcedTurnovers, leagueAverage.team.turnoversCommitted, teamPerspective)
       : undefined;
   // +/- の視点は符号つきで出す
-  // 平均は、ほかのタブと同じ出場試合数（gamesPlayed。リーグ平均の行も同じ）で割る。合計は整数のまま
+  // 平均は、スポーツナビの記録がある試合の数（gamesWithData。ランキングと同じ。条件で絞ったときは、その条件に合う記録のある試合数。リーグ平均の行も同じ）で割る。
+  // 記録のある試合数が分からない（0）ときは「-」。合計は整数のまま
   const turnoverAverage = displayMode !== "total";
   const turnoverValue = (r: TurnoverRow, pick: (d: TeamForcedTurnovers) => number) =>
-    turnoverAverage ? (r.team.gamesPlayed > 0 ? pick(r.data) / r.team.gamesPlayed : 0) : pick(r.data);
+    turnoverAverage ? (r.data.gamesWithData > 0 ? pick(r.data) / r.data.gamesWithData : NaN) : pick(r.data);
   const turnoverText = (v: number) => {
+    if (Number.isNaN(v)) return "-";
     const digits = turnoverAverage ? 2 : 0;
     return teamPerspective === "diff" ? formatSigned(v, digits) : formatDecimal(v, digits);
   };
@@ -1447,8 +1449,8 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
             </div>
             <p className="page-subtitle">
               {scopedTov
-                ? "選んだ試合区分・試合の条件に当てはまる試合の合計（平均は当てはまる試合数で割る。区間・登録区分は選べない）。自チーム＝相手から奪った分、opp＝自チームが記録した分、+/-＝その差"
-                : "レギュラーシーズンのみ（平均/合計・視点だけ連動し、平均は出場試合数で割る。上部のシチュエーション別フィルタ・レギュラー/" + postseasonLabel(season) + "/合算とは連動しない。自チーム＝相手から奪った分、opp＝自チームが記録した分、+/-＝その差）"}
+                ? "選んだ試合区分・試合の条件に当てはまる試合の合計（平均は当てはまる試合のうち記録のある試合数で割る。区間・登録区分は選べない）。自チーム＝相手から奪った分、opp＝自チームが記録した分、+/-＝その差"
+                : "レギュラーシーズンのみ（平均/合計・視点だけ連動し、平均は記録のある試合数で割る。上部のシチュエーション別フィルタ・レギュラー/" + postseasonLabel(season) + "/合算とは連動しない。自チーム＝相手から奪った分、opp＝自チームが記録した分、+/-＝その差）"}
             </p>
           </>
         )

@@ -136,7 +136,7 @@ export function freeColumns(category: FreeCategory, perspective: TeamPerspective
     out = FORCED_TURNOVER_ITEMS.map(item => {
       const read = (r: FreeRow) => {
         const data = turnoverDataFor(r.tov?.forced, r.tov?.committed, perspective);
-        return data ? (mode === 'total' ? item.value(data) : r.games > 0 ? item.value(data) / r.games : 0) : null;
+        return data ? (mode === 'total' ? item.value(data) : (r.tov?.forced.gamesWithData ?? 0) > 0 ? item.value(data) / r.tov!.forced.gamesWithData : null) : null;
       };
       const text = (r: FreeRow) => {
         const v = read(r);

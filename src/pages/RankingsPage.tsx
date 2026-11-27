@@ -574,7 +574,8 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
       CATEGORY_LABELS.forcedTurnovers,
       compareActive && COMPARE_LABEL,
       displayModeLabels(displayMode),
-      TURNOVER_DIRECTION_LABELS[turnoverDirection],
+      // 差（+/-）は視点の「+/-」だけで書く（「差」と「+/-」を2回出さない。意味は画面の下の注記に書く）
+      turnoverDirection === "diff" ? [] : TURNOVER_DIRECTION_LABELS[turnoverDirection],
       perspectiveLabels(perspective),
       ...(forcedTurnoverScoped ? [gameTypeLabels(gameType, season), situationalFilterLabels(filter)] : [SEASON_TOTAL_ONLY_LABELS]),
     ),
