@@ -30,6 +30,7 @@ import {
 import { useAchievableSupport } from "../lib/achievableSupport";
 import { ACHIEVABLE_PARAM } from "../lib/achievableGames";
 import { AchievableCheckbox } from "../components/AchievableCheckbox";
+import { EligibilitySlider } from "../components/EligibilitySlider";
 import { GamesPlayedRatioSlider } from "../components/GamesPlayedRatioSlider";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { fetchPlayerPageSeasons, fetchTeamColors } from "../lib/data";
@@ -108,10 +109,10 @@ import { useTeamLabel } from "../lib/teamLabel";
 import { usePlayerLabel } from "../lib/playerLabel";
 import { CRITERION_KEY, DEFAULT_STAT_CONDITIONS, mergedStatConditionParts, mergedStatConditionsTitle } from "../lib/statConditions";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
-import { clearUrlParams, deleteUrlParams, enumParam, situationalParam, statConditionsParam, stringParam, useUrlState, type UrlCodec } from "../lib/urlState";
+import { clearUrlParams, deleteUrlParams, enumParam, numberParam, situationalParam, statConditionsParam, stringParam, useUrlState, type UrlCodec } from "../lib/urlState";
 import { opponentDivisionChoices, seasonDivisions } from "../lib/divisionGroups";
 import { CLASSIFICATION_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PAIR_UNIT_PARAM, PERSPECTIVE_PARAM, PLAYER_SEASON_PERIOD_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARAM, PLAYER_GROUP_PARAM, TEAM_SEASON_PERIOD_PARAM } from "../lib/urlFilterParams";
-import { OVERTIME_ELIGIBILITY_LABEL, OVERTIME_ELIGIBILITY_REASON, OVERTIME_GAMES_NOTE, SEASON_PERIOD_OPTIONS, subsetEligibilityLabel, subsetEligibilityReason, SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason, hasShortGameSeason } from "../lib/seasonPeriod";
+import { CLUTCH_RATIO_DEFAULT, CLUTCH_RATIO_STEP, clutchRatioLabel, OVERTIME_ELIGIBILITY_LABEL, OVERTIME_ELIGIBILITY_REASON, OVERTIME_GAMES_NOTE, SEASON_PERIOD_OPTIONS, subsetEligibilityLabel, subsetEligibilityReason, SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason, hasShortGameSeason } from "../lib/seasonPeriod";
 import { OVERTIME_MIN_TEAM_GAMES_FOR_RANKING } from "../lib/teamPeriodTotals";
 import { PeriodIndexFailure } from "../components/PeriodIndexFailure";
 import { PAIR_UNITS, PAIR_UNIT_LABELS } from "../lib/clutchQuery";
@@ -281,6 +282,7 @@ function shootingStatItems(columns: { key: string; label: string }[]): { key: st
  * elig＝掲載基準の出場率（%）、ex＝項目ごとの追加の基準。共通のキー（mode・gt・v・q・cls・pos・シチュエーション・スタッツの条件）は
  * src/lib/urlFilterParams.ts・src/lib/urlState.ts
  */
+const CLUTCH_RATIO_PARAM = numberParam("cr", CLUTCH_RATIO_DEFAULT, { min: 0, max: 100 });
 const RANKING_MODE_PARAM = enumParam<Mode>("m", ["team", "player"], "team");
 /** 種類（DESIGN.md 190〜192章）: シーズン成績（今までのランキング）／1試合記録／通算記録（過去に在籍した全選手・全クラブの全シーズン合算） */
 type RankingKind = "season" | "game" | "career" | "special" | "attendance" | "clutch" | "assistPair" | "threshold" | "lineup";
@@ -884,6 +886,8 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
   const extraThreshold = extraRule ? crit.min : 0;
   // スタメン出場時／ベンチ出場時（設計書433章）
   const [role, setRole] = useUrlState(ROLE_PARAM, "both");
+  // クラッチの掲載基準: チームのクラッチになった試合のうち、この割合（%）以上に出た選手（最低3試合。書かないと50。前の URL・保存した検索条件もこの初期値で開く。設計書479章）
+  const [clutchRatio, setClutchRatio] = useUrlState(CLUTCH_RATIO_PARAM, CLUTCH_RATIO_DEFAULT);
   const [rolePercent, setRolePercent] = useUrlState(ROLE_SHARE_PARAM, DEFAULT_ROLE_SHARE_PERCENT);
 
   // 集計（掲載基準・試合ログの読み込み・行・値の定義・スタッツの条件の項目）は src/lib/playerSeasonRanking.ts。前シーズン比較の前季でも同じ処理を使う（DESIGN.md 218章）
@@ -939,6 +943,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
     statConditions,
     role,
     rolePercent,
+    clutchRatio,
   }, { league });
   const positionOptions = useMemo(() => positionFilterOptions(players, positions), [players, positions]);
 
@@ -984,6 +989,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
       statConditions: DEFAULT_STAT_CONDITIONS,
       role,
       rolePercent: 0,
+      clutchRatio: 0,
     },
     { enabled: compareActive, skipConditionItems: true, skipEligibility: true, league },
   );
@@ -1108,7 +1114,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
         // 切り替えの対象外の項目（割合・Profile・Career）では書かない
         modeApplies ? displayModeLabels(rankMode) : [],
         playerScopeLabels,
-        registeredTarget ? "登録選手" : overtimeActive ? (subsetEligibilityLabel(period) ?? OVERTIME_ELIGIBILITY_LABEL) : [...eligibilityLabels({ gamesRatio, gamesRatioMax, achievable }), ...critParts.criterion],
+        registeredTarget ? "登録選手" : overtimeActive ? (period === "clutch" ? clutchRatioLabel(clutchRatio) : (subsetEligibilityLabel(period) ?? OVERTIME_ELIGIBILITY_LABEL)) : [...eligibilityLabels({ gamesRatio, gamesRatioMax, achievable }), ...critParts.criterion],
       );
   const playerStatJa = statJa(selectedItem.label);
   const playerScreenTitle = makeRankingTitle("個人", season, playerStatJa, playerConditions(false));
@@ -1130,7 +1136,8 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
         : category === "career"
           ? "このカテゴリは試合種別・シチュエーション別フィルタ・Q別/前後半の対象外です（登録区分・ポジションのみ適用されます）。"
         : undefined;
-  const eligibilitySummary = eligibilityLabels({ gamesRatio, gamesRatioMax, achievable }).join(LABEL_SEPARATOR);
+  const clutchEligibility = period === "clutch" && !registeredTarget;
+  const eligibilitySummary = clutchEligibility ? clutchRatioLabel(clutchRatio) : eligibilityLabels({ gamesRatio, gamesRatioMax, achievable }).join(LABEL_SEPARATOR);
   const eligibilityAxis: FilterAxis = {
     kind: "popover",
     id: "eligibility",
@@ -1138,19 +1145,22 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
     tier: "primary",
     disabledReason: registeredTarget
       ? "このカテゴリは、このシーズンに登録していた選手全員が対象です（出場の有無を問わず、掲載基準は使いません）。"
-      : overtimeActive
+      : overtimeActive && !clutchEligibility
         ? (subsetEligibilityReason(period) ?? OVERTIME_ELIGIBILITY_REASON)
         : undefined,
-    value: `${Math.round(gamesRatio * 100)}-${Math.round(gamesRatioMax * 100)}|${achievable ? "ach" : ""}`,
-    defaultValue: `${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}-100|`,
+    value: clutchEligibility ? `clutch-${clutchRatio}` : `${Math.round(gamesRatio * 100)}-${Math.round(gamesRatioMax * 100)}|${achievable ? "ach" : ""}`,
+    defaultValue: clutchEligibility ? `clutch-${CLUTCH_RATIO_DEFAULT}` : `${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}-100|`,
     onChange: () => {
+      setClutchRatio(CLUTCH_RATIO_DEFAULT);
       setGamesRatio(MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
       setGamesRatioMax(1);
       setAchievable(false);
     },
     summary: eligibilitySummary,
     chipValue: eligibilitySummary,
-    content: (
+    content: clutchEligibility ? (
+      <EligibilitySlider label="クラッチ出場率" value={clutchRatio} min={0} max={100} step={CLUTCH_RATIO_STEP} format={(v) => `${v}%`} onChange={setClutchRatio} />
+    ) : (
       <>
         <GamesPlayedRatioSlider
           label="出場率"
