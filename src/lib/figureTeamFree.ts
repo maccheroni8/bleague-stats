@@ -173,10 +173,10 @@ export function freeColumn(item: FreeItem, perspective: TeamPerspective, mode: F
   if (item.category === 'winpct') return undefined;
   return freeColumns(item.category, perspective, mode, season).find(c => c.key === item.key);
 }
-/** 軸の名前（opp の視点は「opp ORtg」、+/- は「ORtg +/-」。Forced TOV は「Forced TOV 合計」のように分類名を付ける） */
+/** 軸の名前（opp の視点は「相手のORtg」、+/- は「ORtg +/-」。Forced TOV は「Forced TOV 合計」のように分類名を付ける） */
 export function freeItemName(item: FreeItem, perspective: TeamPerspective): string {
   const base = item.category === 'forcedTurnovers' ? `${CATEGORY_LABELS.forcedTurnovers} ${item.label}` : item.label;
-  return perspective === 'opp' ? `opp ${base}` : perspective === 'diff' ? `${base} +/-` : base;
+  return perspective === 'opp' ? `相手の${base}` : perspective === 'diff' ? `${base} +/-` : base;
 }
 /** 選べる項目か（URL の値が古い・読めないときは初期の項目にする） */
 export function resolveFreeItem(id: string | undefined, season: string, fallback: string): FreeItem {

@@ -7,7 +7,7 @@ import type { PlayerCareerCounts, PlayerGameLog, PlayerSummary, TeamGameLog, Div
 import { buildTopScorers, type ScorerData } from "../src/lib/figureTopScorers";
 import { buildPlayerFigurePoints } from "../src/lib/figurePlayerPoints";
 import { clubsOfDivisions, filterPlayerFigurePoints } from "../src/lib/figurePlayerFilter";
-import { DEFAULT_STAT_CONDITIONS } from "../src/lib/statConditions";
+import { DEFAULT_STAT_CONDITIONS, mergedStatConditionLabels, type StatConditionsState } from "../src/lib/statConditions";
 
 const read = <T,>(p: string): T => { const f = existsSync(p) ? p : `${p}.gz`; return JSON.parse((f.endsWith(".gz") ? gunzipSync(readFileSync(f)) : readFileSync(f)).toString()) as T; };
 const divisionHistory = read<DivisionHistoryFile>("data/division-history.json");
@@ -33,6 +33,17 @@ for (const [season, category] of [["2026-27", "premier"], ["2026-27", "one"], ["
   // 条件なしは全員（絞っていない扱い）
   const none = filterPlayerFigurePoints(ratioPassed, [], DEFAULT_STAT_CONDITIONS, season);
   assert.equal(none.eligible.length, ratioPassed.length); assert.equal(none.active, false);
+  // 詳細フィルタの書き方（下限だけ「3PM 1.0以上」・上限だけ「3PM 1.49以下」・両方「3PM 1.0〜1.49」。整数の下限も「1.0」・上限は丸めない）
+  {
+    const pm = none.items.find(i => i.kind === "rate" && (i.shortLabel ?? i.label).includes("3PM"));
+    assert.ok(pm, `${season} ${category} 3PM の項目がある`);
+    const st = (...c: [string, "gte" | "lte", string][]): StatConditionsState => ({ match: "all", conditions: c.map(([key, op, value], n) => ({ id: n + 1, key, op, value })) });
+    const lbl = (s: StatConditionsState) => mergedStatConditionLabels(s, none.items, { showDefaultCriterion: true, decimalRate: true });
+    const name = pm.shortLabel ?? pm.label;
+    assert.deepEqual(lbl(st([pm.key, "gte", "1"])), [`${name} 1.0以上`]);
+    assert.deepEqual(lbl(st([pm.key, "lte", "1.49"])), [`${name} 1.49以下`]);
+    assert.deepEqual(lbl(st([pm.key, "gte", "1"], [pm.key, "lte", "1.49"])), [`${name} 1.0〜1.49`]);
+  }
   // クラブ: 1クラブずつ・複数クラブ。移籍した選手は所属したクラブのどれかで残る
   const ids = teams.map(t => t.teamId);
   for (const clubs of [...ids.map(i => [i]), ids.slice(0, 3), ids.slice(-2)]) {

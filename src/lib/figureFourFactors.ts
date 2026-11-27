@@ -7,7 +7,7 @@ export type FfKey = typeof FF_KEYS[number];
 
 interface FfDef {
   key: FfKey;
-  /** 列の見出し（略称は statNames.ts の表記。相手の値は「opp 」を付ける） */
+  /** 列の見出し（略称は statNames.ts の表記。相手の値は「相手の」を付ける） */
   label: string;
   /** 全チームスタッツの列の key と視点 */
   column: string;
@@ -24,10 +24,10 @@ export const FF_DEFS: readonly FfDef[] = [
   { key: "tovpct", label: "TOV%", column: "tovpct", perspective: "own", higherIsBetter: false, group: "offense" },
   { key: "orbpct", label: "OR%", column: "orbpct", perspective: "own", higherIsBetter: true, group: "offense" },
   { key: "ftr", label: "FTR", column: "ftr", perspective: "own", higherIsBetter: true, group: "offense" },
-  { key: "oppefg", label: "opp eFG%", column: "efg", perspective: "opp", higherIsBetter: false, group: "defense" },
-  { key: "opptovpct", label: "opp TOV%", column: "tovpct", perspective: "opp", higherIsBetter: true, group: "defense" },
-  { key: "opporbpct", label: "opp OR%", column: "orbpct", perspective: "opp", higherIsBetter: false, group: "defense" },
-  { key: "oppftr", label: "opp FTR", column: "ftr", perspective: "opp", higherIsBetter: false, group: "defense" },
+  { key: "oppefg", label: "相手のeFG%", column: "efg", perspective: "opp", higherIsBetter: false, group: "defense" },
+  { key: "opptovpct", label: "相手のTOV%", column: "tovpct", perspective: "opp", higherIsBetter: true, group: "defense" },
+  { key: "opporbpct", label: "相手のOR%", column: "orbpct", perspective: "opp", higherIsBetter: false, group: "defense" },
+  { key: "oppftr", label: "相手のFTR", column: "ftr", perspective: "opp", higherIsBetter: false, group: "defense" },
 ];
 export const FF_DEF = Object.fromEntries(FF_DEFS.map(def => [def.key, def])) as Record<FfKey, FfDef>;
 

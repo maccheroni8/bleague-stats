@@ -17,3 +17,24 @@
 .scorers-table th, .scorers-table td { white-space:nowrap; }
 /* 強調するクラブの選手は手前に出して1.5倍にする（倍率の仕組みは ORtg × DRtg の図の CSS と共通） */
 .scorer-point.is-emphasized { --emph:1.5; }
+
+/* 選手の散布図の写真の大きさ「中」（初期。URL psz=m）。小（psz=s）は上の36px。中は「小」の強調時の大きさ（36px×1.5＝54px）。
+   強調する選手は、選んだ大きさよりさらに一回り大きくする（小＝1.5倍＝54px、中＝1.35倍＝約73px） */
+.scorers-size-m .ratings-plot-wrap { margin-left:68px; margin-right:68px; }
+.scorers-size-m .scorer-point { width:54px; height:54px; }
+.scorers-size-m .scorer-point img, .scorers-size-m .scorer-silhouette { width:50px; height:50px; }
+.scorers-size-m .scorer-name-one .scorer-name { font-size:15px; }
+.scorers-size-m .scorer-name-two .scorer-name { font-size:13.5px; }
+.scorers-size-m .scorer-name-long .scorer-name { font-size:11px; }
+.scorers-size-m .scorer-point.is-emphasized { --emph:1.35; }
+.export-rendering.scorers-export.scorers-size-m .ratings-plot-wrap { margin-left:68px; margin-right:68px; }
+.export-rendering.scorers-export.scorers-size-m .scorer-point { width:54px; height:54px; }
+.export-rendering.scorers-export.scorers-size-m .scorer-point img, .export-rendering.scorers-export.scorers-size-m .scorer-silhouette { width:50px; height:50px; }
+@media(max-width:560px) {
+  .scorers-size-m .ratings-plot-wrap { margin-left:44px; margin-right:44px; }
+  .scorers-size-m .scorer-point { width:42px; height:42px; }
+  .scorers-size-m .scorer-point img, .scorers-size-m .scorer-silhouette { width:38px; height:38px; }
+  .scorers-size-m .scorer-name-one .scorer-name { font-size:12px; }
+  .scorers-size-m .scorer-name-two .scorer-name { font-size:10.5px; }
+  .scorers-size-m .scorer-name-long .scorer-name { font-size:9px; }
+}

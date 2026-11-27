@@ -12,7 +12,7 @@ import { usePlayoffZonePresets } from '../lib/playoffZone';
 import { divisionPresets } from '../lib/divisionGroups';
 import { clubSelectionLabels } from '../lib/conditionLabels';
 import { teamShortName } from '../../shared/teamNames';
-import { DEFAULT_STAT_CONDITIONS, statConditionLabels } from '../lib/statConditions';
+import { DEFAULT_STAT_CONDITIONS, mergedStatConditionLabels } from '../lib/statConditions';
 import { statConditionsBarExtra } from '../components/StatConditionsEditor';
 import { clubsOfDivisions, filterPlayerFigurePoints } from '../lib/figurePlayerFilter';
 import type { PlayerFigurePoint } from '../lib/figurePlayerPoints';
@@ -69,7 +69,7 @@ export function usePlayerFigureFilter({ season, category, teams, divisionOf, rat
   const positionOptions = useMemo(() => positionFilterOptions(ratioPassed.map(p => p.summary), positions), [ratioPassed, positions]);
   const positionAxis: FilterAxis = multiSelectAxis({ id: 'position', label: 'ポジション', options: positionOptions, selected: positions, onChangeSelected: setPositions, allLabel: '全ポジション', maxShown: Infinity });
   const positionLabels = positions.length ? multiSelectLabels('ポジション', selectedPositionLabels(positionOptions, positions), '全ポジション', Infinity) : [];
-  const labels = [...clubLabels, ...positionLabels, ...statConditionLabels(statConditions, conditionItems)];
+  const labels = [...clubLabels, ...positionLabels, ...mergedStatConditionLabels(statConditions, conditionItems, { showDefaultCriterion: true, decimalRate: true })];
   /** FilterBar の advancedExtra（詳細フィルター） */
   const advancedExtra = statConditionsBarExtra(statConditions, setStatConditions, conditionItems, { defaultKey: 'min' });
   const reset = () => { setPositions(NO_POSITIONS); setClubParam(EMPTY); if (legacyDivisionKey) setLegacy(NO_DIVISIONS); setStatConditions(DEFAULT_STAT_CONDITIONS); };

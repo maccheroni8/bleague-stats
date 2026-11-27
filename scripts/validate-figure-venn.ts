@@ -144,7 +144,7 @@ function checkLayout(counts: Record<number, number>, size: number, labelFont: nu
   assert.equal(new Set(dup.map(s => s.item)).size, 3, "同じ項目・存在しない項目は直される");
   assert.equal(dup[0]!.item, "advanced.ortg"); assert.equal(dup[1]!.item, "advanced.drtg"); assert.equal(dup[2]!.item, "traditional.3ppct");
   assert.equal(resolveVennSelection([{ item: "advanced.ortg", perspective: "opp" }, ...DEFAULT_VENN_SELECTION.slice(1)], "2025-26", () => false)[0]!.perspective, "own", "視点のない項目は自チームに固定");
-  assert.equal(vennItemLabel(vennItems("2025-26").find(i => i.key === "efg")!, "opp"), "opp eFG%");
+  assert.equal(vennItemLabel(vennItems("2025-26").find(i => i.key === "efg")!, "opp"), "相手のeFG%");
   assert.ok(FIGURES.some(f => f.id === "team-venn" && f.entity === "team"), "図解（チーム）に登録");
   console.log("ベン図: 項目の一覧・同じ項目を選べない・初期の3項目 OK");
 }

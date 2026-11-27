@@ -111,10 +111,10 @@ export interface TeamShootSlot {
 }
 const rate = (key: string, label: string, category: TeamShootSlot["category"], column = key): TeamShootSlot => ({
   key, color: true, category, source: view => ({ column, perspective: view }),
-  label: view => view === "own" ? label : view === "opp" ? `opp ${label}` : `${label} +/-`,
+  label: view => view === "own" ? label : view === "opp" ? `相手の${label}` : `${label} +/-`,
 });
 export const TEAM_SHOOT_SLOTS: readonly TeamShootSlot[] = [
-  { key: "pts", color: false, category: "traditional", source: view => ({ column: "pts", perspective: view }), label: view => view === "own" ? "PTS" : view === "opp" ? "opp PTS" : "PTS +/-" },
+  { key: "pts", color: false, category: "traditional", source: view => ({ column: "pts", perspective: view }), label: view => view === "own" ? "PTS" : view === "opp" ? "相手のPTS" : "PTS +/-" },
   // 相手の視点は DRtg（失点側のレーティング）、差の視点は NetRtg
   { key: "rating", color: false, category: "advanced", source: view => ({ column: view === "own" ? "ortg" : view === "opp" ? "drtg" : "netrtg", perspective: "own" }), label: view => view === "own" ? "ORtg" : view === "opp" ? "DRtg" : "NetRtg" },
   rate("efg", "eFG%", "advanced"), rate("ts", "TS%", "advanced"), rate("3ppct", "3P%", "traditional"),

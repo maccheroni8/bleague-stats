@@ -37,7 +37,7 @@ type DivisionChoice = Division | "unknown";
 const divisionCodec=divisionListParam<"unknown">("dv",["unknown"]);
 const NO_DIVISIONS:DivisionChoice[]=[];
 const divisionLabel=(division: Division | "unknown")=>division === "unknown" ? "地区不明" : DIVISION_LABELS[division];
-const headerTitle=(label:string)=>label.startsWith("opp ")?`相手の${statDescription(label.slice(4),"team")??statJa(label,"team")}`:statDescription(label,"team")??statJa(label,"team");
+const headerTitle=(label:string)=>label.startsWith("相手の")?`相手の${statDescription(label.slice(3),"team")??statJa(label.slice(3),"team")}`:statDescription(label,"team")??statJa(label,"team");
 // 並べ替え（ffs=項目 または 項目:rev）。初期値（NetRtg の良い順）は URL に載せない
 type SortState={key:FfKey;bestFirst:boolean};
 const DEFAULT_SORT:SortState={key:"netrtg",bestFirst:true};
@@ -127,7 +127,7 @@ export default function FourFactorsFigure({season,category}:FigureProps) {
               </tr>
               <tr>
                 {FF_DEFS.map(def=><th key={def.key} className={`ff-col${def.key==="efg"||def.key==="oppefg"||def.key==="netrtg"?" ff-group-start":""}`} aria-sort={sort.key===def.key?(sort.bestFirst===def.higherIsBetter?"descending":"ascending"):"none"}>
-                  <button title={headerTitle(def.label)} onClick={()=>toggleSort(def.key)}>{def.label.startsWith("opp ")?<><span className="ff-opp">opp</span><span className="ff-opp">{def.label.slice(4)}<SortMark active={sort.key===def.key} descending={sort.bestFirst===def.higherIsBetter}/></span></>:<>{def.label}<SortMark active={sort.key===def.key} descending={sort.bestFirst===def.higherIsBetter}/></>}</button>
+                  <button title={headerTitle(def.label)} onClick={()=>toggleSort(def.key)}>{def.label.startsWith("相手の")?<><span className="ff-opp">相手の</span><span className="ff-opp">{def.label.slice(3)}<SortMark active={sort.key===def.key} descending={sort.bestFirst===def.higherIsBetter}/></span></>:<>{def.label}<SortMark active={sort.key===def.key} descending={sort.bestFirst===def.higherIsBetter}/></>}</button>
                 </th>)}
               </tr>
             </thead>

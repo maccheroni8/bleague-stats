@@ -41,7 +41,7 @@ import { FIGURES } from "../src/figures/catalog";
   assert.equal(FF_DEF.opptovpct.higherIsBetter, true, "相手のTOV%は多いほうが良い");
   assert.equal(FF_DEF.netrtg.higherIsBetter, true);
   assert.deepEqual(FF_DEFS.map(def => def.key), [...FF_KEYS], "列の並び");
-  assert.deepEqual(FF_DEFS.map(def => def.label), ["NetRtg", "ORtg", "DRtg", "eFG%", "TOV%", "OR%", "FTR", "opp eFG%", "opp TOV%", "opp OR%", "opp FTR"]);
+  assert.deepEqual(FF_DEFS.map(def => def.label), ["NetRtg", "ORtg", "DRtg", "eFG%", "TOV%", "OR%", "FTR", "相手のeFG%", "相手のTOV%", "相手のOR%", "相手のFTR"]);
   assert.ok(FF_NOTE.includes("緑ほど良い") && FF_NOTE.includes("少ないほど良い"));
   assert.ok(FIGURES.some(f => f.id === "four-factors" && f.entity === "team"), "図解（チーム）に登録");
   console.log("Four Factors: 色の段階（向き・同値・1チーム・26チーム）・列の向き OK");

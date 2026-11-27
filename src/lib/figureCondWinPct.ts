@@ -153,8 +153,8 @@ export function condLabel(env: CondEnv, spec: CondSpec): string {
   const c = conditionOf(env, spec);
   return c ? describeCondition(c) : "条件なし";
 }
-/** 軸・円の名前（例: 勝率（対勝率.600以上（最新勝率））） */
-export const condWinLabel = (env: CondEnv, spec: CondSpec) => `勝率（${condLabel(env, spec)}）`;
+/** 軸・円の名前（例: 対勝率.600以上（最新勝率） 勝率） */
+export const condWinLabel = (env: CondEnv, spec: CondSpec) => `${condLabel(env, spec)} 勝率`;
 /** 選んだ条件が使えるか（そのシーズンに無い条件のキーは使えない） */
 export const condAvailable = (env: CondEnv, spec: CondSpec) => conditionOf(env, spec) !== null;
 

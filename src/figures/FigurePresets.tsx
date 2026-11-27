@@ -31,6 +31,8 @@ export function FigurePresets({ entity, figureId, params, onApply }: {
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
   }, []);
+  /** いま表示している図のタイトル（図の見出し。保存の名前の最初の値。無ければ空） */
+  const currentTitle = () => (document.querySelector('#figure-active-panel .condition-title > h2.export-hide')?.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, PRESET_NAME_MAX);
   const figureLabel = (e: string, id: string) => FIGURES.find(f => f.entity === e && f.id === id)?.label;
   const listed = useMemo(() => presets.map(migrateLegacyPreset).filter(p => figureLabel(p.entity, p.figure)), [presets]);
   const groups = useMemo(() => {
@@ -73,7 +75,7 @@ export function FigurePresets({ entity, figureId, params, onApply }: {
     </button>
     {open && <div className="figure-presets-panel" id={panelId}>
       {saving === null
-        ? <button type="button" className="figure-presets-save" disabled={!available} title={available ? undefined : 'このブラウザでは保存できません'} onClick={() => { setMessage(''); setSaving(''); }}>いまの設定を保存</button>
+        ? <button type="button" className="figure-presets-save" disabled={!available} title={available ? undefined : 'このブラウザでは保存できません'} onClick={() => { setMessage(''); setSaving(currentTitle()); }}>いまの設定を保存</button>
         : <form className="figure-presets-edit" onSubmit={e => { e.preventDefault(); submitSave(); }}>
           <label>名前<input type="text" value={saving} maxLength={PRESET_NAME_MAX} autoFocus onChange={e => setSaving(e.target.value)} /></label>
           <button type="submit">保存する</button>

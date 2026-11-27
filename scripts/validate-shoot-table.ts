@@ -266,7 +266,7 @@ console.log(`シュート成功率の一覧: 実データ ${ran}セット（選�
   assert.ok(PLAYER_SHOOT_COLUMNS.find(c => c.key === "ftpct")!.color, "FT% も色を塗る");
   const labels = (view: (typeof TEAM_SHOOT_VIEWS)[number]) => TEAM_SHOOT_SLOTS.map(c => c.label(view));
   assert.deepEqual(labels("own"), ["PTS", "ORtg", "eFG%", "TS%", "3P%", "MID2%", "PAINT2%", "FT%"], "自チームの見出し");
-  assert.deepEqual(labels("opp"), ["opp PTS", "DRtg", "opp eFG%", "opp TS%", "opp 3P%", "opp MID2%", "opp PAINT2%", "opp FT%"], "相手の見出し");
+  assert.deepEqual(labels("opp"), ["相手のPTS", "DRtg", "相手のeFG%", "相手のTS%", "相手の3P%", "相手のMID2%", "相手のPAINT2%", "相手のFT%"], "相手の見出し");
   assert.deepEqual(labels("diff"), ["PTS +/-", "NetRtg", "eFG% +/-", "TS% +/-", "3P% +/-", "MID2% +/-", "PAINT2% +/-", "FT% +/-"], "差の見出し");
   assert.equal(new Set(TEAM_SHOOT_VIEWS.map(v => labels(v).length)).size, 1, "列の数は視点によらず同じ");
   assert.deepEqual(TEAM_SHOOT_VIEWS.map(v => TEAM_SHOOT_VIEW_LABELS[v]), ["自チーム", "相手（opp）", "差（+/-）"]);

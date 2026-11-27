@@ -57,7 +57,7 @@ import {
   assert.ok(!items.some(i => i.id === "traditional.opppts"), "opp PTS は視点 opp の PTS と同じなので出さない");
   assert.equal(resolveFreeItem("ない.項目", "2026-27", DEFAULT_FREE_Y).id, DEFAULT_FREE_Y, "読めない項目は初期の項目");
   const by = (id: string) => items.find(i => i.id === id)!;
-  assert.equal(freeItemName(by("advanced.ortg"), "opp"), "opp ORtg");
+  assert.equal(freeItemName(by("advanced.ortg"), "opp"), "相手のORtg");
   assert.equal(freeItemName(by("advanced.ortg"), "diff"), "ORtg +/-");
   assert.equal(freeItemName(by("forcedTurnovers.total"), "own"), "Forced TOV 合計");
   const reasons = { shooting: "S", forcedTurnovers: "F", none: "N" };

@@ -63,9 +63,9 @@ export function vennColumn(item: VennItem, perspective: VennPerspective, season:
   if (item.category === 'winpct') return undefined;
   return vennColumns(item.category, perspective, season).find(c => c.key === item.key);
 }
-/** 円の名前に使う項目名（opp の視点は「opp ORtg」、+/- は「ORtg +/-」） */
+/** 円の名前に使う項目名（opp の視点は「相手のORtg」、+/- は「ORtg +/-」） */
 export function vennItemLabel(item: VennItem, perspective: VennPerspective): string {
-  return perspective === 'opp' ? `opp ${item.label}` : perspective === 'diff' ? `${item.label} +/-` : item.label;
+  return perspective === 'opp' ? `相手の${item.label}` : perspective === 'diff' ? `${item.label} +/-` : item.label;
 }
 
 export interface VennSelection {

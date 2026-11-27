@@ -291,6 +291,8 @@ export interface MergedLabelOptions {
   criterionSeed?: number | null;
   /** 掲載基準が最初のままでも書く（シーズン成績。1試合記録は最初のままなら書かない） */
   showDefaultCriterion?: boolean;
+  /** 1試合平均などの小数の項目（rate）は、整数の値も「1.0」と書く（図解。上限の 1.49 は丸めない） */
+  decimalRate?: boolean;
 }
 
 /**
@@ -331,7 +333,8 @@ export function mergedStatConditionParts<R>(state: StatConditionsState, items: r
     // 掲載基準の行を含む項目は、値の文言も掲載基準の項目のものを使う
     if (isCriterion) g.item = item;
   }
-  const text = (g: Group, v: number) => (g.item.thresholdText ? g.item.thresholdText(v) : g.item.kind === "minutes" ? formatMinutesColon(v) : formatThreshold(v));
+  const text = (g: Group, v: number) =>
+    g.item.thresholdText ? g.item.thresholdText(v) : g.item.kind === "minutes" ? formatMinutesColon(v) : opts.decimalRate && g.item.kind === "rate" && Number.isInteger(v) ? v.toFixed(1) : formatThreshold(v);
   const unit = (g: Group) => (g.item.kind === "minutes" || g.item.thresholdText ? "" : g.item.suffix);
   const criterion: string[] = [];
   const others: string[] = [];

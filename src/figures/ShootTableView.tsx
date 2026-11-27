@@ -21,7 +21,7 @@ export interface ShootViewColumn<R> {
 export interface ShootSort { key: string; descending: boolean }
 
 const headerTitle = (label: string, scope: "player" | "team") => {
-  if (label.startsWith("opp ")) { const base = label.slice(4); return `相手の${statDescription(base, scope) ?? statJa(base, scope)}`; }
+  if (label.startsWith("相手の")) { const base = label.slice(3); return `相手の${statDescription(base, scope) ?? statJa(base, scope)}`; }
   if (label.endsWith(" +/-")) { const base = label.slice(0, -4); return `${statDescription(base, scope) ?? statJa(base, scope)}の差（自チーム−相手）`; }
   return statDescription(label, scope) ?? statJa(label, scope);
 };
@@ -49,7 +49,7 @@ export function ShootTableView<R>({ rows, rowKey, columns, sort, onSort, ranks, 
         <th className="shoot-name">{nameHeader}</th>
         {columns.map(c => <th key={c.key} className={`shoot-col${c.groupStart ? " shoot-group-start" : ""}`} aria-sort={sort.key === c.key ? (sort.descending ? "descending" : "ascending") : "none"}>
           <button title={headerTitle(c.stat ?? c.label, c.scope)} onClick={() => onSort(c.key)}>
-            {c.label.startsWith("opp ") ? <><span className="shoot-opp">opp</span><span className="shoot-opp">{c.label.slice(4)}</span></> : c.label}
+            {c.label.startsWith("相手の") ? <><span className="shoot-opp">相手の</span><span className="shoot-opp">{c.label.slice(3)}</span></> : c.label}
             <SortMark active={sort.key === c.key} descending={sort.descending} />
           </button>
         </th>)}
