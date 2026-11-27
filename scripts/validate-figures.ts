@@ -101,7 +101,8 @@ assert.equal(matchesGamesPlayedRatioRange(6,10,60,100),true);
 assert.equal(matchesGamesPlayedRatioRange(5,10,60,100),false);
 assert.equal(matchesGamesPlayedRatioRange(7,10,0,60),false, "上限も適用");
 assert.equal(matchesGamesPlayedRatioRange(10,10,100,100),true);
-assert.equal(matchesGamesPlayedRatioRange(12,10,0,100),false, "100%を超える場合も全選手スタッツと同じ判定");
+assert.equal(matchesGamesPlayedRatioRange(12,10,0,100),true, "上限100%は上限なし（〜以上）。移籍で100%を超える選手も入る（476章）");
+assert.equal(matchesGamesPlayedRatioRange(12,10,0,99),false, "上限を下げたら100%超は外れる");
 assert.equal(matchesGamesPlayedRatioRange(1,0,0,100),false);
 assert.equal(matchesGamesPlayedRatioRange(1,undefined,0,100),false);
 const qOnly = new Set(["q"]);
@@ -131,7 +132,7 @@ if (source) {
       const before=players.filter(p=>{
         const games=teamGames.get(p.teamId); if(!games)return false;
         const ratio=100*p.gamesPlayed/games;
-        if(ratio<min||ratio>max)return false;
+        if(ratio<min||(max<100&&ratio>=max+1))return false; // 上限は「上限＋1 未満」・上限100%は上限なし（476章）
         return true;
       }).map(p=>p.playerId);
       const after=players.filter(p=>matchesGamesPlayedRatioRange(p.gamesPlayed,teamGames.get(p.teamId),min,max)).map(p=>p.playerId);
