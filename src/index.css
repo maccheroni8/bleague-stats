@@ -382,6 +382,15 @@ h2 {
   outline-offset: 2px;
 }
 
+/* 新ロゴ（透明地の黒）をダーク表示の表で見えるようにする。保存画像は複製側をライトに固定するので影響しない */
+:root[data-theme="dark"] .league-logo-invert {
+  filter: invert(1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .league-logo-invert {
+    filter: invert(1);
+  }
+}
 .team-logo {
   object-fit: contain;
   vertical-align: middle;

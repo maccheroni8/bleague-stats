@@ -8,6 +8,11 @@ const TENTH_LOGO_FIRST_SEASON = "2025-26";
 /** 新しいロゴになった最初のシーズン */
 const NEW_LOGO_FIRST_SEASON = "2026-27";
 
+/** 透明地の黒いロゴ（新ロゴ）か。ダーク表示の暗い地では沈むので、表では白に反転して出す（旧ロゴは白地付き） */
+export function leagueLogoIsTransparent(season: string): boolean {
+  return season >= NEW_LOGO_FIRST_SEASON;
+}
+
 export function leagueLogoUrl(season: string): string {
   const file = season >= NEW_LOGO_FIRST_SEASON ? "bleague-2026-.png" : season >= TENTH_LOGO_FIRST_SEASON ? "bleague-2025-10th.png" : "bleague-2016-2024.png";
   return `${import.meta.env.BASE_URL}media/league-logo/${file}`;

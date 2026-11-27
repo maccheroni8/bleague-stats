@@ -358,7 +358,7 @@ const teamColumn: Column<AllTeamsRow> = {
   sortValue: (r) => r.team.teamName,
   render: (r) => (
     <span className="team-name-cell">
-      {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} />}
+      {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} invertOnDark />}
       <ResponsiveTeamName teamId={r.team.teamId} name={r.team.teamName} />
     </span>
   ),
@@ -405,7 +405,7 @@ const TTS_TEAM_LEADING: TtsLeadingColumn<TtsTeamRow>[] = [
     sortValue: (r) => r.team.teamName,
     render: (r) => (
       <span className="team-name-cell">
-        {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} />}
+        {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} invertOnDark />}
         <ResponsiveTeamName teamId={r.team.teamId} name={r.team.teamName} />
       </span>
     ),
@@ -493,7 +493,7 @@ function foreignCourtColumns(mode: "perGame" | "total", counts: readonly number[
       sortValue: (r) => r.team.teamName,
       render: (r) => (
         <span className="team-name-cell">
-          {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} />}
+          {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} invertOnDark />}
           <ResponsiveTeamName teamId={r.team.teamId} name={r.team.teamName} />
         </span>
       ),
@@ -910,7 +910,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
       sortValue: (r) => r.team.teamName,
       render: (r) => (
         <span className="team-name-cell">
-          {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} />}
+          {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} invertOnDark />}
           <ResponsiveTeamName teamId={r.team.teamId} name={r.team.teamName} />
         </span>
       ),
@@ -1089,7 +1089,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
       sortValue: (r) => r.team.teamName,
       render: (r) => (
         <span className="team-name-cell">
-          {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} />}
+          {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} invertOnDark />}
           <ResponsiveTeamName teamId={r.team.teamId} name={r.team.teamName} />
         </span>
       ),
@@ -2563,7 +2563,7 @@ function RecentFormTab({ season, league }: { season: string; league: League }) {
       sortValue: (r) => r.team.teamName,
       render: (r) => (
         <span className="team-name-cell">
-          {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} />}
+          {r.team.teamId !== LEAGUE_TEAM_ID ? <TeamLogo teamId={r.team.teamId} size={20} /> : <LeagueLogo size={20} invertOnDark />}
           <ResponsiveTeamName teamId={r.team.teamId} name={r.team.teamName} />
         </span>
       ),
