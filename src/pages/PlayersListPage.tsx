@@ -5,7 +5,7 @@ import { GamesPlayedRatioSlider } from "../components/GamesPlayedRatioSlider";
 import { AchievableCheckbox } from "../components/AchievableCheckbox";
 import { useAchievableSupport } from "../lib/achievableSupport";
 import { ACHIEVABLE_PARAM, useRemainingGames } from "../lib/achievableGames";
-import { DEFAULT_MIN_RATIO, DEFAULT_MAX_RATIO, matchesGamesPlayedRatioRange } from "../lib/gamesPlayedRatio";
+import { DEFAULT_MIN_RATIO, DEFAULT_MAX_RATIO, matchesGamesPlayedRatioRange, gamesPlayedRatioPercent, formatGamesPlayedRatio } from "../lib/gamesPlayedRatio";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFoulConditionCleanup, useRookieFilterCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { ROOKIE_NOTE, ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason, useSeasonRookies } from "../lib/rookieFilter";
@@ -1127,7 +1127,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     ),
   ];
 
-  const columns =
+  const baseColumns =
     tab === "shooting"
       ? shootingColumns
       : tab === "traditional"
@@ -1143,6 +1143,19 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
             : tab === "onoff"
               ? buildCtxColumns(SEASON_ONOFF_COLUMNS, displayMode)
               : buildCtxColumns(SEASON_SCORING_COLUMNS, displayMode);
+
+  // 出場率（出場試合数÷チームの試合数。掲載基準の絞り込みと同じ式・同じ値。DESIGN.md 476章）。Gの右（Gが無い表はチームの右）に足す
+  const ratioColumn: Column<PlayerRow> = {
+    key: "gpRatio",
+    label: "出場率",
+    sortValue: (r) => gamesPlayedRatioPercent(r.player.gamesPlayed, teamGamesById.get(r.player.teamId)) ?? -1,
+    format: (r) => formatGamesPlayedRatio(r.player.gamesPlayed, teamGamesById.get(r.player.teamId)),
+  };
+  const ratioAfter = Math.max(
+    baseColumns.findIndex((c) => c.key === "g"),
+    baseColumns.findIndex((c) => c.key === "team"),
+  );
+  const columns = [...baseColumns.slice(0, ratioAfter + 1), ratioColumn, ...baseColumns.slice(ratioAfter + 1)];
 
   const tableRows = tab === "shooting" ? shootingRows : conditionedRows;
   const defaultSort = DEFAULT_SORT[tab];

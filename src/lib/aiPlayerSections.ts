@@ -20,6 +20,8 @@ import { formatDecimal } from './format';
 import type { SeasonPeriodSource } from './seasonPeriod';
 import type { PeriodRangeValue } from './periodRange';
 import { teamShortName } from '../../shared/teamNames';
+import { formatGamesPlayedRatio } from './gamesPlayedRatio';
+import { formatPlayerRecord, formatPlayerWinPct } from './playerQuarterSplit';
 
 const pct = (m: number, a: number) => (a > 0 ? `${((100 * m) / a).toFixed(2)}%` : '-');
 
@@ -234,7 +236,12 @@ export function sectionConditions(i: PlayerMdInput, scope: PlayerScope, used: Us
   for (const group of ['会場', '勝敗', '連戦', '対戦相手']) {
     const rows = trad.filter(x => x.gr.group === group);
     if (!rows.length) continue;
-    out.push(`### ${group}`, '', mdTable(['条件', ...sel.map(r => r.label)], rows.map(x => [x.gr.label, ...sel.map(r => valueAt(r, x.gr.label))])), '');
+    // 勝敗・勝率: 本人が出場した試合のチームの勝敗（Gの右。個人詳細のシチュエーション別成績と同じ）
+    const rec = (x: (typeof rows)[number]) => ({ wins: x.gr.logs.filter(g => g.win).length, losses: x.gr.logs.filter(g => !g.win).length });
+    const withRecord = (cells: string[], x: (typeof rows)[number], labels: string[]) => { const k = labels.indexOf('G') + 1; return k > 0 ? [...cells.slice(0, k), formatPlayerRecord(rec(x)), formatPlayerWinPct(rec(x)), ...cells.slice(k)] : cells; };
+    const labels = sel.map(r => r.label);
+    const head = labels.indexOf('G') >= 0 ? [...labels.slice(0, labels.indexOf('G') + 1), '勝敗', '勝率', ...labels.slice(labels.indexOf('G') + 1)] : labels;
+    out.push(`### ${group}`, '', mdTable(['条件', ...head], rows.map(x => [x.gr.label, ...withRecord(sel.map(r => valueAt(r, x.gr.label)), x, labels)])), '');
   }
   void cond;
   return out;
@@ -246,17 +253,18 @@ export function sectionCareer(i: PlayerMdInput): string[] {
   const seasons = i.career;
   if (!seasons.length) return [...out, '- 出場記録がありません。', ''];
   const regular = (c: { logs: PlayerGameLog[] }) => c.logs.filter(g => g.gameType === 'regular' && g.min > 0);
-  const line = (label: string, ls: PlayerGameLog[]) => {
+  const line = (label: string, ls: PlayerGameLog[], ratio = '-') => {
     const t = sumPlayerGameLogs(ls);
     const n = ls.length;
     const avg = (v: number) => formatDecimal(v / n);
-    return [label, String(n), formatMinutesFromSeconds(Math.round((t.min * 60) / n)), avg(t.pts), avg(t.reb), avg(t.ast), avg(t.stl), avg(t.blk), avg(t.tov), pct(t.fgm, t.fga), pct(t.tpm, t.tpa), pct(t.ftm, t.fta), String(t.pts), String(t.reb), String(t.ast)];
+    const rec = { wins: ls.filter(g => g.win).length, losses: ls.filter(g => !g.win).length };
+    return [label, String(n), ratio, formatPlayerRecord(rec), formatPlayerWinPct(rec), formatMinutesFromSeconds(Math.round((t.min * 60) / n)), avg(t.pts), avg(t.reb), avg(t.ast), avg(t.stl), avg(t.blk), avg(t.tov), pct(t.fgm, t.fga), pct(t.tpm, t.tpa), pct(t.ftm, t.fta), String(t.pts), String(t.reb), String(t.ast)];
   };
-  const head = ['シーズン', 'G', 'MIN', 'PTS', 'TR', 'AST', 'STL', 'BLK', 'TOV', 'FG%', '3P%', 'FT%', 'PTS合計', 'TR合計', 'AST合計'];
-  const rows = seasons.map(c => ({ c, ls: regular(c) })).filter(x => x.ls.length).map(x => line(`${x.c.season}${x.c.league === 'one' ? '（B.ONE）' : ''}`, x.ls));
+  const head = ['シーズン', 'G', '出場率', '勝敗', '勝率', 'MIN', 'PTS', 'TR', 'AST', 'STL', 'BLK', 'TOV', 'FG%', '3P%', 'FT%', 'PTS合計', 'TR合計', 'AST合計'];
+  const rows = seasons.map(c => ({ c, ls: regular(c) })).filter(x => x.ls.length).map(x => line(`${x.c.season}${x.c.league === 'one' ? '（B.ONE）' : ''}`, x.ls, formatGamesPlayedRatio(x.ls.length, x.c.player ? x.c.teamLogs.get(x.c.player.teamId)?.filter(t => t.gameType === 'regular').length : undefined)));
   const all = seasons.flatMap(regular);
   out.push('### 通算成績（レギュラーシーズン。この選手のこのサイトにある全シーズンの合計と1試合平均）', '',
-    '- 平均は各行の出場試合数 G で割った値、合計は PTS・TR・AST の合計。ポストシーズンは入れない。', '',
+    '- 平均は各行の出場試合数 G で割った値、合計は PTS・TR・AST の合計。出場率＝G÷その年のチームのレギュラーシーズンの試合数（小数第2位以下は切り捨て）、勝敗・勝率＝本人が出場した試合のチームの結果。ポストシーズンは入れない。', '',
     mdTable(head, [...rows, line('通算', all)]), '');
   // キャリアハイ
   const defs = PLAYER_GAME_RECORD_STATS.filter(d => ['pts', 'reb', 'ast', 'stl', 'blk', 'tpm', 'ftm', 'fgm', 'eff', 'min'].includes(d.key));
