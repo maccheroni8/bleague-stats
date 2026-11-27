@@ -193,7 +193,8 @@ export interface EligibilityLabelInput {
 /** ランキングの掲載基準（出場率＋スタッツ固有の追加基準） */
 export function eligibilityLabels({ gamesRatio, gamesRatioMax, achievable, extra, extraThreshold }: EligibilityLabelInput): string[] {
   const labels = [ratioRangeLabel(gamesRatio * 100, (gamesRatioMax ?? 1) * 100, !!achievable)];
-  if (extra && extraThreshold !== undefined) labels.push(`${extra.label} ${extraThreshold.toFixed(1)}以上`);
+  // 追加の基準を外している（0）ときは「基準なし」と書く（出場率の基準は別なので、「掲載基準なし」とは書かない）
+  if (extra && extraThreshold !== undefined) labels.push(extraThreshold <= 0 ? `${extra.label} 基準なし` : `${extra.label} ${extraThreshold.toFixed(1)}以上`);
   return labels;
 }
 

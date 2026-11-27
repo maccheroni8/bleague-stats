@@ -48,7 +48,7 @@ import {
 } from "../lib/gameRecordQuery";
 import { useGameIndexViews, useGameRecordOptions, usePlayerPeriodViews, useRookieFile } from "../lib/useGameRecordData";
 import { PlayerGameRecordLine, playerGameRecordRankingUrl } from "./PlayerGameRecordLine";
-import { formatPlayerGameRecordValue, playerGameRecordFraction, playerGameRecordMinMadeNote } from "../lib/playerGameRecordFormat";
+import { formatPlayerGameRecordValue, playerGameRecordFraction, playerGameRecordMinMadeNote, playerPctMinBase } from "../lib/playerGameRecordFormat";
 import { ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason } from "../lib/rookieFilter";
 import { DEFAULT_STAT_CONDITIONS, statConditionMatcher, statConditionsTitle } from "../lib/statConditions";
 import { useNarrow } from "../lib/teamLabel";
@@ -61,6 +61,8 @@ import { ExportImageButton } from "./ExportImageButton";
 import { ExportTarget } from "./ExportTarget";
 import { baseDateOf } from "../lib/dataBaseDate";
 import { FilterBar } from "./FilterBar";
+import { minMadeAxis } from "./MinMadeAxis";
+import { RECORD_MIN_MADE_PARAM, minMadeConditionLabels, minMadeOverride } from "../lib/minCriterion";
 import { GameRecordNotes } from "./GameRecordNotes";
 import { PlayerNamePool } from "./PlayerNamePool";
 import { PlayerPhoto } from "./PlayerPhoto";
@@ -104,6 +106,8 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const [activeParam, setActive] = useUrlState(ACTIVE_PARAM, "all");
   const [periodParam, setPeriod] = useUrlState(GAME_RECORD_PERIOD_PARAM, "all");
   const [role, setRole] = useUrlState(ROLE_PARAM, "both");
+  // 成功率の項目の掲載基準（最低成功数）。-1＝最初の基準・0＝基準なし（詳細フィルタ）
+  const [minMadeParam, setMinMadeParam] = useUrlState(RECORD_MIN_MADE_PARAM, -1);
   const allTime = scope === "allTime";
   // Q別・前後半（試合全体は null）。選ぶと、その区間の値で条件・並びを決める（ピリオド別の索引。DESIGN.md 225章）
   const period = gameRecordPeriodOf(periodParam);
@@ -132,6 +136,9 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const selectableStats = stats.filter((s) => !s.disabled);
   const stat = selectableStats.find((s) => s.key === statParam) ?? selectableStats.find((s) => s.key === "pts") ?? selectableStats[0]!;
   const def: PlayerGameRecordDef = stat.def;
+  const pctBase = playerPctMinBase(def.key);
+  // 最初の基準のままなら undefined（今までの経路。上位20位のファイルで出せる）
+  const minMade = pctBase && minMadeParam !== pctBase.base ? minMadeOverride(minMadeParam) : undefined;
   const includeSpecialDefault = effectiveIncludeSpecial(DEFAULT_GAME_RECORD_CONDITIONS, stat.lowerFirst);
   const includeSpecial = effectiveIncludeSpecial(conditions, stat.lowerFirst);
   const hasStatConditions = statConditionMatcher(statConditions, PLAYER_STAT_CONDITION_ITEMS) !== null;
@@ -147,6 +154,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
     !classBlocked &&
     (!!period ||
       stat.indexOnly ||
+      minMade !== undefined ||
       hasGameConditions(conditions) ||
       positions.length > 0 ||
       isRookieFilter(group) ||
@@ -194,11 +202,12 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
             role,
             currentNames: allTime ? current.names : null,
             stat,
+            minMade,
             includeSpecial,
             period: period && periodIndex.views ? { period, views: periodIndex.views } : undefined,
           })
         : null,
-    [index.views, periodIndex.views, period, gameType, conditions, group, positions, statConditions, rookies.file, activeOn, active.ids, allTime, current.names, stat, includeSpecial, role],
+    [index.views, periodIndex.views, period, gameType, conditions, group, positions, statConditions, rookies.file, activeOn, active.ids, allTime, current.names, stat, minMade, includeSpecial, role],
   );
 
   // 区間を選んだとき（とページを開いたとき）に、選べない「ワースト」を外す
@@ -239,6 +248,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
     gameTypeLabels(gameType, seasonForTitle),
     roleLabels(role, null),
     gameRecordConditionLabels(conditions, teamName, includeSpecialDefault),
+    minMadeConditionLabels(minMade === undefined ? -1 : minMadeParam, pctBase?.base ?? null, pctBase?.label),
     );
   const conditionLabels = conditionLabelsFor(group !== "all" ? classificationLabels(group) : []);
   const exportConditionLabels = conditionLabelsFor(group !== "all" ? classificationConditionLabels(group) : []);
@@ -249,7 +259,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const exportTitle = allTime ? `歴代 ${classPart}個人1試合${modeLabel} ${defJa}ランキング` : `${season}シーズン ${classPart}個人1試合${modeLabel} ${defJa}ランキング`;
   const title = allTime ? `歴代 個人1試合${modeLabel} ${defJa}ランキング` : `${season}シーズン 個人1試合${modeLabel} ${defJa}ランキング`;
   const filename = buildExportFilename([`個人1試合${modeLabel}`, allTime ? "歴代" : season, defJa, ...(classTitle ? [classTitle] : []), ...exportConditionLabels]);
-  const minNote = playerGameRecordMinMadeNote(def.key, period ? { key: period, label: period === "ot" ? "延長" : period === "clutch" ? "クラッチ" : period === "h1" ? "前半" : period === "h2" ? "後半" : `${period.slice(1)}Q` } : undefined);
+  const minNote = playerGameRecordMinMadeNote(def.key, period ? { key: period, label: period === "ot" ? "延長" : period === "clutch" ? "クラッチ" : period === "h1" ? "前半" : period === "h2" ? "後半" : `${period.slice(1)}Q` } : undefined, minMade);
   const seasonOf = (e: PlayerRecordRow) => e.season ?? season;
   const periodNotes = period && result ? { overtime: period === "ot", shortGames: result.periodShortGames ?? 0, noRecordGames: result.periodNoRecordGames ?? 0, noPlusMinus: result.excludedNoPlusMinus ?? 0 } : undefined;
 
@@ -259,6 +269,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
     setGameType("regular");
     setPeriod("all");
     setRole("both");
+    setMinMadeParam(-1);
     setPositions(EMPTY_POSITIONS);
     setConditions(DEFAULT_GAME_RECORD_CONDITIONS);
     setStatConditions({ ...statConditions, conditions: [] });
@@ -295,6 +306,13 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
       onChangeSelected: setPositions,
       allLabel: "全ポジション",
     }),
+    minMadeAxis({
+      value: minMade === undefined ? -1 : minMadeParam,
+      base: pctBase?.base ?? null,
+      ruleLabel: pctBase?.label,
+      max: pctBase ? pctBase.base * 3 : 0,
+      onChange: setMinMadeParam,
+    }),
     ...gameRecordAdvancedAxes(axesInput),
   ];
 
@@ -319,7 +337,11 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
               disabledReason: s.disabledReason,
             })),
             def.key,
-            setStatKey,
+            (key) => {
+              setStatKey(key);
+              // 項目を変えたら、別の項目の基準を引き継がない
+              setMinMadeParam(-1);
+            },
           ),
         ]}
       />

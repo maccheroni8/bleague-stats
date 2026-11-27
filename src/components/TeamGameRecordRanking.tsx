@@ -29,6 +29,8 @@ import {
   type TeamRecordMode,
 } from "../lib/teamGameRecords";
 import { TEAM_PCT_MIN_MADE_NOTE } from "../lib/topRecords";
+import { TEAM_PCT_MIN_MADE } from "../../shared/teamRecords";
+import { scaledMinMade as teamPctMinMadeFor } from "../lib/minCriterion";
 import {
   DEFAULT_GAME_RECORD_CONDITIONS,
   cleanGameConditionsForSeason,
@@ -61,6 +63,8 @@ import { ExportImageButton } from "./ExportImageButton";
 import { ExportTarget } from "./ExportTarget";
 import { baseDateOf } from "../lib/dataBaseDate";
 import { FilterBar } from "./FilterBar";
+import { minMadeAxis } from "./MinMadeAxis";
+import { MIN_MADE_RULE_LABEL, RECORD_MIN_MADE_PARAM, minMadeConditionLabels, minMadeOverride } from "../lib/minCriterion";
 import { GameRecordNotes } from "./GameRecordNotes";
 import { RankedList } from "./RankedList";
 import { RecordValue } from "./RecordValue";
@@ -110,6 +114,8 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
   const [conditions, setConditions] = useUrlState(gameRecordConditionsParam, DEFAULT_GAME_RECORD_CONDITIONS);
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
   const [periodParam, setPeriod] = useUrlState(GAME_RECORD_PERIOD_PARAM, "all");
+  // 成功率の項目の掲載基準（最低成功数）。-1＝最初の基準・0＝基準なし（詳細フィルタ）
+  const [minMadeParam, setMinMadeParam] = useUrlState(RECORD_MIN_MADE_PARAM, -1);
   const allTime = scope === "allTime";
   // Q別・前後半（試合全体は null）。選ぶと、その区間の値でスタッツの条件・並びを決める（チームのピリオド別の索引。設計書265章）
   const period = gameRecordPeriodOf(periodParam);
@@ -142,12 +148,16 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
   const selectableItems = items.filter((i) => !("disabled" in i && i.disabled));
   const item = selectableItems.find((i) => i.key === statParam) ?? selectableItems.find((i) => i.key === "pts") ?? selectableItems[0]!;
   const stat = useMemo(() => teamQueryStat(mode, item.key)!, [mode, item.key]);
+  const pctBase = stat.pctKey ? ((TEAM_PCT_MIN_MADE as Record<string, number>)[stat.pctKey] ?? null) : null;
+  // 最初の基準のままなら undefined（今までの経路）
+  const minMade = pctBase !== null && minMadeParam !== pctBase ? minMadeOverride(minMadeParam) : undefined;
+  const pctRuleLabel = stat.pctKey ? MIN_MADE_RULE_LABEL[stat.pctKey] : undefined;
   const includeSpecialDefault = effectiveIncludeSpecial(DEFAULT_GAME_RECORD_CONDITIONS, stat.lowerFirst);
   const includeSpecial = effectiveIncludeSpecial(conditions, stat.lowerFirst);
   const conditionItems = period ? TEAM_STAT_CONDITION_ITEMS_PERIOD : TEAM_STAT_CONDITION_ITEMS;
   const hasStatConditions = statConditionMatcher(statConditions, conditionItems) !== null;
   // 条件が無く、前後半5分の特別な試合も除かない間は、これまでどおり（歴代は上位20位のファイル、シーズンは全クラブの試合ログ）。条件・区間・得失点差のときだけ索引を読む
-  const useIndex = !!period || stat.indexOnly || hasGameConditions(conditions) || hasStatConditions || !includeSpecial;
+  const useIndex = !!period || stat.indexOnly || minMade !== undefined || hasGameConditions(conditions) || hasStatConditions || !includeSpecial;
   const options = useGameRecordOptions(scope, season, league);
 
   // 歴代: 集計ファイルと名称の履歴。シーズン: そのシーズンの全クラブの試合ログ（使わない範囲・索引を使うときは読み込まない）
@@ -185,11 +195,12 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
             conditions,
             statConditions,
             stat,
+            minMade,
             includeSpecial,
             period: period && periodIndex.files ? { period, files: periodIndex.files } : undefined,
           })
         : null,
-    [index.views, periodIndex.files, period, gameType, conditions, statConditions, stat, includeSpecial],
+    [index.views, periodIndex.files, period, gameType, conditions, statConditions, stat, minMade, includeSpecial],
   );
 
   const rows = useMemo<TeamGameRecordRow[]>(
@@ -222,6 +233,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
     gameRecordPeriodLabel(periodParam),
     gameTypeLabels(gameType, seasonForTitle),
     gameRecordConditionLabels(conditions, teamName, includeSpecialDefault),
+    minMadeConditionLabels(minMade === undefined ? -1 : minMadeParam, pctBase, pctRuleLabel),
   );
   const periodNotes = period && result ? { overtime: period === "ot", shortGames: result.periodShortGames ?? 0, noRecordGames: result.periodNoRecordGames ?? 0, noPlusMinus: 0 } : undefined;
   const modeLabel = TEAM_RECORD_MODE_LABELS[mode];
@@ -245,6 +257,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
   const clearAll = () => {
     setGameType("regular");
     setPeriod("all");
+    setMinMadeParam(-1);
     setConditions(DEFAULT_GAME_RECORD_CONDITIONS);
     setStatConditions({ ...statConditions, conditions: [] });
   };
@@ -254,6 +267,13 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
     periodAxis(periodParam, setPeriod, GAME_RECORD_PERIOD_OPTIONS, {}),
     modeAxis,
     ...gameRecordPrimaryAxes(axesInput),
+    minMadeAxis({
+      value: minMade === undefined ? -1 : minMadeParam,
+      base: pctBase,
+      ruleLabel: pctRuleLabel,
+      max: pctBase ? pctBase * 3 : 0,
+      onChange: setMinMadeParam,
+    }),
     ...gameRecordAdvancedAxes(axesInput),
   ];
 
@@ -270,7 +290,10 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
         wide
         stateKey="rankings:team:game:stat"
         axes={[
-          statItemAxis(items, item.key, setStatKey),
+          statItemAxis(items, item.key, (key) => {
+            setStatKey(key);
+            setMinMadeParam(-1);
+          }),
         ]}
       />
       {useIndex && (index.error ?? periodIndex.error) ? (
@@ -334,8 +357,14 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
               statScope="team"
               compact
             />
-            {isPct && !period && <p className="rule-change-footnote">※ {TEAM_PCT_MIN_MADE_NOTE}同じ率の中は試投数の多い試合から並べます。</p>}
-            {isPct && period && (
+            {isPct && minMade === 0 && (
+              <p className="rule-change-footnote">※ 成功数の基準を外しているため、試投のあった{period ? "記録" : "試合"}すべてが対象です。同じ率の中は試投数の多い{period ? "記録" : "試合"}から並べます。</p>
+            )}
+            {isPct && minMade !== undefined && minMade > 0 && (
+              <p className="rule-change-footnote">※ 成功率は、{pctRuleLabel}が{period ? teamPctMinMadeFor(minMade, period) : minMade}以上の{period ? "記録" : "試合"}だけが対象です。同じ率の中は試投数の多い{period ? "記録" : "試合"}から並べます。</p>
+            )}
+            {isPct && !period && minMade === undefined && <p className="rule-change-footnote">※ {TEAM_PCT_MIN_MADE_NOTE}同じ率の中は試投数の多い試合から並べます。</p>}
+            {isPct && period && minMade === undefined && (
               <p className="rule-change-footnote">
                 ※ 成功率は、最低成功数（試合全体の基準を区間の長さに合わせて下げた数。{teamPctMinMade(item.key, period)}以上）を満たす記録だけが対象です。同じ率の中は試投数の多い記録から並べます。
               </p>

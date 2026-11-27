@@ -78,6 +78,8 @@ import {
   type PlayerGroupFilter,
 } from "../lib/classificationFilter";
 import { ClassificationNotes } from "../components/ClassificationNotes";
+import { SHOT_MIN_NONE_PARAM } from "../lib/minCriterion";
+import { NoCriterionCheckbox } from "../components/NoCriterionCheckbox";
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING } from "../lib/playerRankingEligibility";
 import {
   buildExportFilename,
@@ -220,7 +222,7 @@ function CompareNotes({
   mode,
   narrowed,
   kind,
-  empty,
+
 }: {
   season: string;
   prevSeason: string;
@@ -233,13 +235,8 @@ function CompareNotes({
 }) {
   return (
     <>
-      {empty && (
-        <p className="empty-message">
-          {kind === "player" ? "今季の掲載基準を満たし、前季にも値のある選手がいません。" : "今季・前季の両方で値のあるチームがありません。"}
-        </p>
-      )}
       <p className="rule-change-footnote">
-        ※ 前季は{prevSeason}シーズンです。{kind === "player" ? "今季の掲載基準を満たす選手のうち、前季にも出場した選手" : "今季・前季の両方にあるチーム"}だけを表示しています。差は、表示している値どうしの差です（％の項目は％どうしの差、MINは時間の差）。
+        ※ 前季は{prevSeason}シーズンです。載る{kind === "player" ? "選手" : "チーム"}と並び順は、前シーズン比較を選ばないときと同じです。前季に記録がなく比べられない{kind === "player" ? "選手" : "チーム"}は、前季と差を「-」にしています。差は、表示している値どうしの差です（％の項目は％どうしの差、MINは時間の差）。
       </p>
       {narrowed && (
         <p className="rule-change-footnote">
@@ -837,6 +834,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
   const achievableSupported = useAchievableSupport(season, league);
   const achievable = urlAchievable && achievableSupported;
   const defaultExtra = EXTRA_ELIGIBILITY_RULES[extraRuleKey(statKey)]?.defaultValue ?? 0;
+  const [shotMinNone, setShotMinNone] = useUrlState(SHOT_MIN_NONE_PARAM, false);
   const [extraThreshold, setExtraThreshold] = useUrlState(numberParam("ex", defaultExtra, { min: 0 }), defaultExtra);
   // 登録区分（全選手・日本人・外国籍/帰化/アジア）と、4つ目の「ルーキー」（cls=rookie。DESIGN.md 217章）。ルーキーを選べないシーズン（2016-17）では「全選手」として扱う
   const [selectedGroup, setSelectedGroup] = useUrlState(PLAYER_GROUP_PARAM, "all");
@@ -906,6 +904,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
     gamesRatioMax,
     achievable,
     extraThreshold,
+    noShotMin: shotMinNone,
     group: selectedClassification,
     rookieIds: rookies.ids,
     positions,
@@ -972,12 +971,14 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
 
   const selectCategory = (next: PlayerRankCategory) => {
     setCategory(next);
+    setShotMinNone(false);
     const nextKey = playerDefaultStatKey(next);
     setStatKey(nextKey);
     setExtraThreshold(EXTRA_ELIGIBILITY_RULES[extraRuleKey(nextKey)]?.defaultValue ?? 0);
   };
   const selectStat = (next: string) => {
     setStatKey(next);
+    setShotMinNone(false);
     setExtraThreshold(EXTRA_ELIGIBILITY_RULES[extraRuleKey(next)]?.defaultValue ?? 0);
   };
 
@@ -1009,6 +1010,9 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
   const profileBaseDateLabel = category === "profile" && selectedItem.key === "age" ? ageBaseDateLabel(season) : null;
 
   const extraRule = EXTRA_ELIGIBILITY_RULES[extraRuleKey(statKey)];
+  // シュートタイプ・エリア別の成功率には、チームの試合数の半分の最低試投数がある。詳細フィルタで外せる
+  const shotMinApplies = category === "shooting" && /_[23]ppct$/.test(statKey);
+  const shotMinLabels: string[] = shotMinApplies && shotMinNone ? ["最低試投数 基準なし"] : [];
   const waitingForGameLogs = (rookieActive && rookies.loading) || waiting || (compareActive && prevRanking.waiting && !prevRanking.playersError);
   const comparison =
     compareActive && prevSeason && !waitingForGameLogs && !ddtdPeriodOff
@@ -1066,7 +1070,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
         // 切り替えの対象外の項目（割合・Profile・Career）では書かない
         modeApplies ? displayModeLabels(rankMode) : [],
         playerScopeLabels,
-        registeredTarget ? "登録選手" : overtimeActive ? (subsetEligibilityLabel(period) ?? OVERTIME_ELIGIBILITY_LABEL) : eligibilityLabels({ gamesRatio, gamesRatioMax, achievable, extra: extraRule, extraThreshold }),
+        registeredTarget ? "登録選手" : overtimeActive ? (subsetEligibilityLabel(period) ?? OVERTIME_ELIGIBILITY_LABEL) : [...eligibilityLabels({ gamesRatio, gamesRatioMax, achievable, extra: extraRule, extraThreshold }), ...shotMinLabels],
       );
   const playerStatJa = statJa(selectedItem.label);
   const playerScreenTitle = makeRankingTitle("個人", season, playerStatJa, playerConditions(false));
@@ -1089,7 +1093,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
           ? "このカテゴリは試合種別・シチュエーション別フィルタ・Q別/前後半の対象外です（登録区分・ポジションのみ適用されます）。"
         : undefined;
   const eligibilityDefaultExtra = extraRule?.defaultValue ?? 0;
-  const eligibilitySummary = eligibilityLabels({ gamesRatio, gamesRatioMax, achievable, extra: extraRule, extraThreshold }).join(LABEL_SEPARATOR);
+  const eligibilitySummary = [...eligibilityLabels({ gamesRatio, gamesRatioMax, achievable, extra: extraRule, extraThreshold }), ...shotMinLabels].join(LABEL_SEPARATOR);
   const eligibilityAxis: FilterAxis = {
     kind: "popover",
     id: "eligibility",
@@ -1100,13 +1104,14 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
       : overtimeActive
         ? (subsetEligibilityReason(period) ?? OVERTIME_ELIGIBILITY_REASON)
         : undefined,
-    value: `${Math.round(gamesRatio * 100)}-${Math.round(gamesRatioMax * 100)}|${extraRule ? extraThreshold : ""}|${achievable ? "ach" : ""}`,
-    defaultValue: `${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}-100|${extraRule ? eligibilityDefaultExtra : ""}|`,
+    value: `${Math.round(gamesRatio * 100)}-${Math.round(gamesRatioMax * 100)}|${extraRule ? extraThreshold : ""}|${achievable ? "ach" : ""}|${shotMinApplies && shotMinNone ? "sa" : ""}`,
+    defaultValue: `${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}-100|${extraRule ? eligibilityDefaultExtra : ""}||`,
     onChange: () => {
       setGamesRatio(MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
       setGamesRatioMax(1);
       setAchievable(false);
       setExtraThreshold(eligibilityDefaultExtra);
+      setShotMinNone(false);
     },
     summary: eligibilitySummary,
     chipValue: eligibilitySummary,
@@ -1124,16 +1129,26 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
         {achievableSupported && (
           <AchievableCheckbox checked={achievable} onChange={setAchievable} />
         )}
+        {shotMinApplies && <NoCriterionCheckbox label="最低試投数の基準なし" checked={shotMinNone} onChange={setShotMinNone} />}
         {extraRule && (
-          <EligibilitySlider
-            label={extraRule.label}
-            value={extraThreshold}
-            min={extraRule.min}
-            max={extraRule.max}
-            step={extraRule.step}
-            format={(v) => v.toFixed(1)}
-            onChange={setExtraThreshold}
-          />
+          <>
+            <NoCriterionCheckbox
+              label={`${extraRule.label}の基準なし`}
+              checked={extraThreshold <= 0}
+              onChange={(none) => setExtraThreshold(none ? 0 : eligibilityDefaultExtra)}
+            />
+            {extraThreshold > 0 && (
+              <EligibilitySlider
+                label={extraRule.label}
+                value={extraThreshold}
+                min={extraRule.step}
+                max={extraRule.max}
+                step={extraRule.step}
+                format={(v) => v.toFixed(1)}
+                onChange={setExtraThreshold}
+              />
+            )}
+          </>
         )}
       </>
     ),
@@ -1265,7 +1280,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
       <div className="filter-block">
         <p className="page-subtitle">
           対象{comparison ? comparison.rows.length : conditionActive ? shownRows.length : eligible.length}名中、上位{PLAYER_RANK_TOP_N}名を表示
-          {comparison && `（今季の掲載基準を満たし、前季（${prevSeason}）にも値のある選手）`}
+          {comparison && `（今季の掲載基準を満たす選手。前季に記録がない選手は「-」）`}
           {conditionActive && "（スタッツの条件で絞り込んだ中での順位）"}
         </p>
         {(needsGameLogRecompute || periodActive) && ["eff", "per"].includes(selectedItem.key) && (

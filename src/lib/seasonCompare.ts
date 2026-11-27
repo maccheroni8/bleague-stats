@@ -189,16 +189,17 @@ export function rankPositions(texts: readonly string[]): number[] {
 // ---- 比較の行を作る ----
 
 export interface CompareEntry<P> {
-  prev: P;
+  /** 前季の行。前季に記録がなく比べられない行は null（前季の値・差は「-」で、色は付けない） */
+  prev: P | null;
   prevText: string;
   diff: number;
   diffText: string;
-  tone: "good" | "bad" | "flat";
+  tone: "good" | "bad" | "flat" | "none";
 }
 
 /**
- * 今季の表（currentRows）と前季の全体（prevRows）から、両方にある行だけの比較を作る。
- * 表示値が読めない行は外す
+ * 今季の表（currentRows）と前季の全体（prevRows）から比較を作る。前シーズン比較は補助なので、載る行と並びは今季の表のまま変えない。
+ * 前季に記録がない・比べられない行は、前季の値と差を「-」にして残す（差は NaN。色は付けない）
  */
 export function buildCompare<T, P>(opts: {
   currentRows: readonly T[];
@@ -216,13 +217,14 @@ export function buildCompare<T, P>(opts: {
   const entries = new Map<string, CompareEntry<P>>();
   for (const row of currentRows) {
     const key = currentKey(row);
-    const prev = prevByKey.get(key);
-    if (!prev || (accept && !accept(row, prev))) continue;
-    const prevText = prevDef.format(prev);
-    const d = displayedDiff(currentDef.format(row), prevText);
-    if (!d) continue;
     rows.push(row);
-    entries.set(key, { prev, prevText, diff: d.diff, diffText: d.text, tone: diffTone(d.diff, currentDef.higherIsBetter) });
+    const prev = prevByKey.get(key);
+    const d = prev && (!accept || accept(row, prev)) ? displayedDiff(currentDef.format(row), prevDef.format(prev)) : null;
+    if (prev && d) {
+      entries.set(key, { prev, prevText: prevDef.format(prev), diff: d.diff, diffText: d.text, tone: diffTone(d.diff, currentDef.higherIsBetter) });
+    } else {
+      entries.set(key, { prev: null, prevText: "-", diff: Number.NaN, diffText: "-", tone: "none" });
+    }
   }
   return { rows, entries };
 }

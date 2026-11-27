@@ -478,6 +478,8 @@ export interface PlayerRankingParams {
   /** 掲載基準の出場率を「達成可能」（今の出場試合数＋チームの残り試合数で、出場率に届く）で判定する */
   achievable: boolean;
   extraThreshold: number;
+  /** シュートタイプ・エリア別の成功率（Shooting）の最低試投数の基準を外す（詳細フィルタの「基準なし」。省略は基準あり） */
+  noShotMin?: boolean;
   /** 登録区分＋ルーキー。ルーキーを選べないシーズンでは、呼び出し側が "all" にして渡す */
   group: PlayerGroupFilter;
   /** そのシーズンのルーキーの選手ID（group が "rookie" のときだけ使う。読み込み前は null） */
@@ -605,10 +607,10 @@ export function usePlayerSeasonRanking(
     );
     if (category !== "shooting") return base;
     const withShots = base.filter((p) => !!p.shotTypes);
-    return opts.skipEligibility ? withShots : filterShotPctMinAttempts(withShots, teams, statKey);
+    return opts.skipEligibility || params.noShotMin ? withShots : filterShotPctMinAttempts(withShots, teams, statKey);
     // groupOk は group・rookieIds・classScope.changed から決まる
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopedPlayers, teams, gamesRatio, gamesRatioMax, remainingByTeam, statKey, extraThreshold, opts.skipEligibility, group, positions, rookieActive, rookieIds, category, registeredTarget, registeredPlayers, overtimeActive, periodFiltersApply, overtimeIds, classScope.changed]);
+  }, [scopedPlayers, teams, gamesRatio, gamesRatioMax, remainingByTeam, statKey, extraThreshold, opts.skipEligibility, params.noShotMin, group, positions, rookieActive, rookieIds, category, registeredTarget, registeredPlayers, overtimeActive, periodFiltersApply, overtimeIds, classScope.changed]);
 
   // シーズンが変わったら取得済みキャッシュをリセットする
   useEffect(() => {

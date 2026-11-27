@@ -79,13 +79,15 @@ type Row = { id: string; v: number };
 const def = { value: (r: Row) => r.v, format: (r: Row) => r.v.toFixed(1), higherIsBetter: true };
 const prevAll: Row[] = [{ id: "a", v: 20 }, { id: "b", v: 18 }, { id: "c", v: 15 }, { id: "d", v: 15 }, { id: "e", v: 10 }];
 const full = buildCompare<Row, Row>({ currentRows: [{ id: "a", v: 22 }, { id: "c", v: 17 }, { id: "e", v: 12 }, { id: "z", v: 30 }], currentKey: (r) => r.id, currentDef: def, prevRows: prevAll, prevKey: (r) => r.id, prevDef: def });
-eq("比較 前季にいない行は出ない", full.rows.map((r) => r.id), ["a", "c", "e"]);
+eq("比較 前季にいない行も残る（並びは今季のまま）", full.rows.map((r) => r.id), ["a", "c", "e", "z"]);
+eq("比較 前季にいない行は「-」・差なし・色なし", [full.entries.get("z")!.prevText, full.entries.get("z")!.diffText, Number.isNaN(full.entries.get("z")!.diff), full.entries.get("z")!.tone], ["-", "-", true, "none"]);
 eq("比較 差", ["a", "c", "e"].map((k) => full.entries.get(k)!.diffText), ["+2.0", "+2.0", "+2.0"]);
 eq("比較 前季の値", ["a", "c", "e"].map((k) => full.entries.get(k)!.prevText), ["20.0", "15.0", "10.0"]);
 const accepted = buildCompare<Row, Row>({ currentRows: [{ id: "a", v: 22 }, { id: "c", v: 17 }], currentKey: (r) => r.id, currentDef: def, prevRows: prevAll, prevKey: (r) => r.id, prevDef: def, accept: (r) => r.id !== "c" });
-eq("比較 外した行は出ない", accepted.rows.map((r) => r.id), ["a"]);
+eq("比較 外した組も行は残り、前後は「-」", accepted.rows.map((r) => r.id), ["a", "c"]);
+eq("比較 外した組は「-」", accepted.entries.get("c")!.diffText, "-");
 const unreadable = buildCompare<Row, Row>({ currentRows: [{ id: "a", v: 22 }], currentKey: (r) => r.id, currentDef: { format: () => "-" }, prevRows: prevAll, prevKey: (r) => r.id, prevDef: def });
-eq("比較 値が読めない行は出ない", unreadable.rows.length, 0);
+eq("比較 値が読めない行も残り、差は「-」", [unreadable.rows.length, unreadable.entries.get("a")!.diffText], [1, "-"]);
 
 // 使えない条件
 const base = {

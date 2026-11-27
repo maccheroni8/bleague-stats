@@ -37,7 +37,7 @@ export interface RankCompare<T> {
   prevCell: (row: T) => ReactNode;
   diff: (row: T) => number;
   diffText: (row: T) => string;
-  tone: (row: T) => "good" | "bad" | "flat";
+  tone: (row: T) => "good" | "bad" | "flat" | "none";
   rankPool: T[];
 }
 
@@ -186,14 +186,20 @@ export function RankedList<T>({
 
   const factor = sortDir === "asc" ? 1 : -1;
   const sortedValues = bySortDiff
-    ? [...rows].sort((a, b) => (compare.diff(a) - compare.diff(b)) * factor)
+    ? [...rows].sort((a, b) => {
+        // 前季に記録がない行（差が NaN）は、並べ方によらず最後
+        const na = Number.isNaN(compare.diff(a));
+        const nb = Number.isNaN(compare.diff(b));
+        if (na || nb) return na === nb ? 0 : na ? 1 : -1;
+        return (compare.diff(a) - compare.diff(b)) * factor;
+      })
     : [...rows].sort((a, b) => (def.value(a) - def.value(b)) * factor);
   const sorted = unranked ? [...sortedValues.filter((r) => !unranked(r)), ...sortedValues.filter(unranked)] : sortedValues;
   // 順位（DESIGN.md 146章）: 同じ値は同じ順位にし、次の順位はその分飛ばす（1位・2位・2位・4位）。
   // 同じかどうかは画面に表示している値（def.format。小数は丸めた後）で判定する。limit の境目で同じ順位が続く分は、
   // 「同じ順位のほか◯人を表示」で広げる。差で並べているときは、差の表示値で判定する
   // 順位を付けない行は、ほかの行と同じ順位にまとめない（行ごとに別の文字列にする）
-  const ranks = sorted.map((row) => (unranked?.(row) ? `\0${rowKey(row)}` : bySortDiff ? compare.diffText(row) : (tieKey ?? def.format)(row)));
+  const ranks = sorted.map((row) => (unranked?.(row) || (bySortDiff && Number.isNaN(compare.diff(row))) ? `\0${rowKey(row)}` : bySortDiff ? compare.diffText(row) : (tieKey ?? def.format)(row)));
   const rankAt = (i: number): number => {
     let j = i;
     while (j > 0 && ranks[j - 1] === ranks[i]) j -= 1;
