@@ -1028,7 +1028,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
         ? conditionItems
         : [
             extraRule
-              ? criterionItem(extraRule.label, "1試合平均", { thresholdText: (v) => v.toFixed(1) })
+              ? criterionItem(extraRule.label, "1試合平均", { thresholdText: (v) => (Number.isInteger(Math.round(v * 1000) / 100) && Math.round(v * 10) / 10 === v ? v.toFixed(1) : String(Number(v.toFixed(3)))) })
               : criterionItem("試投数", "チームの試合数に対する倍率", {
                   thresholdText: (v) => (v === SHOT_PCT_MIN_ATTEMPTS_FACTOR ? "チームの試合数の半分" : `チームの試合数の${v}倍`),
                 }),
