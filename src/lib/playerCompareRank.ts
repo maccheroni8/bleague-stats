@@ -7,7 +7,8 @@ import { buildRankLines, rankLogPlayers, type AiPlayerRankData, type RankLine } 
 import { COMPARE_PLAYER_RANK_LIMIT, rankText } from "./compareRank";
 import { leagueCacheKey, type League } from "./league";
 import type { PlayerGameLog, PlayerSummary, TeamGameLog } from "../../shared/types";
-import type { SeasonBoxTabKey } from "./playerSeasonBoxscore";
+import { fetchPlayerCareers } from "./data";
+import { buildRegisteredRankLines, loadRegisteredPool, type PlayerCompareTabKey } from "./playerCompareExtra";
 
 async function mapLimited<T>(items: T[], fn: (item: T) => Promise<void>, limit: number): Promise<void> {
   let next = 0;
@@ -63,19 +64,31 @@ export function playerRankLabels(lines: readonly RankLine[], neutral: (key: stri
 export function usePlayerCompareRanks(opts: {
   season: string;
   league: League;
-  tab: SeasonBoxTabKey;
+  tab: PlayerCompareTabKey;
   playerId: string;
   enabled: boolean;
   neutral: (key: string) => boolean;
 }): PlayerRankLabels | null {
   const { season, league, tab, playerId, enabled, neutral } = opts;
   const [state, setState] = useState<{ key: string; labels: PlayerRankLabels } | null>(null);
-  const withLogs = tab !== "traditional";
+  // Traditional・Shooting は試合ログを読まない（Profile・Career は登録選手の一覧で決まる）
+  const withLogs = tab === "advanced" || tab === "misc" || tab === "scoring";
   const key = `${league}:${season}:${tab}:${playerId}`;
   useEffect(() => {
     if (!enabled || !playerId) return;
     let cancelled = false;
     (async () => {
+      if (tab === "profile" || tab === "career") {
+        // 登録していた選手全員（試合に出ていない選手を含む）の中での順位（ランキングの Profile・Career と同じ）
+        const pool = await loadRegisteredPool(season, league);
+        const target = pool.find((p) => p.playerId === playerId);
+        if (!target) return;
+        const careers = tab === "career" ? await fetchPlayerCareers() : null;
+        const careerBySeason = careers?.seasons[season];
+        const lines = buildRegisteredRankLines(tab, season, pool, (p) => careerBySeason?.[p.playerId], target);
+        if (!cancelled) setState({ key, labels: playerRankLabels(lines, neutral) });
+        return;
+      }
       const base = await loadRankData(season, league, withLogs);
       const target = base.players.find((p: PlayerSummary) => p.playerId === playerId);
       if (!target) return;

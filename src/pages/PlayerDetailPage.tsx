@@ -142,6 +142,7 @@ import {
   computePlayerSituationalStats,
   computeSeasonHalfBoundary,
   filterGameLogs,
+  isDefaultFilter,
   matchesDivision,
   matchesMonth,
   matchesNewYearHalf,
@@ -180,7 +181,8 @@ import { ComparisonTable, type ComparisonRow } from "../components/ComparisonTab
 import { HeightWeightNote } from "../components/HeightWeightNote";
 import { AGE_BASE_NOTE, ageForSeason } from "../lib/age";
 import { heightText, positionText, weightText } from "../lib/profileMark";
-import { recordOfLogs, seasonBoxCompareDefs, type CompareColumnData } from "../lib/compareShared";
+import { recordOfLogs, type CompareColumnData } from "../lib/compareShared";
+import { playerCompareDefs, playerCompareTabs, tabIgnoresFilters, usePlayerCompareExtra, isBoxTab, type PlayerCompareTabKey } from "../lib/playerCompareExtra";
 import { statDescription } from "../lib/statDescriptions";
 import { PlayerSeasonScoringChart } from "../components/PlayerScoringShareCharts";
 import { PlayerOpponentSplit } from "../components/PlayerOpponentSplit";
@@ -957,7 +959,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // SEASON_BOX_TABS/SEASON_BOX_COLUMNSを再利用）と、レギュラー/プレーオフ/合算トグル
   // （既存のSeasonGameTypeFilter軸を再利用）。両スロット共通の1セットのみ持つ（各スロットの
   // シチュエーション別フィルタ自体はスロットごとに独立のまま）
-  const [compareTab, setCompareTab] = usePageState<SeasonBoxTabKey>(pk("compareTab"), "traditional");
+  const [compareTab, setCompareTab] = usePageState<PlayerCompareTabKey>(pk("compareTab"), "traditional");
   const [compareGameType, setCompareGameType] = usePageState<SeasonGameTypeFilter>(pk("compareGameType"), "regular");
 
   // 「スタッツ」タブの「シチュエーション別成績」セクション: 独立したシーズン選択・
@@ -1991,6 +1993,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // compareGameTypeに一本化するため常にtrueを渡し、filterGameLogs内の二重絞り込みを避ける）を
   // 適用する。シーズン内移籍で複数チームに分かれる場合はbuildTeamSplitRowsの「複数チーム」合算行
   // （常に配列の最後）を1スロット1列として使う
+  // PER・Shooting・Profile・Career の元（選手のシーズンの記録。試合ログの絞り込みに左右されない）。枠は2つ固定
+  const compareExtras = ([0, 1] as const).map((i) =>
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    usePlayerCompareExtra({ season: compareSlots[i].season, league, playerId: playerId ?? "", active: tab === "compare" && !!compareSlots[i].season, needCareer: compareTab === "career" }),
+  );
+  const compareFiltered = ([0, 1] as const).map((i) => compareGameType !== "regular" || !isDefaultFilter(compareSlots[i].filter));
   const compareRows: ComparisonRow<CompareColumnData>[] = compareSlots
     .map((slot, i): ComparisonRow<CompareColumnData> | null => {
       if (!slot.season || !careerData) return null;
@@ -2033,6 +2041,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
           record: recordOfLogs(combined.logs),
           // DD2・TD3（個人詳細のシーズン別成績と同じ数え方・同じ試合）
           ddtd: countDoubleTripleDoubles(combined.logs),
+          summary: compareExtras[i]!.summary,
+          career: compareExtras[i]!.career,
+          filtered: compareFiltered[i]!,
+          season: slot.season,
         },
         season: slot.season,
       };
@@ -2465,7 +2477,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const compareTitle = {
     title: `${player.name} 比較：${compareSlotDescriptions.join(" vs ")}`,
     conditions: composeLabels(
-      seasonBoxCategoryLabel(compareTab),
+      (CATEGORY_LABELS as Record<string, string>)[compareTab] ?? compareTab,
       displayModeLabels("perGame"),
       gameTypeLabels(compareGameType, null),
       "試合全体",
@@ -3429,7 +3441,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             })}
           </div>
           <FilterBar simple stateKey={pk("compareCommon")} axes={[gameTypeAxis(compareGameType, setCompareGameType, null)]} />
-          <CompareCategoryBar tabs={SEASON_BOX_TABS} category={compareTab} onCategory={setCompareTab} />
+          <CompareCategoryBar tabs={playerCompareTabs(league)} category={compareTab} onCategory={setCompareTab} />
           {compareSlotDescriptions.length > 0 && (
             <ConditionTitle title={compareTitle.title} conditions={compareTitle.conditions} />
           )}
@@ -3440,13 +3452,16 @@ export function PlayerDetailPage({ season }: { season: string }) {
           ) : (
             <ComparisonTable
               rows={compareRows}
-              defs={seasonBoxCompareDefs(compareTab, foulColumnsSplit(compareSlots.map((slot) => slot.season).filter((s): s is string => !!s)))}
+              defs={playerCompareDefs(compareTab, foulColumnsSplit(compareSlots.map((slot) => slot.season).filter((s): s is string => !!s)))}
               rowKey={(r) => r.key}
               name={(r) => r.label}
               linkTo={() => `/players/${player.playerId}`}
               teamColor={() => accentColor}
               jaNames
             />
+          )}
+          {tabIgnoresFilters(compareTab) && compareTab === "shooting" && compareFiltered.some(Boolean) && (
+            <p className="page-subtitle">この表の項目は、試合区分・シチュエーションの絞り込みを掛けられないため、絞り込みのある枠は「-」です（シーズン全体の記録）。</p>
           )}
           {compareTab === "misc" && (
             <RuleChangeFootnote seasons={compareSlots.map((slot) => slot.season).filter((s): s is string => !!s)} />

@@ -27,7 +27,7 @@ import {
   type TeamPerspective,
   type TeamTotals,
 } from "./teamStatsColumns";
-import type { TeamGameLog } from "../../shared/types";
+import type { PlayerCareerCounts, PlayerSummary, TeamGameLog } from "../../shared/types";
 import type { Column } from "../components/SortableTable";
 import { NATURALIZED_ASIA_LABEL } from "./statNames";
 import { matchRankColumn } from "./compareRank";
@@ -525,6 +525,14 @@ export interface CompareColumnData {
   record?: CompareRecord;
   /** 出場した試合でのダブルダブル・トリプルダブルの回数（DD2・TD3。個人詳細のシーズン別成績と同じ数え方 `countDoubleTripleDoubles`） */
   ddtd?: { dd: number; td: number; p10?: number };
+  /** その枠のシーズンの選手の記録（PER・Shooting・Profile。試合ログの絞り込みに左右されない値。playerCompareExtra.ts） */
+  summary?: PlayerSummary | null;
+  /** そのシーズン終了時点までの経歴の累計（Career） */
+  career?: PlayerCareerCounts | null;
+  /** 試合区分・絞り込み・区間を掛けている枠（PER・Shooting はシーズン全体の値なので「-」にする） */
+  filtered?: boolean;
+  /** 枠のシーズン（Profile の年齢の基準） */
+  season?: string;
 }
 
 /**

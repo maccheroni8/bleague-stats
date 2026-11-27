@@ -38,7 +38,6 @@ import { SEASON_PERIOD_OPTIONS, seasonPeriodOption } from "../lib/seasonPeriod";
 import { CLASSIFICATION_PARAM } from "../lib/classificationParam";
 import { isClassUnavailableStat } from "../lib/teamSeasonRanking";
 import {
-  seasonBoxCompareDefs,
   teamCompareDefs,
   type CompareColumnData,
   type TeamCompareColumnData,
@@ -73,6 +72,16 @@ import { DEFAULT_STAT_CONDITIONS } from "../lib/statConditions";
 import { matchRankColumn, rankText, teamRankOf } from "../lib/compareRank";
 import { usePlayerCompareRanks } from "../lib/playerCompareRank";
 import { rankDirectionOf } from "../lib/rankDirection";
+import {
+  PLAYER_COMPARE_TAB_KEYS,
+  isBoxTab,
+  playerCompareDefs,
+  playerCompareTabs,
+  tabIgnoresFilters,
+  usePlayerCompareExtra,
+  type PlayerCompareTabKey,
+} from "../lib/playerCompareExtra";
+import { CATEGORY_LABELS } from "../lib/categoryLabels";
 
 type Mode = "team" | "player";
 
@@ -164,6 +173,7 @@ function parseEnumParam<T extends string>(raw: string | null, allowed: readonly 
 }
 
 const CATEGORY_KEYS = BOXSCORE_TABS.map((t) => t.key);
+const TEAM_TABS: { key: PlayerCompareTabKey; label: string }[] = BOXSCORE_TABS;
 const GAME_TYPE_KEYS = SEASON_GAME_TYPE_KEYS;
 const PERSPECTIVE_KEYS = Object.keys(TEAM_PERSPECTIVE_LABELS) as TeamPerspective[];
 
@@ -334,12 +344,12 @@ function slotConditionLabel(slot: SlotValue, data: Pick<TeamSlotData, "boundary"
   );
 }
 
-function categoryLabel(cat: BoxscoreTabKey): string {
-  return BOXSCORE_TABS.find((t) => t.key === cat)?.label ?? cat;
+function categoryLabel(cat: PlayerCompareTabKey): string {
+  return (CATEGORY_LABELS as Record<string, string>)[cat] ?? cat;
 }
 
 /** 見出しの下の条件の行・ファイル名に入れるタブ名。カテゴリ名（Traditional 等）をそのまま出す（4枚まとめて保存したとき、どの1枚か分かるように。1120の指示で「タブ」の語は付けない） */
-function tabConditionLabel(cat: BoxscoreTabKey): string {
+function tabConditionLabel(cat: PlayerCompareTabKey): string {
   return categoryLabel(cat);
 }
 
@@ -351,27 +361,30 @@ interface ViewCommonProps {
   league: League;
   teamColors: Record<string, TeamColors> | null;
   divisionHistory: DivisionHistoryFile | null;
-  cat: BoxscoreTabKey;
-  onCat: (key: BoxscoreTabKey) => void;
+  cat: PlayerCompareTabKey;
+  onCat: (key: PlayerCompareTabKey) => void;
   onUpdateSlot: (index: number, next: Partial<SlotValue>) => void;
   /** 値の下に順位を出すか（既定は出す。URL rk=0 で出さない） */
   showRank: boolean;
   onShowRank: (v: boolean) => void;
   /** 保存の窓で選んだタブに画面を切り替え、描き直し（順位の読み込みを含む）が終わったら終わる */
-  activateTab: (tab: BoxscoreTabKey) => Promise<void>;
+  activateTab: (tab: PlayerCompareTabKey) => Promise<void>;
   /** 画面が今どのタブで、保存できる状態か（各ビューが描くたびに書く） */
-  saveCtl: MutableRefObject<{ cat: BoxscoreTabKey; ready: boolean }>;
+  saveCtl: MutableRefObject<{ cat: PlayerCompareTabKey; ready: boolean }>;
 }
 
 /** 保存の窓の「保存する内容」（タブ4つ＋4枚まとめて）。どのタブも同じ画像の型で、見出しの下の条件の行・ファイル名にタブ名が入る */
-const SAVE_ALL_CHOICE: ExportAllChoice = { label: "4枚まとめて", keys: BOXSCORE_TABS.map((t) => t.key) };
+function saveAllChoice(tabs: { key: PlayerCompareTabKey }[]): ExportAllChoice {
+  return { label: `${tabs.length}枚まとめて`, keys: tabs.map((t) => t.key) };
+}
 function tabSaveChoices(
+  tabs: { key: PlayerCompareTabKey; label: string }[],
   exportRef: ExportChoice["targetRef"],
-  filenameFor: (tab: BoxscoreTabKey) => string,
+  filenameFor: (tab: PlayerCompareTabKey) => string,
   baseDate: BaseDateSpec,
-  activateTab: (tab: BoxscoreTabKey) => Promise<void>,
+  activateTab: (tab: PlayerCompareTabKey) => Promise<void>,
 ): ExportChoice[] {
-  return BOXSCORE_TABS.map((t) => ({ key: t.key, label: t.label, targetRef: exportRef, filename: filenameFor(t.key), baseDate, activate: () => activateTab(t.key) }));
+  return tabs.map((t) => ({ key: t.key, label: t.label, targetRef: exportRef, filename: filenameFor(t.key), baseDate, activate: () => activateTab(t.key) }));
 }
 
 // --- チーム比較 ---
@@ -385,7 +398,7 @@ function TeamCompareView({
   league,
   teamColors,
   divisionHistory,
-  cat,
+  cat: catProp,
   onCat,
   perspective,
   onPerspective,
@@ -405,6 +418,8 @@ function TeamCompareView({
 }) {
   const teamLabel = useTeamLabel();
   const exportRef = useRef<HTMLDivElement>(null);
+  // チームの比較のタブは Traditional〜Scoring の4つ（Shooting・Profile・Career は個人だけ）
+  const cat: BoxscoreTabKey = isBoxTab(catProp) ? catProp : "traditional";
 
   const lists = slots.map((s) => teamsBySeason?.get(s.season) ?? null);
   // 「リーグ平均」（DESIGN.md 149章）もチームと同じ枠で選べる（シーズン・試合種別は選べる。シチュエーションの絞り込みは無し）
@@ -529,7 +544,7 @@ function TeamCompareView({
   );
   // 大見出しは「長崎ヴェルカ vs 宇都宮ブレックス」だけ。シーズン・条件は列見出しの下に出す（同じ名前が並ぶときだけシーズンを添える）
   const title = rows.length > 0 ? versusTitle(rows.map((r) => ({ name: r.item.label, season: r.season }))) : "チーム比較";
-  const filenameFor = (tab: BoxscoreTabKey) => // ファイル名は長いと途中で切れるので、タブ名は先頭に近い位置に置く（4枚が同じ名前にならないように）
+  const filenameFor = (tab: PlayerCompareTabKey) => // ファイル名は長いと途中で切れるので、タブ名は先頭に近い位置に置く（4枚が同じ名前にならないように）
     buildExportFilename(["比較", "チーム", tabConditionLabel(tab), ...descriptions, ...composeLabels(perspectiveLabels(perspective), displayModeLabels("perGame"), samePeriod ? periodLabels(seasonPeriodOption(shown[0]?.period ?? "all")) : [])]);
   const anyBusy = SLOT_INDEXES.some((i) => cardData(i).status === "loading" || cardData(i).status === "fetching");
   // 保存の窓がタブを切り替えたとき、描き直し（全チームの順位の材料の読み込み）が終わったか
@@ -584,9 +599,9 @@ function TeamCompareView({
       </div>
       <CompareCategoryBar category={cat} onCategory={onCat} perspective={perspective} onPerspective={onPerspective} />
       <ExportImageButton
-        choices={tabSaveChoices(exportRef, filenameFor, compareBaseDate(slots.filter((_, i) => valid[i])), activateTab)}
+        choices={tabSaveChoices(TEAM_TABS, exportRef, filenameFor, compareBaseDate(slots.filter((_, i) => valid[i])), activateTab)}
         defaultChoiceKey={cat}
-        allChoice={SAVE_ALL_CHOICE}
+        allChoice={saveAllChoice(TEAM_TABS)}
         restoreAfterSave={() => onCat(cat)}
         choicesLabel="保存する内容"
       />
@@ -663,7 +678,13 @@ function PlayerCompareView({
   ];
 
   // 順位: ランキング（個人・シーズン成績）と同じ決め方。条件なしのレギュラーシーズンの枠だけ（絞り込み・プレーオフ・合算の枠はランキングに同じ条件の表が無いので出さない）。20位以内だけ
-  const rankEnabled = SLOT_INDEXES.map((i) => showRank && valid[i]! && slots[i]!.gameType === "regular" && slots[i]!.period === "all" && isDefaultFilter(slots[i]!.filter));
+  // 絞り込み（試合区分・シチュエーション・区間）を掛けた枠。PER・Shooting はシーズン全体の値なので「-」にし、Profile・Career は絞り込みに関係なく出す
+  const slotFiltered = slots.map((s) => s.gameType !== "regular" || s.period !== "all" || !isDefaultFilter(s.filter));
+  const extras = SLOT_INDEXES.map((i) =>
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    usePlayerCompareExtra({ season: slots[i]!.season, league, playerId: slots[i]!.id, active: valid[i]!, needCareer: cat === "career" }),
+  );
+  const rankEnabled = SLOT_INDEXES.map((i) => showRank && valid[i]! && (cat === "profile" || cat === "career" || !slotFiltered[i]!));
   const rankLabels = SLOT_INDEXES.map((i) => {
     const slot = slots[i]!;
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -699,6 +720,9 @@ function PlayerCompareView({
         ctx: data.ctx,
         record: data.record ?? undefined,
         ddtd: data.ddtd ?? undefined,
+        summary: extras[i]!.summary,
+        career: extras[i]!.career,
+        filtered: slotFiltered[i]!,
         subLabel: `${cond}（${data.gamesCount}試合）`,
       },
       season: slot.season,
@@ -711,12 +735,14 @@ function PlayerCompareView({
   const periodLabel = samePeriod ? periodLabels(seasonPeriodOption(shownPeriods[0] ?? "all")) : [];
   const conditions = composeLabels(tabConditionLabel(cat), displayModeLabels("perGame"), periodLabel);
   const title = rows.length > 0 ? versusTitle(rows.map((r) => ({ name: r.item.label, season: r.season }))) : "個人比較";
-  const filenameFor = (tab: BoxscoreTabKey) => buildExportFilename(["比較", "個人", tabConditionLabel(tab), ...descriptions, ...composeLabels(displayModeLabels("perGame"), periodLabel)]);
+  const filenameFor = (tab: PlayerCompareTabKey) => buildExportFilename(["比較", "個人", tabConditionLabel(tab), ...descriptions, ...composeLabels(displayModeLabels("perGame"), periodLabel)]);
   const anyBusy = slotData.some((d) => d.status === "loading");
   // 保存の窓がタブを切り替えたとき、描き直し（順位の材料の読み込み）が終わったか。順位を出さない枠（絞り込みなど）は待たない
-  saveCtl.current = { cat, ready: !anyBusy && SLOT_INDEXES.every((i) => !rankEnabled[i] || rankLabels[i] !== null) };
+  saveCtl.current = { cat, ready: !anyBusy && extras.every((x) => x.ready) && SLOT_INDEXES.every((i) => !rankEnabled[i] || rankLabels[i] !== null) };
   const foulSplit = foulColumnsSplit(rows.map((r) => r.season));
-  const defs = useMemo(() => seasonBoxCompareDefs(cat, foulSplit), [cat, foulSplit]);
+  const defs = useMemo(() => playerCompareDefs(cat, foulSplit), [cat, foulSplit]);
+  const playerTabs = playerCompareTabs(league);
+  const filterIgnoredNote = tabIgnoresFilters(cat) && cat !== "profile" && cat !== "career" && slotFiltered.some((f, i) => f && valid[i]);
 
   // 選手の所属チームの色が近いとき（同じチームを含む）は、2つ目以降をサブカラーにする（DESIGN.md 156章）
   const slotColors = distinctTeamColors(rows.map((r) => (r.item.teamId ? (teamColors?.[r.item.teamId] ?? {}) : {})));
@@ -758,11 +784,11 @@ function PlayerCompareView({
           />
         ))}
       </div>
-      <CompareCategoryBar category={cat} onCategory={onCat} />
+      <CompareCategoryBar tabs={playerTabs} category={cat} onCategory={onCat} />
       <ExportImageButton
-        choices={tabSaveChoices(exportRef, filenameFor, compareBaseDate(slots.filter((_, i) => valid[i])), activateTab)}
+        choices={tabSaveChoices(playerTabs, exportRef, filenameFor, compareBaseDate(slots.filter((_, i) => valid[i])), activateTab)}
         defaultChoiceKey={cat}
-        allChoice={SAVE_ALL_CHOICE}
+        allChoice={saveAllChoice(playerTabs)}
         restoreAfterSave={() => onCat(cat)}
         choicesLabel="保存する内容"
       />
@@ -795,6 +821,7 @@ function PlayerCompareView({
         />
       </ExportTarget>
       {cat === "misc" && <RuleChangeFootnote seasons={rows.map((r) => r.season)} />}
+      {filterIgnoredNote && <p className="page-subtitle">この表の項目は、試合区分・シチュエーション・区間の絞り込みを掛けられないため、絞り込みのある枠は「-」です（シーズン全体の記録）。</p>}
       <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="比較" scope="スロットごとの条件で絞り込んだ試合の1試合平均です（移籍した選手は所属チームを合算）。" />
     </>
   );
@@ -814,7 +841,9 @@ export function ComparePage({ season }: { season: string }) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const mode: Mode = searchParams.get("cmp") === "player" ? "player" : "team";
-  const cat = parseEnumParam(searchParams.get("cat"), CATEGORY_KEYS, "traditional");
+  const rawCat = parseEnumParam<PlayerCompareTabKey>(searchParams.get("cat"), PLAYER_COMPARE_TAB_KEYS, "traditional");
+  // チームは4つのタブだけ。個人は、見ているリーグにあるタブだけ（B.ONE は Shooting・Career が無い）
+  const cat: PlayerCompareTabKey = mode === "team" ? (isBoxTab(rawCat) ? rawCat : "traditional") : playerCompareTabs(league).some((t) => t.key === rawCat) ? rawCat : "traditional";
   const perspective = parseEnumParam(searchParams.get("v"), PERSPECTIVE_KEYS, "own");
 
   const { data: seasons, loading: seasonsLoading } = useJsonData(() => fetchSeasons(), []);
@@ -901,8 +930,8 @@ export function ComparePage({ season }: { season: string }) {
   const seasonsMatch = usedSeasons.size <= 1;
 
   // 保存の窓で別のタブを選んだとき、画面をそのタブに切り替えて描き直しが終わるのを待つ（窓の後ろで切り替わる。保存が終わったら元のタブに戻す）
-  const saveCtl = useRef<{ cat: BoxscoreTabKey; ready: boolean }>({ cat, ready: false });
-  const activateTab = async (tab: BoxscoreTabKey): Promise<void> => {
+  const saveCtl = useRef<{ cat: PlayerCompareTabKey; ready: boolean }>({ cat, ready: false });
+  const activateTab = async (tab: PlayerCompareTabKey): Promise<void> => {
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
     if (saveCtl.current.cat !== tab) setOrDelete("cat", tab, "traditional");
     await wait(100);
@@ -919,7 +948,7 @@ export function ComparePage({ season }: { season: string }) {
     teamColors: teamColors ?? null,
     divisionHistory: divisionHistory ?? null,
     cat,
-    onCat: (key: BoxscoreTabKey) => setOrDelete("cat", key, "traditional"),
+    onCat: (key: PlayerCompareTabKey) => setOrDelete("cat", key, "traditional"),
     activateTab,
     saveCtl,
     showRank: searchParams.get("rk") !== "0",
