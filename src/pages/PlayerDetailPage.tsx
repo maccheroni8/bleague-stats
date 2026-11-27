@@ -187,6 +187,7 @@ import { PlayerOpponentSplit } from "../components/PlayerOpponentSplit";
 import { PlayerPlayedSplit } from "../components/PlayerPlayedSplit";
 import { PlayerQuarterTab } from "../components/PlayerQuarterTab";
 import { PlayerForeignTab } from "../components/PlayerForeignTab";
+import { gamesPlayedRatioPercent, formatGamesPlayedRatio } from "../lib/gamesPlayedRatio";
 import { formatPlayerRecord, formatPlayerWinPct, playerRecordOfLogs, playerWinPct, type PlayerRecord } from "../lib/playerQuarterSplit";
 import type { PlayerOpponentCategory } from "../lib/playerOpponentSplit";
 import {
@@ -723,6 +724,8 @@ interface SituationalStatsRow {
   /** この行に属する試合の、対戦相手の「その試合時点までの」勝率の単純平均（相手の強さの目安）。
    * buildRecordsBeforeGame()の結果が無い、または算出対象の試合が0件ならundefined */
   oppWinPctAvg: number | undefined;
+  /** 本人が出場した試合のチームの勝敗（区間を選んでいるときは、Gと同じ試合） */
+  record: PlayerRecord;
   /** シューティングタブ選択時のみ、この行に属する試合のショットから組み立てる */
   breakdown?: ShotTypeBreakdown;
 }
@@ -2132,6 +2135,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       isCombined: r.isCombined,
       logs: r.logs,
       oppWinPctAvg: computeOpponentWinPctAvg(r.logs, situationalStatsOpponentRecords),
+      record: playerRecordOfLogs(r.logs, player.playerId, situationalStatsPeriod, situationalPeriodSources.sources.get(situationalStatsSeason)),
     }));
   };
 
@@ -2292,6 +2296,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
         return row.teamLabel;
       case "oppWinPct":
         return row.oppWinPctAvg ?? -1;
+      case "record":
+        return row.record.wins - row.record.losses + row.record.wins / 1000;
+      case "winpct":
+        return playerWinPct(row.record) ?? -1;
       default: {
         if (situationalStatsTab === "shooting") {
           const col = situationalStatsShotColumns.find((c) => c.key === key);
@@ -2747,6 +2755,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
                     >
                       チーム{situationalStatsSortIndicator("team")}
                     </th>
+                    <th className="align-right sortable-col" title={statDescription("勝敗")} onClick={() => handleSituationalStatsHeaderClick("record")} aria-sort={situationalStatsSortAria("record")}>
+                      勝敗{situationalStatsSortIndicator("record")}
+                    </th>
+                    <th className="align-right sortable-col" title={statDescription("勝率")} onClick={() => handleSituationalStatsHeaderClick("winpct")} aria-sort={situationalStatsSortAria("winpct")}>
+                      勝率{situationalStatsSortIndicator("winpct")}
+                    </th>
                     <th
                       className="align-right sortable-col"
                       title={statDescription("対戦相手勝率")}
@@ -2778,7 +2792,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                         <td
                           colSpan={
                             (situationalStatsTab === "shooting" ? situationalStatsShotColumns : seasonBoxColumnsWithFtrPpp(situationalStatsTab, situationalFoulSplit))
-                              .length + 3
+                              .length + 5
                           }
                         >
                           {/* 横スクロールしても区分の見出しが左に残るよう、チーム詳細と同じ固定ラベル */}
@@ -2797,6 +2811,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
                               row.teamLabel
                             )}
                           </td>
+                          <td className="align-right">{formatPlayerRecord(row.record)}</td>
+                          <td className="align-right">{formatPlayerWinPct(row.record)}</td>
                           <td className="align-right">
                             {row.oppWinPctAvg !== undefined ? formatWinPct(row.oppWinPctAvg) : "-"}
                           </td>
@@ -3509,7 +3525,7 @@ function SeasonBreakdownTable({
   // または単一チームの行のみ（countsTowardTotal）にし、チーム別の内訳行を二重に足し込まないようにする
   const seasonRows = useMemo(() => {
     if (!careerData) return [];
-    const rows: (TeamSplitRow & { season: string; ddtd: { dd: number; td: number; p10: number }; countsTowardTotal: boolean; record: PlayerRecord })[] = [];
+    const rows: (TeamSplitRow & { season: string; ddtd: { dd: number; td: number; p10: number }; countsTowardTotal: boolean; record: PlayerRecord; playedGames: number; teamGames: number | undefined })[] = [];
     for (const cd of [...careerData].reverse()) {
       const played = playedFilteredLogs(cd.logs);
       if (played.length === 0) continue;
@@ -3543,6 +3559,9 @@ function SeasonBreakdownTable({
           countsTowardTotal: row.isCombined || splitRows.length === 1,
           // 本人が出場した試合のチームの勝敗（区間を選んでいるときは、Gと同じ試合）
           record: playerRecordOfLogs(row.logs, playerId, period, periodSources.get(cd.season)),
+          // 出場率: 出場した試合数（区間を選んでいても試合全体で数える）÷その所属チームの試合数（レギュラー/プレーオフの絞り込みに合わせる）。複数チームの合計行は出さない
+          playedGames: row.logs.filter((g) => g.min > 0).length,
+          teamGames: row.isCombined || !row.teamId ? undefined : filterByGameType(info?.teamLogsByTeamId.get(row.teamId) ?? [], gameTypeFilter).length || undefined,
         });
       }
     }
@@ -3645,6 +3664,8 @@ function SeasonBreakdownTable({
         return r.record.wins - r.record.losses + r.record.wins / 1000;
       case "winpct":
         return playerWinPct(r.record) ?? -1;
+      case "gpRatio":
+        return gamesPlayedRatioPercent(r.playedGames, r.teamGames) ?? -1;
       case "dd2":
         return ddtdUnavailable ? 0 : r.ddtd.dd;
       case "td3":
@@ -3775,9 +3796,12 @@ function SeasonBreakdownTable({
                     {col.label}
                     {sortIndicator(col.key)}
                   </th>
-                  {/* 勝敗・勝率: Gの右（トラディショナルだけ） */}
+                  {/* 出場率・勝敗・勝率: Gの右（トラディショナルだけ） */}
                   {tab === "traditional" && col.key === "g" && (
                     <>
+                      <th className="align-right sortable-col" title={statDescription("出場率")} onClick={() => handleHeaderClick("gpRatio")} aria-sort={sortAria("gpRatio")}>
+                        出場率{sortIndicator("gpRatio")}
+                      </th>
                       <th className="align-right sortable-col" title={statDescription("勝敗")} onClick={() => handleHeaderClick("record")} aria-sort={sortAria("record")}>
                         勝敗{sortIndicator("record")}
                       </th>
@@ -3826,6 +3850,7 @@ function SeasonBreakdownTable({
                         <td className="align-right">{col.format(r.ctx, displayMode)}</td>
                         {tab === "traditional" && col.key === "g" && (
                           <>
+                            <td className="align-right">{formatGamesPlayedRatio(r.playedGames, r.teamGames)}</td>
                             <td className="align-right">{formatPlayerRecord(r.record)}</td>
                             <td className="align-right">{formatPlayerWinPct(r.record)}</td>
                           </>
@@ -3856,6 +3881,7 @@ function SeasonBreakdownTable({
                         </td>
                         {tab === "traditional" && col.key === "g" && (
                           <>
+                            <td className="align-right">-</td>
                             <td className="align-right">{formatPlayerRecord(total.record)}</td>
                             <td className="align-right">{formatPlayerWinPct(total.record)}</td>
                           </>

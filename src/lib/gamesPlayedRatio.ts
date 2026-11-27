@@ -7,14 +7,29 @@ export const DEFAULT_GAMES_RATIO_RANGE: [number, number] = [DEFAULT_MIN_RATIO, D
 /** 「達成可能」の基準（%）。スライダーを動かしても動かない（残り試合にすべて出場すれば出場率85%以上に届く選手） */
 export const ACHIEVABLE_BASE_PERCENT = 85;
 
+/** 出場率（%）＝出場試合数÷チームの試合数×100。出場率の絞り込み・表の「出場率」の列で同じ式を使う。チームの試合数が無ければ null */
+export function gamesPlayedRatioPercent(gamesPlayed: number, teamGames: number | undefined): number | null {
+  if (!teamGames || teamGames <= 0) return null;
+  return (100 * gamesPlayed) / teamGames;
+}
+
+/**
+ * 表の「出場率」の書き方（小数第1位の %。例: 84.9%）。小数第2位以下は切り捨てる
+ * （四捨五入だと 84.96% が「85.0%」になり、「85%以上」の絞り込みに入らない選手が85.0%と書かれてしまうため）
+ */
+export function formatGamesPlayedRatio(gamesPlayed: number, teamGames: number | undefined): string {
+  const r = gamesPlayedRatioPercent(gamesPlayed, teamGames);
+  return r === null ? "-" : `${(Math.floor(r * 10 + 1e-9) / 10).toFixed(1)}%`;
+}
+
 /**
  * 出場率が下限〜上限（整数%）の範囲か。範囲は「下限以上、上限+1 未満」（例: 0〜84% は 84.9% まで。85%以上と隙間なくつながる）。上限100%は上限なし。
  * remaining を渡すと「達成可能」でも判定する: 今の出場率の範囲に加えて、（今の出場試合数＋残り試合数）÷（チームの今までの試合数＋残り試合数）が85%以上。
  * 下限が85%以上のときは、下限を「今の出場率」でなくこの「届く出場率」で見る（85%以上達成可能＝今は85%に届いていなくても、残りに全部出れば届く選手を含む。366章の意味のまま）
  */
 export function matchesGamesPlayedRatioRange(gamesPlayed: number, teamGames: number | undefined, min: number, max: number, remaining?: number): boolean {
-  if (!teamGames || teamGames <= 0) return false;
-  const ratio = (100 * gamesPlayed) / teamGames;
+  const ratio = gamesPlayedRatioPercent(gamesPlayed, teamGames);
+  if (ratio === null || !teamGames) return false;
   if (max < 100 && ratio >= max + 1) return false;
   if (remaining === undefined) return !(ratio < min);
   const reach = (100 * (gamesPlayed + remaining)) / (teamGames + remaining);
