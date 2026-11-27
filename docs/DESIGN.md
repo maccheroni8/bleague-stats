@@ -17640,3 +17640,5 @@ B.LEAGUE 公式の用語集（bleague.jp/glossary）の書き方に合わせる�
 - **URL**: 基準の行は `sk`（書かない＝最初の基準・`-`＝基準なし・`ge.1,le.1.49`）。前の `mm`・`ex`・`sa`（保存した検索条件も）は読むときに基準の行に読み替える（`criterionConditionsParam`）。項目を変えたら `sk` を消す。
 - **タイトルの書き方**（`statConditions.ts` の `mergedStatConditionParts`）: 同じ項目（略語）は1つ。「3PM 1.0以上」「3PM 1.0〜1.49」「3PM 1.49以下」。基準を外したら「掲載基準なし」。チームの長い項目名は略語（3PM 等）に直して書く。基準の分は出場率と同じ行に並べ、ほかの条件は下の行。シーズン成績は最初の基準のままでも書く。ほかのページの `statConditionLabels` は変えていない。
 - **チームのランキング（シーズン成績）**: Shooting・Forced TOV も視点（自チーム／opp）を選べる（+/- は対象外）。Shooting の opp は保存済みの `opponentShotTypes`、平均の分母は `shotTypeGames`（自チームの平均も同じ分母にそろえた）。順位の向きは opp で逆。Forced TOV の「奪った／記録した」は視点に統一（記録した＝opp。前の `tov=committed` は Forced TOV のタブで opp として読む。opp は少ない順になった）。
+
+- 出場率の範囲の書き方を「0〜84%」から「0〜84.9%」にした（判定は今までどおり「上限+1 未満」＝84.9%まで入る。表示だけの変更）。`ratioRangeLabel`・つまみの表示（`GamesPlayedRatioSlider`）・用語集・`validate:achievable` を合わせた。

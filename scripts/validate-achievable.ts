@@ -78,10 +78,10 @@ const read = <T,>(p: string): T => { const f = existsSync(p) ? p : `${p}.gz`; re
 {
   assert.deepEqual(eligibilityLabels({ gamesRatio: 0.85, achievable: true }), ["出場率85%以上達成可能"], "85%以上のままの達成可能は1つにまとめる");
   assert.deepEqual(eligibilityLabels({ gamesRatio: 0.85 }), ["出場率85%以上"]);
-  assert.deepEqual(eligibilityLabels({ gamesRatio: 0, gamesRatioMax: 0.84 }), ["出場率0〜84%"]);
-  assert.deepEqual(eligibilityLabels({ gamesRatio: 0, gamesRatioMax: 0.84, achievable: true }), ["出場率0〜84%（85%以上達成可能）"]);
+  assert.deepEqual(eligibilityLabels({ gamesRatio: 0, gamesRatioMax: 0.84 }), ["出場率0〜84.9%"]);
+  assert.deepEqual(eligibilityLabels({ gamesRatio: 0, gamesRatioMax: 0.84, achievable: true }), ["出場率0〜84.9%（85%以上達成可能）"]);
   assert.deepEqual(gamesPlayedRatioRangeLabels(60, 100, true), ["出場率60%以上（85%以上達成可能）"]);
-  assert.deepEqual(gamesPlayedRatioRangeLabels(60, 90, true), ["出場率60〜90%（85%以上達成可能）"]);
+  assert.deepEqual(gamesPlayedRatioRangeLabels(60, 90, true), ["出場率60〜90.9%（85%以上達成可能）"]);
   assert.deepEqual(gamesPlayedRatioRangeLabels(60, 100), ["出場率60%以上"]);
   console.log("達成可能: 条件の書き方 OK");
 }

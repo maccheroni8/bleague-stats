@@ -22,13 +22,15 @@ export function matchesGamesPlayedRatioRange(gamesPlayed: number, teamGames: num
   return min >= ACHIEVABLE_BASE_PERCENT || !(ratio < min);
 }
 
-/** 出場率の範囲と「達成可能」の書き方。上限100%なら「出場率85%以上」、上限があれば「出場率0〜84%」、達成可能は「出場率0〜84%（85%以上達成可能）」 */
+/** 出場率の範囲と「達成可能」の書き方。上限100%なら「出場率85%以上」、上限があれば「出場率0〜84.9%」、達成可能は「出場率0〜84.9%（85%以上達成可能）」 */
 export function ratioRangeLabel(minPct: number, maxPct: number, achievable = false): string {
   const lo = Math.round(minPct);
   const hi = Math.round(maxPct);
   const unbounded = hi >= 100;
-  if (!achievable) return unbounded ? `出場率${lo}%以上` : `出場率${lo}〜${hi}%`;
+  // 上限は「上限+1 未満」までなので、84%なら84.9%まで入る。書き方もそれに合わせる（出場率0〜84.9%）
+  const hiText = `${hi}.9`;
+  if (!achievable) return unbounded ? `出場率${lo}%以上` : `出場率${lo}〜${hiText}%`;
   // 下限が85%以上のときは下限そのものが「届く出場率」の基準（85%以上のままなら「出場率85%以上達成可能」の1つにまとめる）
-  if (lo >= ACHIEVABLE_BASE_PERCENT) return unbounded ? `出場率${lo}%以上達成可能` : `出場率${lo}〜${hi}%（${lo}%以上達成可能）`;
-  return unbounded && lo === 0 ? `出場率${ACHIEVABLE_BASE_PERCENT}%以上達成可能` : unbounded ? `出場率${lo}%以上（${ACHIEVABLE_BASE_PERCENT}%以上達成可能）` : `出場率${lo}〜${hi}%（${ACHIEVABLE_BASE_PERCENT}%以上達成可能）`;
+  if (lo >= ACHIEVABLE_BASE_PERCENT) return unbounded ? `出場率${lo}%以上達成可能` : `出場率${lo}〜${hiText}%（${lo}%以上達成可能）`;
+  return unbounded && lo === 0 ? `出場率${ACHIEVABLE_BASE_PERCENT}%以上達成可能` : unbounded ? `出場率${lo}%以上（${ACHIEVABLE_BASE_PERCENT}%以上達成可能）` : `出場率${lo}〜${hiText}%（${ACHIEVABLE_BASE_PERCENT}%以上達成可能）`;
 }

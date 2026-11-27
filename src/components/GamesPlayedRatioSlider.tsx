@@ -15,7 +15,7 @@ export function GamesPlayedRatioSlider({
   return (
     <div className="dual-range">
       <div className="dual-range-labels">
-        {label}: {min}%〜{max}%
+        {label}: {min}%〜{max < 100 ? `${max}.9` : max}%
       </div>
       <div className="dual-range-track-wrap">
         <div className="dual-range-track">
