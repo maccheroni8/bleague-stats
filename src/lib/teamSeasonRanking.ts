@@ -33,7 +33,8 @@ import {
   type AllTeamsRow,
   type TeamPerspective,
 } from "./teamStatsColumns";
-import { SHOT_TYPE_DISPLAY_ORDER, shotTypeEntityColumns } from "./shotTypeBreakdown";
+import { SHOT_TYPE_DISPLAY_ORDER, shotTypeDiffColumns, shotTypeEntityColumns } from "./shotTypeBreakdown";
+import { formatSigned } from "./format";
 import { useAllTeamGameLogs, useLeagueSituationalContext } from "./teamRankingData";
 import { seasonPeriodOption } from "./seasonPeriod";
 import { OVERTIME_MIN_TEAM_GAMES_FOR_RANKING, sumTeamGameFoulTotals, sumTeamPeriodTotals, useTeamPeriodSource, type TeamPeriodValue } from "./teamPeriodTotals";
@@ -84,10 +85,11 @@ export const FORCED_TURNOVER_ITEMS: { key: string; label: string; value: (d: Tea
       d.offensiveFoul + d.violation24sec + d.backcourtViolation + d.violation5sec + d.violation8sec + d.otherDead + d.live,
   },
 ];
-export type TurnoverDirection = "forced" | "committed";
+export type TurnoverDirection = "forced" | "committed" | "diff";
 export const TURNOVER_DIRECTION_LABELS: Record<TurnoverDirection, string> = {
   forced: "奪った（自チームが強制）",
   committed: "記録した（相手に強制された）",
+  diff: "差（奪った−記録した）",
 };
 /** 列を足すときの、シーズンごとの前提（EFF の式は年度で違う。登録区分別の得点は区分を分けて記録しているシーズンだけ） */
 export interface TeamColumnContext {
@@ -379,20 +381,32 @@ export function useTeamSeasonRanking(
   // 視点（own／opp）は全チームスタッツ（TeamsListPage）と同じ: opp は保存済みの相手の内訳（opponentShotTypes）。成功率は相手の成功数÷相手の試投数。
   // 平均の分母は、スポーツナビの記録がある試合の数（shotTypeGames。記録の無い試合を入れない。古いデータは出場試合数。DESIGN.md 304章）。
   // 相手の記録が無い季（2023-24より前・B.ONE）は、行を出さず「このシーズンのデータには対応していません」
+  // +/- は全チームスタッツと同じ（shotTypeDiffColumns）: 成功数・試投数は自チーム−相手、成功率はパーセントポイントの差。どちらかの試投が0なら「-」
   const shotOpp = perspective === "opp";
+  const shotDiff = perspective === "diff";
   const shootingColumns = useMemo(
     () =>
-      shotTypeEntityColumns(
-        SHOT_TYPE_DISPLAY_ORDER,
-        (t: TeamSummary) => (shotOpp ? t.opponentShotTypes : t.shotTypes),
-        displayMode as "total" | "perGame",
-        (t) => t.shotTypeGames ?? t.gamesPlayed,
-      ),
-    [displayMode, shotOpp],
+      shotDiff
+        ? shotTypeDiffColumns(
+            SHOT_TYPE_DISPLAY_ORDER,
+            (t: TeamSummary) => t.shotTypes,
+            (t: TeamSummary) => t.opponentShotTypes,
+            displayMode as "total" | "perGame",
+            (t) => t.shotTypeGames ?? t.gamesPlayed,
+          )
+        : shotTypeEntityColumns(
+            SHOT_TYPE_DISPLAY_ORDER,
+            (t: TeamSummary) => (shotOpp ? t.opponentShotTypes : t.shotTypes),
+            displayMode as "total" | "perGame",
+            (t) => t.shotTypeGames ?? t.gamesPlayed,
+          ),
+    [displayMode, shotOpp, shotDiff],
   );
-  const teamsWithShotTypes = useMemo(() => (teams ?? []).filter((t) => !!(shotOpp ? t.opponentShotTypes : t.shotTypes) && passes(t.teamId)),
+  const teamsWithShotTypes = useMemo(
+    () => (teams ?? []).filter((t) => (shotDiff ? !!t.shotTypes && !!t.opponentShotTypes : !!(shotOpp ? t.opponentShotTypes : t.shotTypes)) && passes(t.teamId)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [teams, passingTeamIds, shotOpp]);
+    [teams, passingTeamIds, shotOpp, shotDiff],
+  );
   const selectedShootingColumn = shootingColumns.find((c) => c.key === statKey) ?? shootingColumns[0];
   const shootingDef: RankableStat<TeamSummary> | null = selectedShootingColumn
     ? {
@@ -401,7 +415,7 @@ export function useTeamSeasonRanking(
         value: (t) => Number(selectedShootingColumn.sortValue(t)),
         format: (t) => (selectedShootingColumn.format ? selectedShootingColumn.format(t) : String(selectedShootingColumn.sortValue(t))),
         // 相手の視点は、自チームにとっての良し悪しが逆（相手の成功率は低いほうが良い）
-        ...rankDirectionProps(selectedShootingColumn.key, shotOpp ? "opp" : "own"),
+        ...rankDirectionProps(selectedShootingColumn.key, shotOpp ? "opp" : shotDiff ? "diff" : "own"),
       }
     : null;
 
@@ -426,14 +440,31 @@ export function useTeamSeasonRanking(
     [teams, passingTeamIds, scopedTov],
   );
   const selectedTurnoverItem = FORCED_TURNOVER_ITEMS.find((i) => i.key === statKey) ?? FORCED_TURNOVER_ITEMS[0]!;
+  // 視点は共通の切り替え（own＝奪った分、opp＝記録した分〔相手に強制された〕、diff＝奪った−記録した）。opp は良し悪しが逆、+/- は多いほど良い。
+  // 平均は、条件に合う「記録のある試合数」（gamesWithData）で割る。その数が分からない（0）ときは null（画面では「-」で順位を付けない）
+  const forcedTurnoverValue = (t: TeamSummary): number | null => {
+    const f = t.forcedTurnovers;
+    const c = t.turnoversCommitted;
+    const raw =
+      turnoverDirection === "forced" ? (f ? selectedTurnoverItem.value(f) : null) : turnoverDirection === "committed" ? (c ? selectedTurnoverItem.value(c) : null) : f && c ? selectedTurnoverItem.value(f) - selectedTurnoverItem.value(c) : null;
+    if (raw === null) return null;
+    if (displayMode !== "total") {
+      const g = f?.gamesWithData ?? 0;
+      return g > 0 ? raw / g : null;
+    }
+    return raw;
+  };
+  const forcedTurnoverText = (v: number | null): string => {
+    if (v === null) return "-";
+    const digits = displayMode === "total" ? 0 : 2;
+    return turnoverDirection === "diff" ? formatSigned(v, digits) : v.toFixed(digits);
+  };
   const forcedTurnoverDef: RankableStat<TeamSummary> = {
     key: selectedTurnoverItem.key,
     label: selectedTurnoverItem.label,
-    value: (t) => selectedTurnoverItem.value(turnoverDirection === "forced" ? t.forcedTurnovers! : t.turnoversCommitted!),
-    format: (t) =>
-      String(selectedTurnoverItem.value(turnoverDirection === "forced" ? t.forcedTurnovers! : t.turnoversCommitted!)),
-    // 視点は共通の切り替え（own＝奪った分、opp＝記録した分〔相手に強制された〕）。opp は良し悪しが逆（相手に強制された数は少ないほうが良い）
-    ...rankDirectionProps(selectedTurnoverItem.key, turnoverDirection === "committed" ? "opp" : "own"),
+    value: (t) => forcedTurnoverValue(t) ?? -1e9,
+    format: (t) => forcedTurnoverText(forcedTurnoverValue(t)),
+    ...rankDirectionProps(selectedTurnoverItem.key, turnoverDirection === "committed" ? "opp" : turnoverDirection === "diff" ? "diff" : "own"),
   };
 
   // 表に出す行（スタッツの条件に通ったチーム）
@@ -470,6 +501,7 @@ export function useTeamSeasonRanking(
     shootingDef,
     teamsWithShotTypes,
     forcedTurnoverDef,
+    forcedTurnoverValue,
     teamsWithForcedTurnovers,
     forcedTurnoverScoped: !!scopedTov,
     scopedLogsByTeam,

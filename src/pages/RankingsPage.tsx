@@ -78,6 +78,7 @@ import {
 } from "../lib/classificationFilter";
 import { ClassificationNotes } from "../components/ClassificationNotes";
 import type { TeamPerspective } from "../lib/teamStatsColumns";
+import type { SeasonDisplayMode } from "../lib/playerSeasonBoxscore";
 import { criterionArgs, criterionConditionsParam, criterionItem, legacyExtraThreshold, seedConditions, withoutCriterion } from "../lib/minCriterion";
 import { SHOT_PCT_MIN_ATTEMPTS_FACTOR } from "../lib/playerRankingEligibility";
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING } from "../lib/playerRankingEligibility";
@@ -307,6 +308,7 @@ const PLAYER_CATEGORY_PARAM = enumParam<PlayerRankCategory>(
   "traditional",
   { traditional: "trad", advanced: "adv", shooting: "shoot" },
 );
+const FORCED_MODE_PARAM = enumParam<"total" | "perGame">("fm", ["total", "perGame"], "total", { perGame: "avg" });
 /**
  * チームのランキングの視点（v=own／opp／diff）。Forced TOV の「奪った／記録した」は、ほかのタブと同じ視点の切り替えにそろえた
  * （奪った＝自チーム、記録した〔相手に強制された〕＝opp）。前の書き方の tov=committed は、Forced TOV のタブで opp として読む
@@ -384,15 +386,19 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
   const statKey = urlStatKey;
   // OFF FOUL・CHARGE は試合ログに無く、ピリオド別の索引から出す（その項目を選んだときだけ索引を読む）
   const foulIndex = statKey === "offfoul" || statKey === "charge";
-  const [displayMode, setDisplayMode] = useUrlState(DISPLAY_MODE_PARAM, "perGame");
+  const [urlDisplayMode, setUrlDisplayMode] = useUrlState(DISPLAY_MODE_PARAM, "perGame");
+  // Forced TOV は、今までの合計が初めの表示（古いURL・保存した条件は合計で開く）。平均に切り替えたときだけ fm=avg を書く。ほかのタブの平均/合計（mode）とは別に持つ
+  const [forcedMode, setForcedMode] = useUrlState(FORCED_MODE_PARAM, "total");
+  const forcedTab = category === "forcedTurnovers";
+  const displayMode: SeasonDisplayMode = forcedTab ? forcedMode : urlDisplayMode;
+  const setDisplayMode = (v: SeasonDisplayMode) => (forcedTab ? setForcedMode(v === "total" ? "total" : "perGame") : setUrlDisplayMode(v));
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const [urlPerspective, setPerspective] = useUrlState(TEAM_RANK_PERSPECTIVE_PARAM, "own");
-  // Shooting・Forced TOV は自チーム／opp だけ（+/- は選べない）。+/- のURLで開いたときは自チームとして出す
   const twoSided = category === "shooting" || category === "forcedTurnovers";
-  const perspective: TeamPerspective = twoSided && urlPerspective === "diff" ? "own" : urlPerspective;
+  const perspective: TeamPerspective = urlPerspective;
   const [filter, setFilter] = useUrlState(situationalParam, DEFAULT_RANKING_FILTER);
-  // Forced TOV の方向: 自チーム＝奪った分、opp＝記録した分（相手に強制された）
-  const turnoverDirection: TurnoverDirection = perspective === "opp" ? "committed" : "forced";
+  // Forced TOV の方向: 自チーム＝奪った分、opp＝記録した分（相手に強制された）、+/-＝奪った−記録した
+  const turnoverDirection: TurnoverDirection = perspective === "opp" ? "committed" : perspective === "diff" ? "diff" : "forced";
   // Q別・前後半。「試合」（既定値）選択時は、既存の TeamGameLog の合計（sumTeamGameLogs）をそのまま使う。
   // 区間を選んだときは、そのシーズンのチームのピリオド別の索引から出す（DESIGN.md 256章の段階2。以前は対象チーム全員分の試合の生データを読んでいた）
   const [period, setPeriod] = useUrlState(TEAM_SEASON_PERIOD_PARAM, "all");
@@ -431,6 +437,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
     shootingDef,
     teamsWithShotTypes,
     forcedTurnoverDef,
+    forcedTurnoverValue,
     teamsWithForcedTurnovers,
     forcedTurnoverScoped,
     scopedLogsByTeam: teamScopedLogs,
@@ -566,6 +573,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
     composeLabels(
       CATEGORY_LABELS.forcedTurnovers,
       compareActive && COMPARE_LABEL,
+      displayModeLabels(displayMode),
       TURNOVER_DIRECTION_LABELS[turnoverDirection],
       perspectiveLabels(perspective),
       ...(forcedTurnoverScoped ? [gameTypeLabels(gameType, season), situationalFilterLabels(filter)] : [SEASON_TOTAL_ONLY_LABELS]),
@@ -579,15 +587,14 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
     ? undefined
     : isTeamShooting
       ? "このカテゴリはレギュラーシーズンの通算集計値のみ対応です（表示の平均/合計と視点だけ連動します。2023-24シーズン以降のみ対応）。"
-      : "このカテゴリはレギュラーシーズンの通算集計値のみ対応で、視点以外の絞り込みは連動しません（2023-24シーズン以降のみ対応）。";
-  const teamDisplayDisabledReason = isBoxscore || isTeamShooting ? undefined : teamFilterDisabledReason;
+      : "このカテゴリはレギュラーシーズンの通算集計値のみ対応で、視点・表示の平均/合計以外の絞り込みは連動しません（2023-24シーズン以降のみ対応）。";
+  const teamDisplayDisabledReason = isBoxscore || twoSided ? undefined : teamFilterDisabledReason;
   // Forced TOV は試合ごとの値から出すので、試合区分・試合の条件は連動する（DESIGN.md 339章）。視点は上のトグル、区間は選べない
   const turnoverScopedOk = category === "forcedTurnovers" && forcedTurnoverScoped;
   const teamScopedReason = turnoverScopedOk ? undefined : teamFilterDisabledReason;
   const teamFilterAxes: FilterAxis[] = [
     gameTypeAxis(gameType, setGameType, season, { disabledReason: teamScopedReason }),
-    // Shooting・Forced TOV は自チーム／opp を選べる（+/- は対象外）
-    perspectiveAxis(perspective, setPerspective, { disabledReason: isBoxscore || twoSided ? undefined : teamFilterDisabledReason, disabledValues: twoSided ? ["diff"] : undefined }),
+    perspectiveAxis(perspective, setPerspective, { disabledReason: isBoxscore || twoSided ? undefined : teamFilterDisabledReason }),
     classificationAxis(classFilter, setClassFilter, {
       teamCombined: true,
       disabledReason: isBoxscore ? undefined : "登録区分別の値は Traditional〜Scoring のタブでだけ見られます。",
@@ -727,6 +734,9 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
                 rows={turnoverCompare ? turnoverCompare.rows : teamsWithForcedTurnovers}
                 compare={turnoverCompare?.compare}
                 def={forcedTurnoverDef}
+                // 平均の分母（記録のある試合数）が分からない行は「-」にして順位を付けず、末尾に並べる
+                unranked={(t) => forcedTurnoverValue(t) === null}
+                unrankedLabel={() => "-"}
                 recordTextOf={(t) => {
                   const r = yahooRecords.get(t.teamId);
                   return r ? teamRecordText(r) : undefined;

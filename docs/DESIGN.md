@@ -17642,3 +17642,7 @@ B.LEAGUE 公式の用語集（bleague.jp/glossary）の書き方に合わせる�
 - **チームのランキング（シーズン成績）**: Shooting・Forced TOV も視点（自チーム／opp）を選べる（+/- は対象外）。Shooting の opp は保存済みの `opponentShotTypes`、平均の分母は `shotTypeGames`（自チームの平均も同じ分母にそろえた）。順位の向きは opp で逆。Forced TOV の「奪った／記録した」は視点に統一（記録した＝opp。前の `tov=committed` は Forced TOV のタブで opp として読む。opp は少ない順になった）。
 
 - 出場率の範囲の書き方を「0〜84%」から「0〜84.9%」にした（判定は今までどおり「上限+1 未満」＝84.9%まで入る。表示だけの変更）。`ratioRangeLabel`・つまみの表示（`GamesPlayedRatioSlider`）・用語集・`validate:achievable` を合わせた。
+
+### 478-2. チームのシーズン成績ランキング: Shooting・Forced TOV に差（+/-）、Forced TOV に平均（画面だけ・保存キー不変）
+- Shooting・Forced TOV でも視点（自チーム／opp／+/-）を選べる。Shooting の +/- は全チームスタッツと同じ `shotTypeDiffColumns`（成功数・試投数は自チーム−相手、成功率はパーセントポイントの差、どちらかの試投が0なら「-」）。Forced TOV の +/- は「奪った数−記録した数」（相手に強制された−自チームが強制された）。順位の向き・色は `rankDirection.ts` の +/- の決まり（多いほど良い）。
+- Forced TOV は合計と平均を切り替えられる（URL `fm=avg`。書かないと合計＝今までの表示。ほかのタブの `mode` とは別に持つ）。平均の分母は条件に合う「記録のある試合数」（`forcedTurnovers.gamesWithData`）。分母が0のときは「-」にして順位を付けない（今ある季〔2023-24以降〕では起きない）。
