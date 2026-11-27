@@ -34,6 +34,7 @@ import { eligibilityLabels } from '../lib/conditionLabels';
 
 import { usePlayerFigureData } from './usePlayerFigureData';
 import { useHighlightClubs } from './highlightClubs';
+import { highlightAxis } from './highlightAxis';
 import { usePlayerHighlight } from './usePlayerHighlight';
 import { usePlayerFigureFilter } from './usePlayerFigureFilter';
 import type { FigureProps } from './catalog';
@@ -135,7 +136,7 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
     .map(a => a.kind === 'select' ? { ...a, options: a.options.filter(o => ['all', 'recent:5', 'recent:10', 'custom'].includes(o.value)) } : { ...a, tier: 'primary' as const });
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), venueAxis(venue, setVenue), classificationAxis(classification, setClassification, { season }),
     { kind: 'select', id: 'vennDisplay', label: '選手の表示', tier: 'primary', value: display, defaultValue: 'photo', options: [{ value: 'photo', label: '写真' }, { value: 'name', label: '名前' }], onChange: v => setDisplay(v as VennDisplay) },
-    pf.clubAxis, pf.positionAxis, hl.axis, ph.playerAxis, ph.rankAxis, ratioEligibilityAxis({ id: 'vennRatio', value: minRatio, max: maxRatio, defaultValue: DEFAULT_RATIO, onChange: (a, b) => { setMinRatio(a); setMaxRatio(b); }, achievable: ach.axis })];
+    pf.clubAxis, pf.positionAxis, highlightAxis(hl.axis, ph), ratioEligibilityAxis({ id: 'vennRatio', value: minRatio, max: maxRatio, defaultValue: DEFAULT_RATIO, onChange: (a, b) => { setMinRatio(a); setMaxRatio(b); }, achievable: ach.axis })];
   const [periodLabel] = situationalFilterLabels(filter);
   const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], ...venueConditionLabel(venue), ...eligibilityLabels({ gamesRatio: minRatio / 100, gamesRatioMax: maxRatio / 100, achievable: ach.achievable }), ...pf.labels].filter(Boolean);
   const classTitle = figureClassTitle(classification);

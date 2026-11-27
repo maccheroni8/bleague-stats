@@ -103,7 +103,7 @@ function PopoverShell({
 }
 
 /** 複数選択の中身: 検索・プリセット・チェックボックス一覧・全解除 */
-function MultiSelectContent({ axis }: { axis: FilterMultiAxis }) {
+export function MultiSelectContent({ axis }: { axis: FilterMultiAxis }) {
   const [query, setQuery] = useState("");
   const selected = new Set(axis.selected);
   const visible = query ? axis.options.filter((o) => o.label.includes(query)) : axis.options;

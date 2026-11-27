@@ -83,3 +83,141 @@
 .table-scroll table button.ratings-team-button { display:inline-flex; align-items:center; gap:8px; padding:0; margin:0; border:0; border-radius:0; background:none; box-shadow:none; color:inherit; font:inherit; text-align:left; cursor:pointer; }
 .table-scroll table button.ratings-team-button:hover { color:var(--accent); text-decoration:underline; }
 .table-scroll table button.ratings-team-button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+/* 図解の上の選択欄: 欄の名前は1行、すべての欄を同じ高さ・同じ幅にそろえ、入りきらないときは行ごとにそろえて折り返す（画面だけ。保存画像は別の部品） */
+.figures-page .filter-bar-primary {
+  grid-template-columns: repeat(auto-fill, minmax(136px, 176px));
+  gap: 10px 12px;
+  align-items: end;
+}
+
+.figures-page .filter-bar-primary .filter-field label {
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.figures-page .filter-bar-primary .filter-field select,
+.figures-page .filter-bar-primary .filter-popover-button {
+  height: 36px;
+  padding: 0 8px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.figures-page .filter-bar-primary .filter-popover-button > span:first-child {
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+@media (max-width: 560px) {
+  .figures-page .filter-bar-primary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 10px;
+  }
+}
+
+/* 「強調」の窓（クラブ・選手・ランキング上位を切り替えて選ぶ） */
+.highlight-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 400px;
+  max-width: calc(100vw - 48px);
+}
+
+.highlight-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.highlight-tab {
+  padding: 6px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.highlight-tab.active {
+  border-bottom-color: var(--accent);
+  color: var(--fg);
+  font-weight: 700;
+}
+
+.highlight-panel .filter-multi {
+  min-width: 0;
+}
+
+.highlight-note {
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ランキング上位の行: 項目の欄を広げ、「上位」の文字と矢印が重ならないようにする */
+.highlight-rank-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.highlight-rank-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) max-content 60px max-content 32px;
+  align-items: center;
+  gap: 6px;
+}
+
+.highlight-rank-row select,
+.highlight-rank-row input {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.highlight-rank-row input {
+  text-align: right;
+}
+
+.highlight-rank-row > span {
+  white-space: nowrap;
+}
+
+.highlight-rank-row .highlight-rank-note {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .highlight-rank-row {
+    grid-template-columns: auto 64px minmax(0, 1fr) 28px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--border);
+  }
+
+  .highlight-rank-row select {
+    grid-column: 1 / -1;
+  }
+
+  .highlight-rank-row select,
+  .highlight-rank-row input {
+    font-size: 16px;
+  }
+}

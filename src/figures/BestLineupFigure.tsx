@@ -27,6 +27,7 @@ import { NameText } from '../components/NameText';
 import { FigureExportButton } from './FigureExport';
 import type { FigureProps } from './catalog';
 import { useHighlightClubs } from './highlightClubs';
+import { highlightAxis } from './highlightAxis';
 import './BestLineupFigure.css';
 import { sortOrderLabel } from '../components/SortMark';
 
@@ -138,7 +139,7 @@ export default function BestLineupFigure({ season, category }: FigureProps) {
       </div> },
     { kind: 'select', id: 'blOc', label: 'オンザコート', tier: 'primary', value: oc === null ? 'all' : String(oc), defaultValue: 'all', options: [{ value: 'all', label: 'すべて' }, ...ocValues.map(v => ({ value: String(v), label: `OC${v}` }))], onChange: v => setOc(v === 'all' ? null : Number(v)) },
     { kind: 'select', id: 'blTop', label: '表示', tier: 'primary', value: topParam, defaultValue: '10', options: [{ value: '10', label: '上位10組' }, { value: '20', label: '上位20組' }], onChange: v => setTop(v as '10' | '20') },
-    ...(teamId === null ? [hl.axis] : []),
+    ...(teamId === null ? [highlightAxis(hl.axis)] : []),
   ];
   const teamLabel = teamId === null ? null : teamShortName(teamId, clubs.find(c => c.teamId === teamId)?.teamName ?? teamId);
   const conditions = [range, ...(teamLabel ? [teamLabel] : []), `${size}人`, gameLabels[gameType], minLabel, ...(oc === null ? [] : [`OC${oc}`]), sortLabel(sort), ...(teamId === null ? hl.labels : [])];

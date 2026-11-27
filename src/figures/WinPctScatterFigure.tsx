@@ -24,6 +24,7 @@ import { formatWinPct } from "../lib/format";
 import { useTeamLabel } from "../lib/teamLabel";
 import type { FigureProps } from "./catalog";
 import { useHighlightClubs } from "./highlightClubs";
+import { highlightAxis } from './highlightAxis';
 import "./RatingsScatterFigure.css";
 import "./ScoringScatterFigure.css";
 import "./WinPctScatterFigure.css";
@@ -103,7 +104,7 @@ export default function WinPctScatterFigure({season,category}:FigureProps) {
   },{
     kind:"select",id:"winPctMetric",label:"横軸",tier:"primary",value:metric,defaultValue:"pts",
     options:(["pts","opp","diff"] as const).map(m=>({value:m,label:WIN_PCT_METRIC_LABELS[m]})),onChange:value=>setMetric(value as WinPctMetric),
-  },divisionMultiAxis<"unknown">({id:"winPctDivision",divisions:present.filter((d):d is Division=>d!=="unknown"),extra:present.includes("unknown")?[{value:"unknown",label:"地区不明"}]:[],selected:activeDivision,onChange:setDivision}),hl.axis];
+  },divisionMultiAxis<"unknown">({id:"winPctDivision",divisions:present.filter((d):d is Division=>d!=="unknown"),extra:present.includes("unknown")?[{value:"unknown",label:"地区不明"}]:[],selected:activeDivision,onChange:setDivision}),highlightAxis(hl.axis)];
   const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")]),...hl.labels];
   const xName=`${WIN_PCT_CLASS_LABELS[cls]}の${WIN_PCT_METRIC_LABELS[metric]}`;
   const color=WIN_PCT_METRIC_COLORS[metric];

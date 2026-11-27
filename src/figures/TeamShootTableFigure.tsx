@@ -19,6 +19,7 @@ import { TeamLogo } from "../components/TeamLogo";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { FigureExportButton } from "./FigureExport";
 import { useHighlightClubs } from "./highlightClubs";
+import { highlightAxis } from './highlightAxis';
 import { ShootLegend, ShootTableView, type ShootSort, type ShootViewColumn } from "./ShootTableView";
 import type { FigureProps } from "./catalog";
 import "./RatingsScatterFigure.css";
@@ -93,7 +94,7 @@ export default function TeamShootTableFigure({ season, category }: FigureProps) 
   const viewAxis: FilterAxis = { kind: "select", id: "shootView", label: "視点", tier: "primary", value: view, defaultValue: "own", options: TEAM_SHOOT_VIEWS.map(v => ({ value: v, label: TEAM_SHOOT_VIEW_LABELS[v] })), onChange: v => setView(v as TeamShootView) };
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), viewAxis,
     divisionMultiAxis<"unknown">({ id: "shootTeamDivision", divisions: present.filter((d): d is Division => d !== "unknown"), extra: present.includes("unknown") ? [{ value: "unknown", label: "地区不明" }] : [], selected: activeDivision, onChange: setDivision }),
-    hl.axis];
+    highlightAxis(hl.axis)];
   const [periodLabel] = situationalFilterLabels(filter);
   const sortText = shootSortLabel(columns.find(c => c.key === sortKey.key)?.label ?? "", sortKey.descending);
   const conditions = visibleConditionLabels(teamShootConditions({ scope: `${season} ${periodLabel}`, gameType: seasonGameTypeLabels(season)[gameType], view, division: activeDivision.length === 0 ? [] : [activeDivision.map(divisionLabel).join("・")], highlights: hl.labels, sort: sortText }));

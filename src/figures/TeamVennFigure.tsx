@@ -27,6 +27,7 @@ import { useNarrow } from '../lib/teamLabel';
 import { FigureExportButton } from './FigureExport';
 import type { FigureProps } from './catalog';
 import { useHighlightClubs } from './highlightClubs';
+import { highlightAxis } from './highlightAxis';
 import './RatingsScatterFigure.css';
 import './TeamVennFigure.css';
 import { NumberTextInput, type NumberTextInputHandle } from '../components/NumberTextInput';
@@ -115,7 +116,7 @@ export default function TeamVennFigure({ season, category }: FigureProps) {
   };
   const rangeAxes = situationalAxes(filter, v => setFilter({ range: v.range })).filter(a => a.id === 's.range' || (filter.range.kind === 'dateRange' && (a.id === 's.dateStart' || a.id === 's.dateEnd')))
     .map(a => a.kind === 'select' ? { ...a, options: a.options.filter(o => ['all', 'recent:5', 'recent:10', 'custom'].includes(o.value)) } : { ...a, tier: 'primary' as const });
-  const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), venueAxis(venue, setVenue), hl.axis];
+  const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), venueAxis(venue, setVenue), highlightAxis(hl.axis)];
   const [periodLabel] = situationalFilterLabels(filter);
   const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], ...venueConditionLabel(venue), ...hl.labels];
   const baseDate = { kind: 'season' as const, season, gameType };

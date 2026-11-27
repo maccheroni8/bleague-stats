@@ -20,6 +20,7 @@ import { DIVISION_RATING_COLORS } from '../lib/figureRatings';
 import { surnameOf } from '../lib/playerSurname';
 import { useTeamLabel } from '../lib/teamLabel';
 import { useHighlightClubs } from './highlightClubs';
+import { highlightAxis } from './highlightAxis';
 import { usePlayerHighlight } from './usePlayerHighlight';
 import { usePlayerLabel } from '../lib/playerLabel';
 import { statDescription } from '../lib/statDescriptions';
@@ -89,7 +90,7 @@ export default function TopScorersFigure({season,category}:FigureProps){
  {kind:'select',id:'scorerX',label:'横軸',tier:'primary',value:axis,defaultValue:'win',options:axesAvailable.map(a=>({value:a,label:SCORER_LABELS[a]})),onChange:v=>setX(v as ScorerAxis)},
  classificationAxis(classification,setClassification,{season}),
  pf.clubAxis, pf.positionAxis,
- hl.axis, ph.playerAxis, ph.rankAxis,
+ highlightAxis(hl.axis, ph),
  ratioEligibilityAxis({id:'scorerRatio',value:minRatio,max:maxRatio,defaultValue:DEFAULT_RATIO,onChange: (a, b) => { setMinRatio(a); setMaxRatio(b); }, achievable:ach.axis})];
  const conditions=[season,seasonGameTypeLabels(season)[gameType],...situationalFilterLabels(filter),...pf.labels,...eligibilityLabels({gamesRatio:minRatio/100,gamesRatioMax:maxRatio/100,achievable:ach.achievable})];
  const classTitle=figureClassTitle(classification);

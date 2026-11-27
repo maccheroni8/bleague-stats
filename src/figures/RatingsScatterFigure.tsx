@@ -22,6 +22,7 @@ import { statJa } from "../lib/statNames";
 import { statDescription } from "../lib/statDescriptions";
 import type { FigureProps } from "./catalog";
 import { useHighlightClubs } from "./highlightClubs";
+import { highlightAxis } from './highlightAxis';
 import "./RatingsScatterFigure.css";
 
 const DEFAULT_RANGE: SituationalFilter = {range:{kind:"all"}};
@@ -70,7 +71,7 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
     if(axis.kind === "select") return {...axis,options:axis.options.filter(option=>["all","recent:5","recent:10","custom"].includes(option.value))};
     return {...axis,tier:"primary" as const};
   });
-  const axes:FilterAxis[]=[...rangeAxes,gameTypeAxis(gameType,setGameType,season),divisionMultiAxis<"unknown">({id:"ratingsDivision",divisions:present.filter((d):d is Division=>d!=="unknown"),extra:present.includes("unknown")?[{value:"unknown",label:"地区不明"}]:[],selected:activeDivision,onChange:setDivision}),hl.axis];
+  const axes:FilterAxis[]=[...rangeAxes,gameTypeAxis(gameType,setGameType,season),divisionMultiAxis<"unknown">({id:"ratingsDivision",divisions:present.filter((d):d is Division=>d!=="unknown"),extra:present.includes("unknown")?[{value:"unknown",label:"地区不明"}]:[],selected:activeDivision,onChange:setDivision}),highlightAxis(hl.axis)];
   const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")]),...hl.labels];
   const standingById=new Map(request.data?.standings?.teams.map(team=>[team.teamId,team]));
   const standingText=(p:RatingPoint)=>{const st=standingById.get(p.teamId);return st?.division&&st.divisionRank?`${DIVISION_LABELS[st.division][0]}${st.divisionRank}`:"—";};

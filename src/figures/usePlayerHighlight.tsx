@@ -44,21 +44,21 @@ export function usePlayerHighlight({ clubHas, rankIndex, points, teams }: {
   const setRow = (i: number, key: string, n: string) => setRankParam(rows.map((v, j) => (j === i ? `${key}:${n}` : v)));
   const first = rankIndex.items[0]?.key ?? 'pts';
   const rankAxis: FilterAxis = {
-    kind: 'popover', id: 'highlightRank', label: '強調するランキング上位', tier: 'primary', value: rankParam.join(','), defaultValue: '',
+    kind: 'popover', id: 'highlightRank', label: '強調（ランキング上位）', tier: 'primary', value: rankParam.join(','), defaultValue: '',
     onChange: () => setRankParam(EMPTY),
     summary: ranks.length ? ranks.map(r => `${rankIndex.items.find(i => i.key === r.key)?.label ?? r.key} 上位${r.n}人`).join('・') : '指定なし',
     chipValue: ranks.map(r => `${rankIndex.items.find(i => i.key === r.key)?.label ?? r.key} 上位${r.n}人`).join('・'),
     content: <div className="highlight-rank-editor">
       {rows.map((v, i) => {
         const r = parseRank(v) ?? { key: first, n: 10 };
-        return <div key={i} className="stat-condition-row">
+        return <div key={i} className="highlight-rank-row">
           <select className="stat-condition-item" aria-label={`ランキング${i + 1}の項目`} value={r.key} onChange={e => setRow(i, e.target.value, String(r.n))}>
             {rankIndex.items.map(it => <option key={it.key} value={it.key}>{it.label}</option>)}
           </select>
           <span>上位</span>
           <NumberTextInput kind="text" className="stat-condition-value" aria-label={`ランキング${i + 1}の人数`} placeholder="人数" value={String(r.n)}
             onCommit={t => { const n = Number(t.trim()); if (Number.isInteger(n) && n >= 1) setRow(i, r.key, String(n)); }} />
-          <span>人（同順位を含む）</span>
+          <span className="highlight-rank-note">人（同順位含む）</span>
           <button type="button" className="stat-condition-remove" aria-label={`ランキング${i + 1}を削除`} onClick={() => setRankParam(rows.filter((_, j) => j !== i))}>×</button>
         </div>;
       })}
@@ -66,5 +66,5 @@ export function usePlayerHighlight({ clubHas, rankIndex, points, teams }: {
     </div>,
   };
   const reset = () => { setPlayerIds(EMPTY); setRankParam(EMPTY); };
-  return { key: `${playerIds.join(',')}|${rankParam.join(',')}`, has, playerAxis, rankAxis, reset, active: playerIds.length > 0 || ranks.length > 0 };
+  return { key: `${playerIds.join(',')}|${rankParam.join(',')}`, has, playerAxis, rankAxis, reset, playerCount: playerIds.length, rankCount: ranks.length, active: playerIds.length > 0 || ranks.length > 0 };
 }

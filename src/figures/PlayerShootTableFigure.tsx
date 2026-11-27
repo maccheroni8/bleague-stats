@@ -27,6 +27,7 @@ import { useFigureAchievable } from "./useFigureAchievable";
 import { usePlayerFigureData } from "./usePlayerFigureData";
 import { usePlayerFigureFilter } from "./usePlayerFigureFilter";
 import { useHighlightClubs } from "./highlightClubs";
+import { highlightAxis } from './highlightAxis';
 import { usePlayerHighlight } from "./usePlayerHighlight";
 import { ShootLegend, ShootTableView, type ShootSort, type ShootViewColumn } from "./ShootTableView";
 import type { FigureProps } from "./catalog";
@@ -108,7 +109,7 @@ export default function PlayerShootTableFigure({ season, category }: FigureProps
     </div>,
   };
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), selectionAxis,
-    classificationAxis(classification, setClassification, { season }), pf.clubAxis, pf.positionAxis, hl.axis, ph.playerAxis, ph.rankAxis,
+    classificationAxis(classification, setClassification, { season }), pf.clubAxis, pf.positionAxis, highlightAxis(hl.axis, ph),
     ratioEligibilityAxis({ id: "shootRatio", value: minRatio, max: maxRatio, defaultValue: DEFAULT_RATIO, onChange: (a, b) => { setMinRatio(a); setMaxRatio(b); }, achievable: ach.axis })];
   const [periodLabel] = situationalFilterLabels(filter);
   const sortText = shootSortLabel(shown.find(c => c.key === sortKey.key)?.label ?? "PTS", sortKey.descending);

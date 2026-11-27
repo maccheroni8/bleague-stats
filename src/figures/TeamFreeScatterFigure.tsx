@@ -37,6 +37,7 @@ import { FigureExportButton } from './FigureExport';
 import { AxisScatter } from './AxisScatter';
 import type { FigureProps } from './catalog';
 import { useHighlightClubs } from './highlightClubs';
+import { highlightAxis } from './highlightAxis';
 import './RatingsScatterFigure.css';
 
 const DEFAULT: SituationalFilter = { range: { kind: 'all' } };
@@ -194,7 +195,7 @@ export default function TeamFreeScatterFigure({ season, category }: FigureProps)
     venueAxis(venue, setVenue, rangeReason),
     ...(usesCond ? [minGamesAxis] : []),
     { kind: 'select', id: 'freeMode', label: '平均／合計', tier: 'primary', value: mode, defaultValue: 'perGame', options: [{ value: 'perGame', label: '1試合平均' }, { value: 'total', label: '合計' }], onChange: v => setMode(v as 'perGame' | 'total') },
-    hl.axis], ['freeY', 'freeYPersp', 'freeYInvert', 'freeX', 'freeXPersp', 'freeXInvert', 'freeMinGames']);
+    highlightAxis(hl.axis)], ['freeY', 'freeYPersp', 'freeYInvert', 'freeX', 'freeXPersp', 'freeXInvert', 'freeMinGames']);
   const [periodLabel] = situationalFilterLabels(seasonTotals ? { range: { kind: 'all' } } : filter);
   const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[seasonTotals ? 'regular' : gameType], ...(xFixed && yFixed ? [] : [mode === 'total' ? '合計' : '1試合平均']), ...(seasonTotals ? [] : venueConditionLabel(venue)), ...(usesStrength ? ['相手の強さはシーズン全体の値'] : []), ...(usesCond && minGames > 0 ? [`条件の試合数 ${minGames}試合以上`] : []), ...hl.labels];
   const baseDate = { kind: 'season' as const, season, gameType: seasonTotals ? 'regular' as const : gameType };

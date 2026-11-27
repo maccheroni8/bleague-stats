@@ -38,6 +38,7 @@ import { AxisScatter } from './AxisScatter';
 import { usePlayerFigureData } from './usePlayerFigureData';
 import { usePlayerFigureFilter } from './usePlayerFigureFilter';
 import { useHighlightClubs } from './highlightClubs';
+import { highlightAxis } from './highlightAxis';
 import { usePlayerHighlight } from './usePlayerHighlight';
 import type { FigureProps } from './catalog';
 import './RatingsScatterFigure.css';
@@ -135,7 +136,7 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
     venueAxis(venue, setVenue, rangeReason),
     { kind: 'select', id: 'pfreeMode', label: '平均／合計', tier: 'primary', value: mode, defaultValue: 'perGame', options: [{ value: 'perGame', label: '1試合平均' }, { value: 'total', label: '合計' }], onChange: v => setMode(v as 'perGame' | 'total') },
     classificationAxis(classification, setClassification, { season }),
-    pf.clubAxis, pf.positionAxis, hl.axis, ph.playerAxis, ph.rankAxis,
+    pf.clubAxis, pf.positionAxis, highlightAxis(hl.axis, ph),
     { kind: 'select', id: 'pfreeSize', label: '写真の大きさ', tier: 'primary', value: photoSize, defaultValue: 'm', options: [{ value: 's', label: '小' }, { value: 'm', label: '中' }], onChange: v => setPhotoSize(v === 's' ? 's' : 'm') },
     ratioEligibilityAxis({ id: 'pfreeRatio', value: minRatio, max: maxRatio, defaultValue: DEFAULT_RATIO, onChange: (a, b) => { setMinRatio(a); setMaxRatio(b); }, achievable: ach.axis })], ['pfreeY', 'pfreeYInvert', 'pfreeX', 'pfreeXInvert']);
   const [periodLabel] = situationalFilterLabels(seasonTotals ? { range: { kind: 'all' } } : filter);

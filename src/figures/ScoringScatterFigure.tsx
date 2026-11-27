@@ -24,6 +24,7 @@ import { useTeamLabel } from "../lib/teamLabel";
 import { statJa } from "../lib/statNames";
 import type { FigureProps } from "./catalog";
 import { useHighlightClubs } from "./highlightClubs";
+import { highlightAxis } from './highlightAxis';
 import "./RatingsScatterFigure.css";
 import "./ScoringScatterFigure.css";
 
@@ -102,7 +103,7 @@ export default function ScoringScatterFigure({season,category}:FigureProps) {
     kind:"select",id:"scoringY",label:"縦軸",tier:"primary",value:yMode,defaultValue:modes[0]!,
     options:modes.map(m=>({value:m,label:SCORING_Y_LABELS[m]})),onChange:value=>setYParam(value as ScoringYMode),
     ...(modes.length<2?{disabledReason:"このシーズンは外国籍だけを分けて見られません。外国籍・帰化・アジアの合計で表示します。"}:{}),
-  },divisionMultiAxis<"unknown">({id:"scoringDivision",divisions:present.filter((d):d is Division=>d!=="unknown"),extra:present.includes("unknown")?[{value:"unknown",label:"地区不明"}]:[],selected:activeDivision,onChange:setDivision}),hl.axis];
+  },divisionMultiAxis<"unknown">({id:"scoringDivision",divisions:present.filter((d):d is Division=>d!=="unknown"),extra:present.includes("unknown")?[{value:"unknown",label:"地区不明"}]:[],selected:activeDivision,onChange:setDivision}),highlightAxis(hl.axis)];
   const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")]),...hl.labels];
   const xName=statName(xKey,perspective), yName=statName(yKey,perspective);
   const cellNum=(value:number)=>perGameText(value,perspective).replace(/点$/,"");
