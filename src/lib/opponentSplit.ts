@@ -116,6 +116,38 @@ export function buildOpponentSplitRows(teamId: string, logs: readonly TeamGameLo
   return { rows, total: makeRow(teamId, "total", OPPONENT_SPLIT_TOTAL_LABEL, null, [...logs]) };
 }
 
+/**
+ * 結果だけの試合（不戦勝など。resultOnlyLogsForTeam の行）を、各行の勝敗にだけ足す（G・スタッツ・logs は変えない）。
+ * 結果だけの試合しかない相手は、G 0 の行を足す（スタッツは「-」）。勝敗は順位表と同じ数え方、試合数・スタッツはボックススコアのある試合だけ（DESIGN.md 228章・482章）
+ */
+export function withResultOnlyRecords(
+  teamId: string,
+  split: { rows: OpponentSplitRow[]; total: OpponentSplitRow },
+  resultOnlyLogs: readonly TeamGameLog[],
+): { rows: OpponentSplitRow[]; total: OpponentSplitRow } {
+  if (resultOnlyLogs.length === 0) return split;
+  const add = (row: OpponentSplitRow, games: readonly TeamGameLog[]): OpponentSplitRow => {
+    const won = games.filter((g) => g.win).length;
+    return { ...row, wins: row.wins + won, losses: row.losses + games.length - won, resultOnlyGames: (row.resultOnlyGames ?? 0) + games.length };
+  };
+  const byOpponent = new Map<string, TeamGameLog[]>();
+  for (const g of resultOnlyLogs) {
+    const list = byOpponent.get(g.opponentTeamId);
+    if (list) list.push(g);
+    else byOpponent.set(g.opponentTeamId, [g]);
+  }
+  const rows = split.rows.map((r) => {
+    const extra = r.opponentTeamId !== null ? byOpponent.get(r.opponentTeamId) : undefined;
+    return extra ? add(r, extra) : r;
+  });
+  for (const [opponentId, games] of byOpponent) {
+    if (rows.some((r) => r.opponentTeamId === opponentId)) continue;
+    const name = games[games.length - 1]!.opponentTeamName;
+    rows.push(add(makeRow(teamId, opponentId, name, opponentId, []), games));
+  }
+  return { rows, total: add(split.total, resultOnlyLogs) };
+}
+
 // --- Traditional / Advanced / Misc / Scoring ---
 
 export function standardColumns(

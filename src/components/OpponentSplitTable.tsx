@@ -14,6 +14,8 @@ export interface OpponentRowBase {
   gamesPlayed: number;
   wins: number;
   losses: number;
+  /** 勝敗に足した結果だけの試合（不戦勝など）の数。あれば勝敗に「※」 */
+  resultOnlyGames?: number;
 }
 
 /**
@@ -50,7 +52,8 @@ export function OpponentSplitTable<R extends OpponentRowBase>({
         label: "勝敗",
         // 勝ち越しの多い順、同じなら勝ちの多い順
         sortValue: (r) => r.wins - r.losses + r.wins / 1000,
-        format: (r) => formatRecordShort(r.wins, r.losses),
+        // 不戦勝など結果だけの試合を足した行は「※」（試合数・スタッツには入らない。表の下の注記）
+        format: (r) => `${formatRecordShort(r.wins, r.losses)}${r.resultOnlyGames ? "※" : ""}`,
       },
       ...statColumns,
     ],

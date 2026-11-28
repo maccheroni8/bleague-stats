@@ -13,6 +13,7 @@ import { foulColumnsSplit } from "../lib/ruleChange";
 import {
   OPPONENT_SPLIT_CATEGORIES,
   buildOpponentSplitRows,
+  withResultOnlyRecords,
   categoryDisabledPerspectives,
   categoryNeedsYahoo,
   forcedTurnoverColumns,
@@ -33,6 +34,7 @@ import type { TeamPerspective } from "../lib/teamStatsColumns";
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
 import { filterByGameType } from "../../shared/gameType";
 import type { ResultOnlyGameEntry } from "../../shared/resultOnlyGames";
+import { resultOnlyLogsForTeam } from "../lib/resultOnlyGames";
 import type { TeamForcedTurnovers, TeamGameLog, YahooGamePbp } from "../../shared/types";
 
 /** 平均／合計が効かないカテゴリ（割合の表） */
@@ -91,7 +93,15 @@ export function TeamOpponentSplit({
   const effectivePerspective: TeamPerspective = disabledPerspectives.includes(perspective) ? "own" : perspective;
 
   const scopedLogs = useMemo(() => filterByGameType(logs ?? [], gameType), [logs, gameType]);
-  const { rows, total } = useMemo(() => buildOpponentSplitRows(teamId, scopedLogs), [teamId, scopedLogs]);
+  // 勝敗には結果だけの試合（不戦勝など）も足す（順位表と同じ。G・スタッツには入れない。DESIGN.md 228章・482章）
+  const resultOnlyLogs = useMemo(
+    () => filterByGameType(resultOnlyLogsForTeam(resultOnlyGames, teamId, new Set((logs ?? []).map((l) => l.scheduleKey))), gameType),
+    [resultOnlyGames, teamId, logs, gameType],
+  );
+  const { rows, total } = useMemo(
+    () => withResultOnlyRecords(teamId, buildOpponentSplitRows(teamId, scopedLogs), resultOnlyLogs),
+    [teamId, scopedLogs, resultOnlyLogs],
+  );
   const allRows = useMemo(() => [...rows, total], [rows, total]);
 
   // ペイント内外はプレーバイプレーの公式の区分で数えるので全シーズンで出せる（全チームスタッツと同じ）
@@ -116,7 +126,7 @@ export function TeamOpponentSplit({
     [category, allRows, yahooPbp, teamId, effectivePerspective],
   );
 
-  const statColumns = useMemo<Column<OpponentSplitRow>[]>(() => {
+  const statColumnsRaw = useMemo<Column<OpponentSplitRow>[]>(() => {
     switch (category) {
       case "traditional":
       case "advanced":
@@ -135,6 +145,7 @@ export function TeamOpponentSplit({
         return shootingData ? shootingColumns(shootingData, displayMode) : [];
     }
   }, [category, displayMode, effectivePerspective, paintSupported, foulSplit, foreignData, forcedData, shootingData]);
+  const statColumns = useMemo<Column<OpponentSplitRow>[]>(() => withoutZeroGameValues(statColumnsRaw), [statColumnsRaw]);
 
   const renderName = useCallback(
     (r: OpponentSplitRow) => (
@@ -208,7 +219,17 @@ export function TeamOpponentSplit({
       {category === "shooting" && yahooSupported && scopedLogs.length > 0 && (
         <p className="page-subtitle">シュートの種類別の記録は、スポーツナビの記録がある試合だけです。</p>
       )}
-      <ResultOnlyNote games={resultOnlyGames} teamId={teamId} variant="stats" />
+      <ResultOnlyNote games={resultOnlyGames} teamId={teamId} variant="record" />
     </div>
   );
+}
+
+/** 結果だけの試合しかない相手の行（G 0）は、スタッツの値を「-」にして並べ替えでは最後に置く */
+function withoutZeroGameValues(cols: Column<OpponentSplitRow>[]): Column<OpponentSplitRow>[] {
+  return cols.map((c) => ({
+    ...c,
+    sortValue: (r: OpponentSplitRow) => (r.gamesPlayed === 0 ? Number.NaN : c.sortValue(r)),
+    format: c.format ? (r: OpponentSplitRow) => (r.gamesPlayed === 0 ? "-" : c.format!(r)) : undefined,
+    render: c.render ? (r: OpponentSplitRow) => (r.gamesPlayed === 0 ? "-" : c.render!(r)) : undefined,
+  }));
 }

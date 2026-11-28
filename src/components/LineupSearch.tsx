@@ -1,10 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GameType, TeamStintsFile } from "../../shared/types";
 import { seasonGameTypeLabels, SEASON_GAME_TYPE_KEYS, type SeasonGameTypeFilter } from "../../shared/gameType";
-import { composeLabels, gameTypeLabels, periodLabels } from "../lib/conditionLabels";
+import { composeLabels, displayModeLabels, gameTypeLabels, periodLabels, perspectiveLabels } from "../lib/conditionLabels";
+import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { formatDecimal, formatSigned } from "../lib/format";
 import { formatMinutesColon, formatSignedMinutesColon } from "../lib/minutesFormat";
-import { lineupSearchRow, playerSecondsOf, searchLineup, type LineupSearchRow } from "../lib/lineupSearch";
+import {
+  lineupSearchRow,
+  masksOfCount,
+  playerSecondsOf,
+  searchLineupSplit,
+  splitTotalsToResult,
+  type LineupSearchRow,
+  type LineupSplitResult,
+  type LineupSplitTotals,
+} from "../lib/lineupSearch";
+import {
+  formatLineupStat,
+  lineupStatColumns,
+  lineupStatValue,
+  type LineupStatsMode,
+  type LineupStatsTab,
+} from "../lib/lineupSearchStats";
+import { TEAM_PERSPECTIVE_LABELS, type TeamPerspective } from "../lib/teamStatsColumns";
 import type { PeriodRangeValue } from "../lib/periodRange";
 import { SEASON_PERIOD_OPTIONS_NO_CLUTCH } from "../lib/seasonPeriod";
 import { usePageState } from "../lib/pageStateCache";
@@ -21,6 +39,17 @@ const MAX_SELECTED = 5;
 type Venue = "all" | "home" | "away";
 const VENUE_LABELS: Record<Venue, string> = { all: "すべて", home: "ホーム", away: "アウェイ" };
 const VENUE_KEYS: Venue[] = ["all", "home", "away"];
+
+/** 表のタブ。得失点（今までの12項目）・Traditional・Advanced */
+type ResultTab = "rating" | LineupStatsTab;
+const RESULT_TABS: { key: ResultTab; label: string }[] = [
+  { key: "rating", label: "得失点・レーティング" },
+  { key: "traditional", label: CATEGORY_LABELS.traditional },
+  { key: "advanced", label: CATEGORY_LABELS.advanced },
+];
+const MODE_LABELS: Record<LineupStatsMode, string> = { perGame: "平均", total: "合計" };
+const MODE_KEYS: LineupStatsMode[] = ["perGame", "total"];
+const PERSPECTIVE_KEYS: TeamPerspective[] = ["own", "opp", "diff"];
 
 interface Props {
   season: string;
@@ -51,6 +80,10 @@ export function LineupSearch({ season, teamId, playerNameById, games, stateKey, 
   const [gameType, setGameType] = usePageState<SeasonGameTypeFilter>(stateKey("lineupSearchGameType"), "regular");
   const [periodValue, setPeriodValue] = usePageState<PeriodRangeValue>(stateKey("lineupSearchPeriod"), "all");
   const [venue, setVenue] = usePageState<Venue>(stateKey("lineupSearchVenue"), "all");
+  const [resultTabRaw, setResultTab] = usePageState<ResultTab>(stateKey("lineupSearchTab"), "rating");
+  const [statsMode, setStatsMode] = usePageState<LineupStatsMode>(stateKey("lineupSearchMode"), "perGame");
+  const [perspective, setPerspective] = usePageState<TeamPerspective>(stateKey("lineupSearchPerspective"), "own");
+  const resultTab: ResultTab = RESULT_TABS.some((t) => t.key === resultTabRaw) ? resultTabRaw : "rating";
 
   const fileValid = !!stints && stints.season === season && stints.teamId === teamId;
   const file = fileValid ? stints : null;
@@ -82,7 +115,7 @@ export function LineupSearch({ season, teamId, playerNameById, games, stateKey, 
       },
       periods: periodOption.periods,
     };
-    return { on: lineupSearchRow(searchLineup(file, selected, "on", options)), off: lineupSearchRow(searchLineup(file, selected, "off", options)) };
+    return searchLineupSplit(file, selected, options);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file, selected.join(","), gameType, venue, periodOption, gameInfo]);
 
@@ -97,6 +130,8 @@ export function LineupSearch({ season, teamId, playerNameById, games, stateKey, 
     gameTypeLabels(gameType, season),
     periodLabels(periodOption),
     venue !== "all" && VENUE_LABELS[venue],
+    resultTab !== "rating" && displayModeLabels(statsMode),
+    resultTab !== "rating" && perspectiveLabels(perspective),
     selected.length > 0 && `選手：${selected.map((id) => playerLabel(nameOf(id))).join("・")}`,
   );
 
@@ -139,15 +174,59 @@ export function LineupSearch({ season, teamId, playerNameById, games, stateKey, 
             onClear={() => setSelected([])}
           />
 
-          {result === null ? (
-            <p className="empty-message">選手を選ぶと、Players On（全員コートにいる時間）とPlayers Off（全員ベンチにいる時間）の成績を表示します</p>
-          ) : (
-            <ResultView on={result.on} off={result.off} narrow={narrow} />
+          <div className="tab-bar-with-toggle compare-category-bar">
+            <div className="tab-bar">
+              {RESULT_TABS.map((t) => (
+                <button key={t.key} type="button" className={`tab-button${resultTab === t.key ? " active" : ""}`} onClick={() => setResultTab(t.key)}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {resultTab !== "rating" && (
+            <div className="lineup-search-controls">
+              <div className="mode-toggle" role="group" aria-label="平均／合計">
+                {MODE_KEYS.map((k) => (
+                  <button key={k} type="button" className={k === statsMode ? "active" : ""} onClick={() => setStatsMode(k)}>
+                    {MODE_LABELS[k]}
+                  </button>
+                ))}
+              </div>
+              <div className="mode-toggle" role="group" aria-label="視点">
+                {PERSPECTIVE_KEYS.map((k) => (
+                  <button key={k} type="button" className={k === perspective ? "active" : ""} onClick={() => setPerspective(k)}>
+                    {TEAM_PERSPECTIVE_LABELS[k]}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
-          <p className="rule-change-footnote">
-            ※ Players Onは選んだ選手が全員コートにいる時間、Players Offは全員ベンチにいる時間です（一部だけが出ている時間はどちらにも入れません）。
-            Players Offは、選んだ選手のうち誰かが出場した試合だけが対象です。平均は、その状態が実際に起きた試合の数で割ります。差は Players On − Players Off です。
-          </p>
+
+          {result === null ? (
+            <p className="empty-message">選手を選ぶと、選んだ選手のうち何人がコートにいたかごとの成績を表示します</p>
+          ) : (
+            <ResultView
+              key={selected.join(",")}
+              split={result}
+              selected={selected}
+              labelOf={(id) => playerLabel(nameOf(id))}
+              narrow={narrow}
+              tab={resultTab}
+              mode={statsMode}
+              perspective={perspective}
+            />
+          )}
+          {selected.length <= 1 ? (
+            <p className="rule-change-footnote">
+              ※ Players Onは選んだ選手がコートにいる時間、Players Offはベンチにいる時間です。
+              Players Offは、選んだ選手が出場した試合だけが対象です。平均は、その状態が実際に起きた試合の数で割ります。差は Players On − Players Off です。
+            </p>
+          ) : (
+            <p className="rule-change-footnote">
+              ※ 選んだ選手のうち何人がコートにいたかで時間を分けています（人数の行を押すと、出ていた選手の組み合わせごとの行が開きます）。
+              選んだ選手のうち誰かが出場した試合だけが対象です。平均は、その状態が実際に起きた試合の数で割ります。差は 全員出場 − 全員ベンチ です。
+            </p>
+          )}
           <GlossaryNote anchor={GLOSSARY_ANCHORS.lineupSearch} label="ラインナップ検索" />
         </>
       )}
@@ -274,53 +353,187 @@ function format(kind: Kind, v: number | null, diff: boolean): string {
   }
 }
 
-function ResultView({ on, off, narrow }: { on: LineupSearchRow; off: LineupSearchRow; narrow: boolean }) {
-  // On・Offのどちらかが起きていない（試合数0）ときは、その行を「-」にし、差も出さない
-  const cell = (row: LineupSearchRow, m: Metric) => (row.games === 0 ? "-" : format(m.kind, m.value(row), false));
-  const diffCell = (m: Metric) => {
-    if (on.games === 0 || off.games === 0) return "-";
-    const a = m.value(on);
-    const b = m.value(off);
-    return a === null || b === null ? "-" : format(m.kind, a - b, true);
-  };
-  const emptyNote =
-    on.games === 0 && off.games === 0 ? (
-      <p className="empty-message">この条件に当てはまる時間帯がありません</p>
-    ) : on.games === 0 ? (
-      <p className="lineup-search-hint">Players Onに当てはまる時間帯がありません（選んだ選手が全員そろってコートにいた時間が、この条件ではありません）</p>
-    ) : off.games === 0 ? (
-      <p className="lineup-search-hint">Players Offに当てはまる時間帯がありません</p>
-    ) : null;
+/** 表の1行（人数ごとの行、または開いた組み合わせの行） */
+interface RowSpec {
+  key: string;
+  label: string;
+  totals: LineupSplitTotals;
+  /** 組み合わせの行（字下げ） */
+  child: boolean;
+  /** 押すと組み合わせが開く人数の行 */
+  expandable: boolean;
+  count: number;
+}
 
-  if (narrow) {
+function emptyLike(split: LineupSplitResult): LineupSplitTotals {
+  const n = split.byCount[0]?.countKeys.length ?? 0;
+  return { games: 0, seconds: 0, own: new Array<number>(n).fill(0), opp: new Array<number>(n).fill(0), countKeys: split.byCount[0]?.countKeys ?? [] };
+}
+
+/** 人数の行の名前。1人だけ選んだときは今までどおり Players On／Players Off */
+function countLabel(size: number, count: number): string {
+  if (size === 1) return count === 1 ? "Players On" : "Players Off";
+  if (count === size) return `${count}人出場`;
+  if (count === 0) return "0人出場（全員ベンチ）";
+  return `${count}人出場（${size - count}人ベンチ）`;
+}
+
+function buildRows(split: LineupSplitResult, selected: string[], labelOf: (id: string) => string, expanded: Set<number>): RowSpec[] {
+  const size = split.size;
+  const rows: RowSpec[] = [];
+  for (let c = size; c >= 0; c -= 1) {
+    const expandable = size >= 2 && c > 0 && c < size;
+    rows.push({ key: `c${c}`, label: countLabel(size, c), totals: split.byCount[c]!, child: false, expandable, count: c });
+    if (expandable && expanded.has(c)) {
+      for (const mask of masksOfCount(size, c)) {
+        const names = selected.filter((_, i) => mask & (1 << i)).map(labelOf);
+        rows.push({ key: `m${mask}`, label: names.join("・"), totals: split.byMask.get(mask) ?? emptyLike(split), child: true, expandable: false, count: c });
+      }
+    }
+  }
+  return rows;
+}
+
+function ResultView({
+  split,
+  selected,
+  labelOf,
+  narrow,
+  tab,
+  mode,
+  perspective,
+}: {
+  split: LineupSplitResult;
+  selected: string[];
+  labelOf: (id: string) => string;
+  narrow: boolean;
+  tab: ResultTab;
+  mode: LineupStatsMode;
+  perspective: TeamPerspective;
+}) {
+  const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
+  if (split.size === 0) return <p className="empty-message">この条件に当てはまる時間帯がありません</p>;
+  const size = split.size;
+  const full = split.byCount[size]!;
+  const zero = split.byCount[0]!;
+  const toggle = (c: number) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(c)) next.delete(c);
+      else next.add(c);
+      return next;
+    });
+  const rows = buildRows(split, selected, labelOf, expanded);
+  const allEmpty = split.byCount.every((t) => t.games === 0);
+  const fullName = size === 1 ? "Players On" : "全員出場";
+  const zeroName = size === 1 ? "Players Off" : "全員ベンチ";
+  const emptyNote = allEmpty ? (
+    <p className="empty-message">この条件に当てはまる時間帯がありません</p>
+  ) : full.games === 0 ? (
+    <p className="lineup-search-hint">
+      {fullName}に当てはまる時間帯がありません（選んだ選手が全員そろってコートにいた時間が、この条件ではありません）
+    </p>
+  ) : zero.games === 0 ? (
+    <p className="lineup-search-hint">{zeroName}に当てはまる時間帯がありません</p>
+  ) : null;
+  const diffLabel = size === 1 ? "差（On−Off）" : "差（全員出場−全員ベンチ）";
+
+  // 得失点・レーティングのタブは今までの12項目
+  if (tab === "rating") {
+    const on = lineupSearchRow(splitTotalsToResult(full));
+    const off = lineupSearchRow(splitTotalsToResult(zero));
+    // その状態が起きていない（試合数0）行は「-」にし、差も出さない
+    const cell = (row: LineupSearchRow, m: Metric) => (row.games === 0 ? "-" : format(m.kind, m.value(row), false));
+    const diffCell = (m: Metric) => {
+      if (on.games === 0 || off.games === 0) return "-";
+      const a = m.value(on);
+      const b = m.value(off);
+      return a === null || b === null ? "-" : format(m.kind, a - b, true);
+    };
+    if (narrow && size === 1) {
+      return (
+        <>
+          <table className="lineup-search-compare">
+            <thead>
+              <tr>
+                <th className="align-left">項目</th>
+                <th className="align-right">On</th>
+                <th className="align-right">Off</th>
+                <th className="align-right">差</th>
+              </tr>
+            </thead>
+            <tbody>
+              {METRICS.map((m) => (
+                <tr key={m.label}>
+                  <th className="align-left" scope="row" title={statDescription(m.desc)}>
+                    {m.label}
+                  </th>
+                  <td className="align-right">{cell(on, m)}</td>
+                  <td className="align-right">{cell(off, m)}</td>
+                  <td className="align-right lineup-search-diff">{diffCell(m)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {emptyNote}
+        </>
+      );
+    }
     return (
       <>
-        <table className="lineup-search-compare">
-          <thead>
-            <tr>
-              <th className="align-left">項目</th>
-              <th className="align-right">On</th>
-              <th className="align-right">Off</th>
-              <th className="align-right">差</th>
-            </tr>
-          </thead>
-          <tbody>
-            {METRICS.map((m) => (
-              <tr key={m.label}>
-                <th className="align-left" scope="row" title={statDescription(m.desc)}>
-                  {m.label}
-                </th>
-                <td className="align-right">{cell(on, m)}</td>
-                <td className="align-right">{cell(off, m)}</td>
-                <td className="align-right lineup-search-diff">{diffCell(m)}</td>
+        <div className="table-scroll">
+          <table className="sortable-table lineup-search-table">
+            <thead>
+              <tr>
+                <th className="align-left" />
+                {METRICS.map((m) => (
+                  <th key={m.label} className="align-right" title={statDescription(m.desc)}>
+                    {m.label}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const row = lineupSearchRow(splitTotalsToResult(r.totals));
+                return (
+                  <tr key={r.key} className={r.child ? "lineup-search-child-row" : undefined}>
+                    <RowHeader row={r} expanded={expanded.has(r.count)} onToggle={toggle} />
+                    {METRICS.map((m) => (
+                      <td key={m.label} className="align-right">
+                        {cell(row, m)}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+              <tr className="lineup-search-diff-row">
+                <th className="align-left" scope="row">
+                  {diffLabel}
+                </th>
+                {METRICS.map((m) => (
+                  <td key={m.label} className="align-right">
+                    {diffCell(m)}
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+        </div>
         {emptyNote}
       </>
     );
   }
+
+  // Traditional・Advanced（全チームスタッツと同じ名前・並び・書き方。出場区間で数えられない項目は出さない）
+  const cols = lineupStatColumns(tab);
+  const statCell = (t: LineupSplitTotals, ci: number) => (t.games === 0 ? "-" : formatLineupStat(cols[ci]!, lineupStatValue(cols[ci]!, t, mode, perspective), mode, perspective));
+  const statDiff = (ci: number) => {
+    if (full.games === 0 || zero.games === 0) return "-";
+    const a = lineupStatValue(cols[ci]!, full, mode, perspective);
+    const b = lineupStatValue(cols[ci]!, zero, mode, perspective);
+    return a === null || b === null ? "-" : formatLineupStat(cols[ci]!, a - b, mode, perspective, true);
+  };
   return (
     <>
       <div className="table-scroll">
@@ -328,30 +541,32 @@ function ResultView({ on, off, narrow }: { on: LineupSearchRow; off: LineupSearc
           <thead>
             <tr>
               <th className="align-left" />
-              {METRICS.map((m) => (
-                <th key={m.label} className="align-right" title={statDescription(m.desc)}>
-                  {m.label}
+              {cols.map((c) => (
+                <th key={c.key} className="align-right" title={statDescription(c.label)}>
+                  {c.label}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <th className="align-left" scope="row">Players On</th>
-              {METRICS.map((m) => (
-                <td key={m.label} className="align-right">{cell(on, m)}</td>
-              ))}
-            </tr>
-            <tr>
-              <th className="align-left" scope="row">Players Off</th>
-              {METRICS.map((m) => (
-                <td key={m.label} className="align-right">{cell(off, m)}</td>
-              ))}
-            </tr>
+            {rows.map((r) => (
+              <tr key={r.key} className={r.child ? "lineup-search-child-row" : undefined}>
+                <RowHeader row={r} expanded={expanded.has(r.count)} onToggle={toggle} />
+                {cols.map((c, ci) => (
+                  <td key={c.key} className="align-right">
+                    {statCell(r.totals, ci)}
+                  </td>
+                ))}
+              </tr>
+            ))}
             <tr className="lineup-search-diff-row">
-              <th className="align-left" scope="row">差（On−Off）</th>
-              {METRICS.map((m) => (
-                <td key={m.label} className="align-right">{diffCell(m)}</td>
+              <th className="align-left" scope="row">
+                {diffLabel}
+              </th>
+              {cols.map((c, ci) => (
+                <td key={c.key} className="align-right">
+                  {statDiff(ci)}
+                </td>
               ))}
             </tr>
           </tbody>
@@ -359,5 +574,22 @@ function ResultView({ on, off, narrow }: { on: LineupSearchRow; off: LineupSearc
       </div>
       {emptyNote}
     </>
+  );
+}
+
+function RowHeader({ row, expanded, onToggle }: { row: RowSpec; expanded: boolean; onToggle: (count: number) => void }) {
+  if (row.expandable) {
+    return (
+      <th className="align-left" scope="row">
+        <button type="button" className="lineup-search-expand" aria-expanded={expanded} onClick={() => onToggle(row.count)}>
+          <span aria-hidden="true">{expanded ? "▾" : "▸"}</span> {row.label}
+        </button>
+      </th>
+    );
+  }
+  return (
+    <th className={`align-left${row.child ? " lineup-search-child" : ""}`} scope="row">
+      {row.label}
+    </th>
   );
 }

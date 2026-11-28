@@ -10085,3 +10085,41 @@ table.sortable-table.tts-table th {
 [data-design="v2"] .filter-range {
   height: 34px;
 }
+
+/* ラインナップ検索: 人数の行を押して組み合わせの行を開く（DESIGN.md 482章） */
+.lineup-search-expand {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.lineup-search-expand span {
+  display: inline-block;
+  width: 1.1em;
+  font-size: 1.3em;
+  line-height: 1;
+  vertical-align: -1px;
+  color: var(--accent, var(--fg));
+}
+
+table.sortable-table.lineup-search-table tbody th.lineup-search-child {
+  padding-left: 2em;
+  color: var(--muted);
+}
+
+.lineup-search-child-row td {
+  color: var(--muted);
+}
+
+/* 行の名前の列は横スクロールしても固定する */
+table.sortable-table.lineup-search-table tbody th,
+table.sortable-table.lineup-search-table thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bg);
+}

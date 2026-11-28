@@ -232,6 +232,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 469章: **アシストの有無のグラフ**。最初の選択は「得点全体」（チーム詳細・全チームスタッツ）。選手にも追加（全選手スタッツ・個人詳細の Scoring %。値は表の %PTSAST・%PTSSELF と同じ。1810 の選手は出さない）。選手の Scoring % だけに保存（`ShareGraphSave.tsx`。1グラフ1枚）。**画面だけの変更でキー不変**
 - 470章: ランキング（個人・シーズン成績）の保存画像の形。登録区分はタイトルの頭（「日本人 スティールランキング」）、PC幅・保存画像は「チーム」（チームの色の札）・「G」・補足（「FGM/FGA」）の独立した列、写真ありは1行（ポジションは名前の下）、写真なしは字を大きく幅を詰めた。`RankedList` の `teamCol`・`nameLineFirst`。**画面だけの変更でキー不変**
 - 472章: **ランキング（個人）の新しい見た目（470・471章）は保存画像だけ。画面は470章の前のまま**。保存画像だけの CSS は `.export-rendering` の中（`.export-wide` は画面にも付くので使わない）、画面と保存画像で中身が違うものは両方を出して CSS で切り替える（`rank-sub-narrow`／`rank-sub-wide`・`rank-rel-screen`／`rank-rel-export`）、タイトル・条件の行は `ConditionTitle` の `exportTitle`・`exportConditions`、名前を1行にするのは `exportLineFirst`。**画面だけの変更でキー不変**
+- 482章: **ラインナップ検索の人数ごとの行**（N人選ぶと「N人出場」〜「0人出場（全員ベンチ）」の N+1 行・人数の行を押すと組み合わせの行・対象は選んだ誰かが出場した試合・差は全員出場−全員ベンチ。`searchLineupSplit`）と **Traditional／Advanced のタブ**（出場区間で数えられる項目だけ。STL・BLK・F・FD は数え上げが無く、足すと保存キーが変わる。`src/lib/lineupSearchStats.ts`）、**対戦相手別タブの勝敗に不戦勝など結果だけの試合**（勝敗にだけ足して「※」・G・スタッツには入れない。`withResultOnlyRecords`）。検証は `npm run validate:lineup-split`。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
