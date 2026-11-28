@@ -5,7 +5,8 @@ import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { DATA_DIR, readAllGames, readJson } from "./lib/storage.ts";
 import { calculateTimeToShot } from "../shared/timeToShot.ts";
-import { TTS_ATOMS, TTS_FIRST_SEASON, TTS_INDEX_CATEGORIES, ttsExcludedKey, ttsKey, type TtsAtom, type TtsIndexFile } from "../shared/ttsIndex.ts";
+import { TTS_ATOMS, TTS_FIRST_SEASON, TTS_INDEX_CATEGORIES, ttsExcludedKey, ttsFtExcludedKey, ttsFtKey, ttsKey, type TtsAtom, type TtsIndexFile } from "../shared/ttsIndex.ts";
+import type { PlayerTtsFile } from "../shared/playerTts.ts";
 import type { TeamGameIndexFile } from "../shared/gameIndex.ts";
 
 const seasons = readdirSync(DATA_DIR).filter((s) => /^\d{4}-\d{2}$/.test(s)).sort();
@@ -23,7 +24,7 @@ for (const season of seasons) {
   assert.equal(tts.indexRows, idx.games.key.length * 2);
   const c = tts.rows.counts;
   const gameNumber = new Map(idx.games.key.map((k, i) => [k, i]));
-  let measured = 0, excluded = 0, boxFga = 0, noPbp = 0;
+  let measured = 0, excluded = 0, boxFga = 0, noPbp = 0, ftMeasured = 0, ftExcluded = 0;
   for (const game of await readAllGames(season)) {
     const gn = gameNumber.get(String(game.scheduleKey));
     if (gn === undefined) continue; // オールスター等は索引に無い（サイトに出ない）
@@ -49,6 +50,22 @@ for (const season of seasons) {
           assert.equal(c[ttsKey(a, cat, "n")]![row], own.length, `${season} ${game.scheduleKey} ${a} ${cat} 本数`);
           assert.equal(c[ttsKey(a, cat, "s")]![row], own.reduce((n, s) => n + s.seconds!, 0), `${season} ${game.scheduleKey} ${a} ${cat} 秒数`);
         }
+        // フリースローをもらうまでの時間（480章）
+        const fts = calc.fts.filter((f) => f.team === team.id && atomOf(f.period) === a);
+        for (const kind of ["shoot", "bonus"] as const) {
+          const own = fts.filter((f) => f.kind === kind && f.seconds !== null);
+          assert.equal(c[ttsFtKey(a, kind, "n")]![row], own.length, `${season} ${game.scheduleKey} ${a} FT ${kind} 件数`);
+          assert.equal(c[ttsFtKey(a, kind, "s")]![row], own.reduce((n, f) => n + f.seconds!, 0), `${season} ${game.scheduleKey} ${a} FT ${kind} 秒数`);
+          ftMeasured += own.length;
+        }
+        const and1 = fts.filter((f) => f.kind === "shoot" && f.andOne && f.seconds !== null);
+        assert.equal(c[ttsFtKey(a, "and1", "n")]![row], and1.length, `${season} ${game.scheduleKey} ${a} FT and1`);
+        assert.equal(c[ttsFtExcludedKey(a, "u")]![row], fts.filter((f) => f.kind === "unclassified").length);
+        assert.equal(c[ttsFtExcludedKey(a, "o")]![row], fts.filter((f) => f.kind === "overlap").length);
+        assert.equal(c[ttsFtExcludedKey(a, "x")]![row], fts.filter((f) => f.kind === "unknown").length);
+        ftExcluded += fts.filter((f) => f.seconds === null).length;
+        // アンドワンの起点は同じ秒の成功FGの起点（シュートまでの時間にも同じ攻撃で入る）
+        for (const f of and1) assert.ok(shots.some((sh) => sh.start && f.start && sh.start.index === f.start.index && sh.end.clock === f.end.clock), `${season} ${game.scheduleKey} アンドワンの起点がFGと違う`);
         fgOfTeam += shots.length;
         checks++;
       }
@@ -67,6 +84,16 @@ for (const season of seasons) {
   }
   // 初回全体＋OREB後＝全体、のために、その他を含む6分類の本数＋OREB＝計測本数。ここでは測定済み＋除外＝FGを確かめる
   assert.equal(measured + excluded, boxFga, `${season}: 計測＋除外がFGAと合わない`);
+  // 選手の Time to Shot（player-tts。480章）: レギュラー＋ポストシーズンの合計が、チームの計測（選手の付いた FG・FT）と合う
+  const pt = await readJson<PlayerTtsFile>(path.join(DATA_DIR, season, "player-tts.json"));
+  assert.ok(pt, `${season}: player-tts がありません`);
+  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+  assert.ok(sum(pt.rows.fgN) <= measured && sum(pt.rows.fgN) >= measured * 0.999, `${season}: 選手の FG 本数 ${sum(pt.rows.fgN)} とチーム ${measured}`);
+  assert.ok(sum(pt.rows.ftN) <= ftMeasured && sum(pt.rows.ftN) >= ftMeasured * 0.999, `${season}: 選手の FT 件数 ${sum(pt.rows.ftN)} とチーム ${ftMeasured}`);
+  const keys = pt.rows.player.map((p, i) => `${p}|${pt.rows.team[i]}|${pt.rows.playoff[i]}`);
+  assert.equal(new Set(keys).size, keys.length, `${season}: 選手の行が重複`);
+  console.log(`${season}: FTをもらうまで 計測 ${ftMeasured} / 数えなかった ${ftExcluded}（${((100 * ftExcluded) / (ftMeasured + ftExcluded)).toFixed(2)}%）／選手 ${new Set(pt.rows.player).size} 人`);
+  checks++;
   console.log(`${season}: 計測 ${measured} / 除外 ${excluded} / FGA ${boxFga}（${((100 * measured) / boxFga).toFixed(3)}%）PBPなし ${noPbp} 試合`);
   checks++;
 }

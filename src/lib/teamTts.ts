@@ -6,7 +6,7 @@
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
 import { leagueCacheKey, type League } from "./league";
 import { useEffect, useState } from "react";
-import { TTS_ATOMS, TTS_FIRST_SEASON, TTS_INDEX_CATEGORIES, TTS_INDEX_VERSION, ttsExcludedKey, ttsKey, type TtsIndexCategory, type TtsIndexFile } from "../../shared/ttsIndex";
+import { TTS_ATOMS, TTS_FIRST_SEASON, TTS_FT_EXCLUDED, TTS_FT_KINDS, TTS_INDEX_CATEGORIES, TTS_INDEX_VERSION, ttsExcludedKey, ttsFtExcludedKey, ttsFtKey, ttsKey, type TtsFtExcluded, type TtsFtIndexKind, type TtsIndexCategory, type TtsIndexFile } from "../../shared/ttsIndex";
 import type { TeamGameLog } from "../../shared/types";
 import { fetchTeamTtsIndex } from "./data";
 import { loadTeamGameIndex } from "./gameIndexLoad";
@@ -20,8 +20,11 @@ export type TtsPeriodValue = GameRecordPeriod;
 export const TTS_CLUTCH_UNSUPPORTED_REASON = "Time to Shot は、クラッチでは出せません（Q別・前後半・延長は選べます）。";
 export type TtsPerspective = "own" | "opp" | "diff";
 
-/** 画面に出す項目（キー）。all＝全シュート、first＝初回全体（その他を含む）。ほかは分類の本数 */
-export const TTS_ITEMS = ["all", "first", "score", "deadTo", "dreb", "steal", "quarter", "oreb"] as const;
+/**
+ * 画面に出す項目（キー）。all＝全シュート、first＝初回全体（その他を含む）。ほかは分類の本数。
+ * ft〜ftAnd1 はフリースローをもらうまでの時間（480章。ft＝シュートファウル＋ボーナスの候補、ftAnd1 は ftShoot の一部）
+ */
+export const TTS_ITEMS = ["all", "first", "score", "deadTo", "dreb", "steal", "quarter", "oreb", "ft", "ftShoot", "ftBonus", "ftAnd1"] as const;
 export type TtsItem = (typeof TTS_ITEMS)[number];
 
 export interface TtsSource {
@@ -82,6 +85,10 @@ export interface TtsTotals {
   byCategory: Record<TtsIndexCategory, { n: number; s: number }>;
   /** 計測できずに除外した FG の本数 */
   excluded: number;
+  /** フリースローをもらうまでの時間（480章）。ftGames＝FTの列がある試合（古いファイルでは0。画面は「-」） */
+  ftGames: number;
+  ft: Record<TtsFtIndexKind, { n: number; s: number }>;
+  ftExcluded: Record<TtsFtExcluded, number>;
 }
 
 export function emptyTtsTotals(): TtsTotals {
@@ -89,11 +96,31 @@ export function emptyTtsTotals(): TtsTotals {
     games: 0,
     byCategory: Object.fromEntries(TTS_INDEX_CATEGORIES.map((c) => [c, { n: 0, s: 0 }])) as TtsTotals["byCategory"],
     excluded: 0,
+    ftGames: 0,
+    ft: Object.fromEntries(TTS_FT_KINDS.map((k) => [k, { n: 0, s: 0 }])) as TtsTotals["ft"],
+    ftExcluded: Object.fromEntries(TTS_FT_EXCLUDED.map((k) => [k, 0])) as TtsTotals["ftExcluded"],
   };
+}
+
+/** into に from を足す（リーグ平均の行など） */
+export function addTtsTotals(into: TtsTotals, from: TtsTotals): void {
+  into.games += from.games;
+  into.excluded += from.excluded;
+  into.ftGames += from.ftGames;
+  for (const c of TTS_INDEX_CATEGORIES) {
+    into.byCategory[c].n += from.byCategory[c].n;
+    into.byCategory[c].s += from.byCategory[c].s;
+  }
+  for (const k of TTS_FT_KINDS) {
+    into.ft[k].n += from.ft[k].n;
+    into.ft[k].s += from.ft[k].s;
+  }
+  for (const k of TTS_FT_EXCLUDED) into.ftExcluded[k] += from.ftExcluded[k];
 }
 
 function addRow(t: TtsTotals, file: TtsIndexFile, row: number, atoms: readonly number[]): boolean {
   let any = false;
+  let ftAny = false;
   for (const a of atoms) {
     const atom = TTS_ATOMS[a]!;
     const x = file.rows.counts[ttsExcludedKey(atom)]?.[row] ?? -1;
@@ -104,7 +131,17 @@ function addRow(t: TtsTotals, file: TtsIndexFile, row: number, atoms: readonly n
       t.byCategory[c].n += file.rows.counts[ttsKey(atom, c, "n")]?.[row] ?? 0;
       t.byCategory[c].s += file.rows.counts[ttsKey(atom, c, "s")]?.[row] ?? 0;
     }
+    // フリースローの列（古いファイルには無い）
+    const fx = file.rows.counts[ttsFtExcludedKey(atom, "u")]?.[row] ?? -1;
+    if (fx < 0) continue;
+    ftAny = true;
+    for (const k of TTS_FT_KINDS) {
+      t.ft[k].n += file.rows.counts[ttsFtKey(atom, k, "n")]?.[row] ?? 0;
+      t.ft[k].s += file.rows.counts[ttsFtKey(atom, k, "s")]?.[row] ?? 0;
+    }
+    for (const k of TTS_FT_EXCLUDED) t.ftExcluded[k] += file.rows.counts[ttsFtExcludedKey(atom, k)]?.[row] ?? 0;
   }
+  if (ftAny) t.ftGames += 1;
   return any;
 }
 
@@ -127,15 +164,33 @@ export function sumTtsTotals(source: TtsSource, logs: readonly TeamGameLog[], pe
 
 /** 項目の本数と秒数の合計（all は全分類、first は OREB 後以外の全分類〔その他を含む〕） */
 export function ttsItemTotal(t: TtsTotals, item: TtsItem): { n: number; s: number } {
+  if (item === "ft") return { n: t.ft.shoot.n + t.ft.bonus.n, s: t.ft.shoot.s + t.ft.bonus.s };
+  if (item === "ftShoot") return t.ft.shoot;
+  if (item === "ftBonus") return t.ft.bonus;
+  if (item === "ftAnd1") return t.ft.and1;
   const sum = (cats: readonly TtsIndexCategory[]) => cats.reduce((p, c) => ({ n: p.n + t.byCategory[c].n, s: p.s + t.byCategory[c].s }), { n: 0, s: 0 });
   if (item === "all") return sum(TTS_INDEX_CATEGORIES);
   if (item === "first") return sum(TTS_INDEX_CATEGORIES.filter((c) => c !== "oreb"));
   return t.byCategory[item];
 }
 
-/** 項目の平均の秒数（本数が 0 なら null）と割合（計測できた FG の総数が 0 なら null。0〜100） */
-export function ttsItemValues(t: TtsTotals, item: TtsItem): { avg: number | null; pct: number | null; n: number } {
+/** フリースローの項目か */
+export function isTtsFtItem(item: TtsItem): boolean {
+  return item === "ft" || item === "ftShoot" || item === "ftBonus" || item === "ftAnd1";
+}
+
+/**
+ * 項目の平均の秒数（本数が 0 なら null）と割合（0〜100）。FG の項目の割合の分母は計測できた FG の総数、
+ * フリースローの内訳の割合の分母は計測できたフリースローの件数（シュートファウル＋ボーナスの候補）。
+ * フリースローの列が無い古いファイルでは、フリースローの項目は値なし（n も null 扱いの -1 にはせず 0 で、avg・pct が null）
+ */
+export function ttsItemValues(t: TtsTotals, item: TtsItem): { avg: number | null; pct: number | null; n: number | null } {
   const x = ttsItemTotal(t, item);
+  if (isTtsFtItem(item)) {
+    if (t.ftGames === 0) return { avg: null, pct: null, n: null };
+    const all = ttsItemTotal(t, "ft");
+    return { avg: x.n > 0 ? x.s / x.n : null, pct: item !== "ft" && all.n > 0 ? (100 * x.n) / all.n : null, n: x.n };
+  }
   const all = ttsItemTotal(t, "all");
   return { avg: x.n > 0 ? x.s / x.n : null, pct: all.n > 0 ? (100 * x.n) / all.n : null, n: x.n };
 }
@@ -146,7 +201,7 @@ export function ttsPerspectiveValues(
   opp: TtsTotals,
   perspective: TtsPerspective,
   item: TtsItem,
-): { avg: number | null; pct: number | null; n: number } {
+): { avg: number | null; pct: number | null; n: number | null } {
   if (perspective === "own") return ttsItemValues(own, item);
   if (perspective === "opp") return ttsItemValues(opp, item);
   const a = ttsItemValues(own, item);
@@ -154,24 +209,31 @@ export function ttsPerspectiveValues(
   return {
     avg: a.avg !== null && b.avg !== null ? a.avg - b.avg : null,
     pct: a.pct !== null && b.pct !== null ? a.pct - b.pct : null,
-    n: a.n - b.n,
+    n: a.n !== null && b.n !== null ? a.n - b.n : null,
   };
 }
 
-/** 表の項目の並び（TTS → 1st Shot → 初回の内訳 → After OR）。abbr は statNames.ts の略称（割合の列は abbr＋「%」）。TTS だけ割合を出さない */
-export const TTS_TABLE_ITEMS: readonly { item: TtsItem; abbr: string; hasPct: boolean }[] = [
-  { item: "all", abbr: "TTS", hasPct: false },
-  { item: "first", abbr: "1st Shot", hasPct: true },
-  { item: "score", abbr: "After Score", hasPct: true },
-  { item: "deadTo", abbr: "After Dead TO", hasPct: true },
-  { item: "dreb", abbr: "After DR", hasPct: true },
-  { item: "steal", abbr: "After STL", hasPct: true },
-  { item: "quarter", abbr: "Q Start", hasPct: true },
+/**
+ * 表の項目の並び（TTS → 1st Shot → 初回の内訳 → After OR → To FT → フリースローの内訳）。abbr は statNames.ts の略称（割合の列は abbr＋「%」）。
+ * hasPct＝割合の列があるか（TTS・To FT は無い）、hasCount＝計測した本数（件数）の列を出すか、group＝折りたためる内訳（start＝起点ごと・ft＝種類ごと）
+ */
+export const TTS_TABLE_ITEMS: readonly { item: TtsItem; abbr: string; hasPct: boolean; hasCount?: boolean; group?: "start" | "ft"; toggles?: "start" | "ft" }[] = [
+  { item: "all", abbr: "TTS", hasPct: false, hasCount: true },
+  { item: "first", abbr: "1st Shot", hasPct: true, toggles: "start" },
+  { item: "score", abbr: "After Score", hasPct: true, group: "start" },
+  { item: "deadTo", abbr: "After Dead TO", hasPct: true, group: "start" },
+  { item: "dreb", abbr: "After DR", hasPct: true, group: "start" },
+  { item: "steal", abbr: "After STL", hasPct: true, group: "start" },
+  { item: "quarter", abbr: "Q Start", hasPct: true, group: "start" },
   { item: "oreb", abbr: "After OR", hasPct: true },
+  { item: "ft", abbr: "To FT", hasPct: false, hasCount: true, toggles: "ft" },
+  { item: "ftShoot", abbr: "Shooting Foul", hasPct: true, group: "ft" },
+  { item: "ftBonus", abbr: "Bonus", hasPct: true, group: "ft" },
+  { item: "ftAnd1", abbr: "And-1", hasPct: true, group: "ft" },
 ];
 
-/** 表の1行の値。null は「-」（対象外のシーズンなど）。キーは項目 */
-export type TtsRowValues = Record<TtsItem, { avg: number | null; pct: number | null; n: number }>;
+/** 表の1行の値。null は「-」（対象外のシーズンなど）。キーは項目。n が null は「-」（古いファイルのフリースロー） */
+export type TtsRowValues = Record<TtsItem, { avg: number | null; pct: number | null; n: number | null }>;
 
 export function ttsRowValues(own: TtsTotals, opp: TtsTotals, perspective: TtsPerspective): TtsRowValues {
   return Object.fromEntries(TTS_ITEMS.map((i) => [i, ttsPerspectiveValues(own, opp, perspective, i)])) as TtsRowValues;
@@ -186,6 +248,11 @@ function formatTtsNumber(v: number | null, perspective: TtsPerspective): string 
   return r < 0 ? `-${text}` : perspective === "diff" ? `+${text}` : text;
 }
 export const formatTtsSeconds = formatTtsNumber;
+/** 本数・件数（整数。+/- は符号付き） */
+export function formatTtsCount(v: number | null, perspective: TtsPerspective): string {
+  if (v === null) return "-";
+  return perspective === "diff" && v > 0 ? `+${v}` : String(v);
+}
 export const formatTtsPct = formatTtsNumber;
 
 /** 導出データの無いシーズンの注記（表は「-」にする） */

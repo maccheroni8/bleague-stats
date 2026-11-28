@@ -10,14 +10,19 @@ import path from "node:path";
 import { readdirSync } from "node:fs";
 import { DATA_DIR, seasonDirName, writeJsonIfChanged } from "./lib/storage.ts";
 import type { Category } from "../shared/types.ts";
-import { buildTtsIndex } from "./lib/ttsIndexBuild.ts";
+import { buildTtsIndex, takePlayerTts } from "./lib/ttsIndexBuild.ts";
 
 const SEASON_DIR_PATTERN = /^\d{4}-\d{2}$/;
 
 async function buildSeason(season: string, category: Category): Promise<boolean> {
   const built = await buildTtsIndex(season, category);
+  const players = takePlayerTts();
   if (!built) return false;
-  return writeJsonIfChanged(path.join(DATA_DIR, seasonDirName(season, category), "team-tts.json"), built as unknown as Record<string, unknown>, ["generatedAt"], false);
+  const dir = path.join(DATA_DIR, seasonDirName(season, category));
+  const team = await writeJsonIfChanged(path.join(dir, "team-tts.json"), built as unknown as Record<string, unknown>, ["generatedAt"], false);
+  // 選手の Time to Shot（DESIGN.md 480章）
+  const player = players ? await writeJsonIfChanged(path.join(dir, "player-tts.json"), players as unknown as Record<string, unknown>, ["generatedAt"], false) : false;
+  return team || player;
 }
 
 async function main() {

@@ -29,6 +29,23 @@ export function ttsExcludedKey(atom: TtsAtom): string {
   return `${atom}.x`;
 }
 
+/**
+ * フリースローをもらうまでの時間（DESIGN.md 480章。shared/timeToShot.ts の TtsFt）。
+ * 「区間.ft.種類.n／s」: shoot＝シュートファウル・bonus＝ボーナスの候補・and1＝うちアンドワン（shoot の一部。アンドワンの FG はシュートまでの時間にも入る）。
+ * 「区間.ft.u／o／x」: 数えなかった件数（u＝どちらにも当てはまらない・o＝同じ時刻に罰則が重なる・x＝攻撃の始まりが分からない）。
+ * 古いファイルには無い（画面は「-」）
+ */
+export const TTS_FT_KINDS = ["shoot", "bonus", "and1"] as const;
+export type TtsFtIndexKind = (typeof TTS_FT_KINDS)[number];
+export const TTS_FT_EXCLUDED = ["u", "o", "x"] as const;
+export type TtsFtExcluded = (typeof TTS_FT_EXCLUDED)[number];
+export function ttsFtKey(atom: TtsAtom, kind: TtsFtIndexKind, value: "n" | "s"): string {
+  return `${atom}.ft.${kind}.${value}`;
+}
+export function ttsFtExcludedKey(atom: TtsAtom, kind: TtsFtExcluded): string {
+  return `${atom}.ft.${kind}`;
+}
+
 export interface TtsIndexFile {
   version: typeof TTS_INDEX_VERSION;
   generatedAt: string;

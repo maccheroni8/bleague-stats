@@ -175,8 +175,10 @@ import { teamNameInSeason, useTeamText } from "../lib/teamLabel";
 import { aggregatePeriodScoring, type PeriodScoringRow } from "../lib/teamPeriodScoring";
 import { buildPeriodColumns } from "../lib/teamPeriodColumns";
 import { periodScoringNote } from "../components/TeamPeriodCells";
-import { TtsNameLegend, TtsTable, type TtsLeadingColumn } from "../components/TtsTable";
+import { TtsNameLegend, TtsTable, TtsViewControls, type TtsLeadingColumn } from "../components/TtsTable";
+import { useTtsView } from "../lib/ttsView";
 import {
+  addTtsTotals,
   emptyTtsTotals,
   TTS_CATEGORY_LABEL,
   ttsRowValues,
@@ -737,6 +739,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   // Time to Shot（DESIGN.md 290章）: 選んだ試合区分・試合の条件・区間の試合の、攻撃の始まりから最初のFGの試投までの秒数。視点は自チーム／opp（同じ試合の相手のシュート）／+/-
   const ttsTab = boxTab === "timeToShot";
   const ttsSupported = ttsSeasonSupported(season);
+  const [ttsView, setTtsView] = useTtsView();
   const { source: ttsSource, loading: ttsLoading, retry: retryTts } = useTtsSource(season, ttsTab && ttsSupported, league);
   const ttsRows: TtsTeamRow[] = useMemo(() => {
     if (!ttsTab || !teams) return [];
@@ -753,14 +756,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
     const played = ttsRows.filter((r) => r.own && r.gamesPlayed > 0);
     if (played.length === 0) return null;
     const sum: TtsTotals = emptyTtsTotals();
-    for (const r of played) {
-      sum.games += r.own!.games;
-      sum.excluded += r.own!.excluded;
-      for (const c of Object.keys(sum.byCategory) as (keyof TtsTotals["byCategory"])[]) {
-        sum.byCategory[c].n += r.own!.byCategory[c].n;
-        sum.byCategory[c].s += r.own!.byCategory[c].s;
-      }
-    }
+    for (const r of played) addTtsTotals(sum, r.own!);
     return { team: { teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME }, gamesPlayed: sum.games / played.length, values: ttsRowValues(sum, emptyTtsTotals(), "own"), own: null };
   }, [ttsRows]);
 
@@ -1682,8 +1678,11 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
           </p>
         ) : (
           <>
+            <TtsViewControls view={ttsView} onChange={setTtsView} />
             <div className="table-scroll">
               <TtsTable
+                view={ttsView}
+                onViewChange={setTtsView}
                 rowNumbers
                 tierColors
                 key={`${boxTab}-${teamPerspective}`}
@@ -1701,7 +1700,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
             {!ttsSupported && <p className="page-subtitle">{TTS_UNSUPPORTED_NOTE}</p>}
             <p className="page-subtitle">
               秒＝攻撃が始まってから最初のFGを打つまでの平均、%＝計測できたFGの総数に占める割合です（1st Shot%＋After OR%＝100%）。
-              相手の得点後はスローインの時間を含み、途中でファウルがあっても数え直しません。デッドボールTOはスティールの付いていないTOです。公式の記録の時刻（1秒単位）から計算した値です。
+              どれも攻撃の始まりから数え、途中のファウルでショットクロックが戻っても数え直しません。相手の得点後はスローインの時間を含みます。デッドボールTOはスティールの付いていないTOです。公式の記録の時刻（1秒単位）から計算した値です。
               {period === "ot" ? "延長は、延長のあった試合だけの値です（すべての延長の合計）。" : ""}
             </p>
             <TtsNameLegend />

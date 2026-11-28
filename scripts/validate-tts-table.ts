@@ -53,11 +53,34 @@ for (const season of ["2021-22", "2025-26"]) {
       }
       // 初回全体＋OREB後＝全体（本数・割合）
       const first = ttsItemValues(got, "first"), oreb = ttsItemValues(got, "oreb"), all = ttsItemValues(got, "all");
-      if (all.n > 0) {
-        assert.equal(first.n + oreb.n, all.n);
+      if (all.n! > 0) {
+        assert.equal(first.n! + oreb.n!, all.n);
         assert.ok(Math.abs((first.pct ?? 0) + (oreb.pct ?? 0) - 100) < 1e-9);
         checks++;
       }
+      // フリースローをもらうまでの時間（DESIGN.md 480章）: 計算し直した件数・秒数と一致、Shooting Foul%＋Bonus%＝100%
+      const ftExp = { shoot: { n: 0, s: 0 }, bonus: { n: 0, s: 0 }, and1: { n: 0, s: 0 } };
+      calc.forEach((r) => {
+        for (const f of r.fts) {
+          if ((f.team === teamId) !== own || !fn(f.period) || f.seconds === null || (f.kind !== "shoot" && f.kind !== "bonus")) continue;
+          ftExp[f.kind].n += 1;
+          ftExp[f.kind].s += f.seconds;
+          if (f.andOne && f.kind === "shoot") {
+            ftExp.and1.n += 1;
+            ftExp.and1.s += f.seconds;
+          }
+        }
+      });
+      for (const k of ["shoot", "bonus", "and1"] as const) {
+        assert.equal(got.ft[k].n, ftExp[k].n, `${season} ${period} ${own} FT ${k} n`);
+        assert.equal(got.ft[k].s, ftExp[k].s, `${season} ${period} ${own} FT ${k} s`);
+      }
+      const ft = ttsItemValues(got, "ft");
+      if (ft.n! > 0) {
+        assert.ok(Math.abs((ttsItemValues(got, "ftShoot").pct ?? 0) + (ttsItemValues(got, "ftBonus").pct ?? 0) - 100) < 1e-9);
+        assert.ok((ttsItemValues(got, "ftAnd1").pct ?? 0) <= (ttsItemValues(got, "ftShoot").pct ?? 0));
+      }
+      checks++;
     }
     // +/- ＝自チーム−opp
     const own = sumTtsTotals(source, logs, period, "own");
@@ -72,6 +95,13 @@ for (const season of ["2021-22", "2025-26"]) {
   // 前半＋後半＋延長＝全体
   const sumN = (p: "h1" | "h2" | "ot") => sumTtsTotals(source, logs, p, "own").byCategory.score.s;
   assert.equal(sumN("h1") + sumN("h2") + sumN("ot"), sumTtsTotals(source, logs, "all", "own").byCategory.score.s);
+  checks++;
+  // フリースローの列が無い古いファイル（デプロイ直後のキャッシュなど）では、フリースローの項目は「-」（0件にしない）
+  const oldFile: TtsIndexFile = { ...file, rows: { counts: Object.fromEntries(Object.entries(file.rows.counts).filter(([k]) => !k.includes(".ft."))) } };
+  const oldTotals = sumTtsTotals({ season, file: oldFile, gameNo }, logs, "all", "own");
+  assert.equal(oldTotals.ftGames, 0);
+  assert.deepEqual(ttsItemValues(oldTotals, "ft"), { avg: null, pct: null, n: null });
+  assert.equal(ttsItemValues(oldTotals, "all").n, ttsItemValues(sumTtsTotals(source, logs, "all", "own"), "all").n);
   checks++;
 }
 console.log(`team-tts 集計: ${checks} 項目 OK`);

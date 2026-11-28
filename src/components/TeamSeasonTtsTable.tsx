@@ -4,7 +4,12 @@ import type { TeamGameLog } from "../../shared/types";
 import { filterByGameType } from "../../shared/gameType";
 import { loadTtsSource, sumTtsTotals, ttsRowValues, ttsSeasonSupported, TTS_UNSUPPORTED_NOTE, TTS_CLUTCH_UNSUPPORTED_REASON, type TtsPerspective, type TtsPeriodValue, type TtsRowValues, type TtsSource } from "../lib/teamTts";
 import { GlossaryNote } from "./GlossaryNote";
-import { TtsNameLegend, TtsTable, type TtsLeadingColumn } from "./TtsTable";
+import { TtsNameLegend, TtsTable, TtsViewControls, type TtsLeadingColumn } from "./TtsTable";
+import { useTtsView } from "../lib/ttsView";
+import { SavableBlock } from "./SavableBlock";
+import { ConditionTitle } from "./ConditionTitle";
+import { buildExportFilename } from "../lib/conditionLabels";
+import { perspectiveFilePart, perspectiveTitleSuffix } from "../lib/titlePerspective";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 
 interface SeasonRow {
@@ -28,8 +33,13 @@ export function TeamSeasonTtsTable({
   perspective,
   period,
   league,
+  teamName,
+  conditions,
 }: {
   league: League;
+  /** 保存画像のタイトル・ファイル名に使う（480章） */
+  teamName: string;
+  conditions: string[];
   teamId: string;
   seasons: readonly string[];
   teamNameOf: (season: string) => string;
@@ -40,6 +50,7 @@ export function TeamSeasonTtsTable({
   const seasonsKey = seasons.join(",");
   const [sources, setSources] = useState<Map<string, TtsSource | null>>(new Map());
   const [nonce, setNonce] = useState(0);
+  const [view, setView] = useTtsView();
   useEffect(() => {
     let alive = true;
     for (const season of seasonsKey ? seasonsKey.split(",") : []) {
@@ -84,8 +95,18 @@ export function TeamSeasonTtsTable({
   return (
     <>
       {loading > 0 && <p className="loading">読み込み中...（残り{loading}シーズン）</p>}
+      <TtsViewControls view={view} onChange={setView} />
+      <SavableBlock
+        filename={buildExportFilename([teamName, "シーズン別成績", "Time to Shot", ...(perspectiveFilePart(perspective) ? [perspectiveFilePart(perspective)!] : []), ...conditions.filter((c) => c !== "Time to Shot")])}
+        baseDate={{ kind: "allTime", gameType: "regular" }}
+        className="export-target-standings"
+        menuLabel="画像（Time to Shot）"
+      >
+      <ConditionTitle title={teamName + "　シーズン別成績：Time to Shot" + perspectiveTitleSuffix(perspective)} conditions={conditions} />
       <div className="table-scroll">
         <TtsTable
+          view={view}
+          onViewChange={setView}
           key={perspective}
           leading={leading}
           rows={rows}
@@ -96,6 +117,7 @@ export function TeamSeasonTtsTable({
           defaultSortKey="season"
         />
       </div>
+      </SavableBlock>
       {unsupported && <p className="page-subtitle">{TTS_UNSUPPORTED_NOTE}</p>}
       {unreadable.length > 0 && (
         <p className="page-subtitle">
@@ -108,7 +130,7 @@ export function TeamSeasonTtsTable({
       {empty.length > 0 && <p className="page-subtitle">{empty.join("・")} は、{period === "ot" ? "延長のあった試合が無い" : "数えられる試合が無い"}ため「-」にしています。</p>}
       <p className="page-subtitle">
         レギュラーシーズンの試合の合計です。秒＝攻撃が始まってから最初のFGを打つまでの平均、%＝計測できたFGの総数に占める割合（1st Shot%＋After OR%＝100%）。
-        相手の得点後はスローインの時間を含み、途中でファウルがあっても数え直しません。公式の記録の時刻（1秒単位）から計算した値です。
+        どれも攻撃の始まりから数え、途中のファウルでショットクロックが戻っても数え直しません。相手の得点後はスローインの時間を含みます。公式の記録の時刻（1秒単位）から計算した値です。
         {period === "ot" ? "延長は、延長のあった試合だけの値です（すべての延長の合計）。" : ""}
       </p>
       <TtsNameLegend />

@@ -12,6 +12,7 @@
 // gzip圧縮されたバイト列のまま届く。`Content-Encoding`レスポンスヘッダの有無で判定し、
 // 両方の環境に対応する
 
+import type { PlayerTtsFile } from "../../shared/playerTts";
 import type { SeasonRegistrationFile } from "../../shared/registration";
 import type { PlayerGameIndexFile, TeamGameIndexFile } from "../../shared/gameIndex";
 import type { AssistPairsFile } from "../../shared/assistPairs";
@@ -360,6 +361,15 @@ export async function fetchFoulPoints(season: string, league: League = "premier"
 export async function fetchTeamTtsIndex(season: string, league: League = "premier"): Promise<TtsIndexFile | null> {
   try {
     return await fetchJson<TtsIndexFile>(`${categoryBase(season, league)}/team-tts.json`);
+  } catch {
+    return null;
+  }
+}
+
+/** 選手の Time to Shot（data/{season}/player-tts.json、DESIGN.md 480章）。ファイルが無ければ null */
+export async function fetchPlayerTtsIndex(season: string, league: League = "premier"): Promise<PlayerTtsFile | null> {
+  try {
+    return await fetchJson<PlayerTtsFile>(`${categoryBase(season, league)}/player-tts.json`);
   } catch {
     return null;
   }

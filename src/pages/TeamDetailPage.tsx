@@ -1224,6 +1224,33 @@ const TEAM_SEASON_TRADITIONAL_COLUMNS: TeamSeasonBoxColumn[] = [
   },
 ];
 
+/**
+ * シチュエーション別成績の +/- は、平均のときは小数第2位（サイトのほかの平均と同じ書き方。DESIGN.md 480章）。合計は整数のまま。
+ * 試合詳細のボックススコアの +/- の列（整数）は変えない
+ */
+function withAveragedPlusMinus(cols: BoxscoreColumn[], averaged: boolean): BoxscoreColumn[] {
+  if (!averaged) return cols;
+  return cols.map((c) => (c.key === "plusminus" ? { ...c, format: (x: BoxscoreCounts) => (x.hasPlusMinus ? formatSigned(x.plusMinus, 2) : "-") } : c));
+}
+
+/**
+ * チームの +/- は得失点差（シーズン別成績の +/- と同じ定義）。試合ログの合計には +/- の値が無い（区間の索引から出すときだけある）ので、
+ * 無いときは PTS − 相手の PTS で埋める（DESIGN.md 480章）
+ */
+function withTeamPlusMinus(c: BoxscoreCounts, opp: BoxscoreCounts): BoxscoreCounts {
+  return c.hasPlusMinus ? c : { ...c, plusMinus: c.pts - opp.pts, hasPlusMinus: true };
+}
+
+/** 視点が +/- のときの差。平均の +/- だけ小数第2位にする（ほかは比較の表と同じ formatColumnDiff） */
+function formatSituationalDiff(col: BoxscoreColumn, own: BoxscoreCounts, ownCtx: ColumnCtx, opp: BoxscoreCounts, oppCtx: ColumnCtx, averaged: boolean): string {
+  if (averaged && col.key === "plusminus" && col.value) {
+    const a = col.value(own, ownCtx);
+    const b = col.value(opp, oppCtx);
+    return a === undefined || b === undefined ? "-" : formatSigned(a - b, 2);
+  }
+  return formatColumnDiff(col, own, ownCtx, opp, oppCtx);
+}
+
 const TEAM_SEASON_ADVANCED_COLUMNS: TeamSeasonBoxColumn[] = [
   { key: "g", label: "G", format: (r) => String(r.team.gamesPlayed) },
   {
@@ -3722,12 +3749,14 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 読んだ索引に OFF FOUL・CHARGE の列があるか（275章 段階3より前の索引には無く、その列は「-」）
   const situationalIndexUnavailable = indexUnavailableKeys(!situationalPeriodSource || teamPeriodHasFoulColumns(situationalPeriodSource.file));
   // Traditional〜Scoring の列。区間を索引から出すときは、索引に無い項目（LIVETOV・DEADTOV 等。古い索引は OFF FOUL・CHARGE も）は「-」にする
-  const situationalTeamMainColumns =
+  const situationalTeamMainColumns = withAveragedPlusMinus(
     situationalTeamBoxTab === "shooting" || situationalTeamBoxTab === "periods"
       ? []
       : situationalIndexMode
         ? withIndexUnavailableColumns(teamBoxscoreColumnsFor(situationalTeamBoxTab, foulColumnsSplit([season])), !situationalIndexUnavailable.has("offfoul"))
-        : teamBoxscoreColumnsFor(situationalTeamBoxTab, foulColumnsSplit([season]));
+        : teamBoxscoreColumnsFor(situationalTeamBoxTab, foulColumnsSplit([season])),
+    situationalTeamDisplayMode !== "total",
+  );
   const situationalTeamShotColumns = shotTypeEntityColumns<TeamSituationalStatsRow>(
     situationalTeamShotTypeKeys,
     (r) => situationalTeamShotBreakdownByRowKey.get(r.key),
@@ -5064,6 +5093,8 @@ export function TeamDetailPage({ season }: { season: string }) {
               perspective={seasonBoxPerspective}
               period={seasonBoxPeriodValue as TtsPeriodValue | "all"}
               league={league}
+              teamName={team.teamName}
+              conditions={seasonBoxConditions}
             />
           ) : seasonBoxTab === "periods" ? (
             <>
@@ -5596,21 +5627,21 @@ export function TeamDetailPage({ season }: { season: string }) {
                                   {col.format!(row)}
                                 </td>
                               ))
-                            : situationalTeamMainColumns.map((col) => (
-                                <td key={col.key} className="align-right">
-                                  {situationalTeamPerspective === "own"
-                                    ? cleanNumericString(col.format(row.boxTotals.own, row.boxTotals.ownCtx))
-                                    : situationalTeamPerspective === "opp"
-                                      ? cleanNumericString(col.format(row.boxTotals.opp, row.boxTotals.oppCtx))
-                                      : formatColumnDiff(
-                                          col,
-                                          row.boxTotals.own,
-                                          row.boxTotals.ownCtx,
-                                          row.boxTotals.opp,
-                                          row.boxTotals.oppCtx,
-                                        )}
-                                </td>
-                              ))}
+                            : situationalTeamMainColumns.map((col) => {
+                                const own = withTeamPlusMinus(row.boxTotals.own, row.boxTotals.opp);
+                                const opp = withTeamPlusMinus(row.boxTotals.opp, row.boxTotals.own);
+                                // +/- は符号付きの書き方のまま（cleanNumericString は符号を落とすので通さない）
+                                const clean = col.key === "plusminus" ? (x: string) => x : cleanNumericString;
+                                return (
+                                  <td key={col.key} className="align-right">
+                                    {situationalTeamPerspective === "own"
+                                      ? clean(col.format(own, row.boxTotals.ownCtx))
+                                      : situationalTeamPerspective === "opp"
+                                        ? clean(col.format(opp, row.boxTotals.oppCtx))
+                                        : formatSituationalDiff(col, own, row.boxTotals.ownCtx, opp, row.boxTotals.oppCtx, situationalTeamDisplayMode !== "total")}
+                                  </td>
+                                );
+                              })}
                           {situationalTeamPointsColumns.map((col) => (
                             <td key={col.key} className="align-right">
                               {formatTeamPointsExtraColumn(row.points, col, situationalTeamPerspective, situationalTeamDisplayMode)}

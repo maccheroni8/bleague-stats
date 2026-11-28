@@ -47,6 +47,23 @@ assert.equal(sumTts(sides.shots,'B').score.seconds,20);
 assert.equal(sumTts(sides.shots,'B',[2]).quarter.seconds,5);fixtureChecks++;
 // 2016-17〜2019-20 も計算する（DESIGN.md 372章）。旧形式のチームリバウンドの番号（18＝OR・19＝DR）で読む
 {const legacyReb=calculateTimeToShot({...fixture([[5,'9:50','A'],[19,'9:48','B'],[4,'9:40','B']]),season:'2019-20'});assert.equal(legacyReb.shots[1]!.category,'dreb');assert.equal(legacyReb.shots[1]!.seconds,8);fixtureChecks++;}
+// フリースローをもらうまでの時間（DESIGN.md 480章）。起点はFGと同じ・ファウルの記録時刻まで・途中の守備ファウルで数え直さない
+{
+ const ftFix=(rows:[number,string,string|null,number|null,number|null,string?][])=>({season:'2026-27',homeTeam:{id:'A'},awayTeam:{id:'B'},raw:{PlayByPlays:rows.map(([c,clock,team,cd2,cd3,text=''],i)=>({ActionCD1:c,ActionCD2:cd2,ActionCD3:cd3,RestTime:clock,TeamID:team,Period:1,PlayText:text,PlayerID1:team==='A'?'a1':'b1',No:i}))}} as unknown as StoredGame);
+ const k=(r:ReturnType<typeof calculateTimeToShot>)=>r.fts.map(f=>[f.kind,f.seconds,f.andOne]);
+ // シュートファウル: Q開始10:00 → 9:40 のファウル → 20秒
+ assert.deepEqual(k(calculateTimeToShot(ftFix([[22,'9:40','B',32,39,'(1-1:2)'],[15,'9:40','A',null,null],[7,'9:40','A',null,null],[7,'9:40','A',null,null]]))),[['shoot',20,false]]);
+ // 途中の守備ファウル（FTなし）で数え直さない: 9:50 にファウル、9:30 にボーナスのファウル → 30秒
+ assert.deepEqual(k(calculateTimeToShot(ftFix([[22,'9:50','B',30,null,'(1-1:0)'],[22,'9:30','B',32,null,'(2-5:2)'],[8,'9:30','A',null,null],[7,'9:30','A',null,null]]))),[['bonus',30,false]]);
+ // 印なし・チーム4個目 → どちらにも当てはまらない
+ assert.deepEqual(k(calculateTimeToShot(ftFix([[22,'9:30','B',32,null,'(2-4:2)'],[7,'9:30','A',null,null],[7,'9:30','A',null,null]]))),[['unclassified',null,false]]);
+ // アンドワン: FG成功と同じ秒の FT。FTの側にも入り、起点はFGと同じ
+ const a1=calculateTimeToShot(ftFix([[1,'9:35','A',null,null],[22,'9:35','B',31,39,'(1-1:1)'],[7,'9:35','A',null,null],[4,'9:20','B',null,null]]));
+ assert.deepEqual(k(a1),[['shoot',25,true]]);assert.equal(a1.shots[0]!.seconds,25);
+ // 同じ時刻に罰則が2つ → 重なり
+ assert.deepEqual(k(calculateTimeToShot(ftFix([[22,'9:30','B',32,39,'(1-1:2)'],[22,'9:30','B',31,39,'(1-2:1)'],[7,'9:30','A',null,null],[7,'9:30','A',null,null]]))),[['overlap',null,false]]);
+ fixtureChecks+=5;
+}
 const probe=calculateTimeToShot(fixture([[13,'9:50','A'],[4,'9:45','B',1,'ファストブレイク']]));
 assert.equal(probe.diagnostics.filter(d=>d.reason==='unpaired_to_fastbreak_no_stop').length,1);fixtureChecks++;
 

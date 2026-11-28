@@ -103,6 +103,7 @@ export function ExportImageButton({
   allChoice,
   restoreAfterSave,
   choicesLabel = "保存する図",
+  menuLabel,
   multi,
   defaultChoiceKeys,
 }: {
@@ -126,6 +127,8 @@ export function ExportImageButton({
   restoreAfterSave?: () => void;
   /** 選択欄の見出し（既定は「保存する図」） */
   choicesLabel?: string;
+  /** 「保存」のメニューでの名前（同じページに保存の窓が2つ以上あるときに見分ける。省略は「画像」） */
+  menuLabel?: string;
   /** 指定すると、choices をチェックで複数選んでまとめて保存できる（「すべて選ぶ」つき。選んだ順ではなく choices の並びで、1つの対象に1枚。開いた直後は defaultChoiceKey だけ選んでいる。設計書449章） */
   multi?: boolean;
   /** multi の最初に選んでおく対象（指定しなければ defaultChoiceKey だけ。1つのタブが複数の対象に分かれるとき、そのタブの全部を選んでおく） */
@@ -310,7 +313,7 @@ export function ExportImageButton({
   const multiSelected = multi && choices ? (checkedKeys ?? defaultChoiceKeys ?? [defaultChoiceKey ?? choices[0]?.key ?? ""]) : null;
   const saveDisabled = busy || !!disabledReason || (!!multiSelected && multiSelected.length === 0);
   const saveEntry = useSaveMenuEntry({
-    label: "画像",
+    label: menuLabel ?? "画像",
     order: 0,
     busyLabel: busy ? (phase ? BUSY_LABELS[phase] : "出力中…") : null,
     onSelect: () => {

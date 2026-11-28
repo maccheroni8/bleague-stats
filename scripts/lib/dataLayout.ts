@@ -35,6 +35,7 @@ export const SEASON_DERIVED_ENTRIES = [
   "player-foreign.json.gz",
   "player-games",
   "player-period-index.json.gz",
+  "player-tts.json.gz",
   "players.json.gz",
   "playoff-race.json.gz",
   "registered-players.json.gz",
@@ -49,11 +50,11 @@ export const SEASON_DERIVED_ENTRIES = [
 
 /**
  * SEASON_DERIVED_ENTRIES のうち、シーズンによっては作られないもの（作成済みかの判定から外す）。
- * team-stints・team-tts.json.gz（Time to Shot）・player-foreign.json.gz（選手の On-Court Foreign の人数別の材料。DESIGN.md 304章）は、372章から全シーズンで作るが、
+ * team-stints・team-tts.json.gz（Time to Shot）・player-tts.json.gz（選手の Time to Shot。480章）・player-foreign.json.gz（選手の On-Court Foreign の人数別の材料。DESIGN.md 304章）は、372章から全シーズンで作るが、
  * 数え上げのある試合が1つも無いシーズン・リーグでは作られないことがあるので、作成済みかの判定からは外したままにする。
  * ここに足すのは、シーズンによって作られないと分かっているものだけ。作られるはずのファイルを足すと、作成漏れに気付けなくなる
  */
-export const SEASON_OPTIONAL_DERIVED_ENTRIES = ["team-stints", "team-tts.json.gz", "player-foreign.json.gz"] as const;
+export const SEASON_OPTIONAL_DERIVED_ENTRIES = ["team-stints", "team-tts.json.gz", "player-tts.json.gz", "player-foreign.json.gz"] as const;
 
 /** data/ 直下の元データ（A） */
 export const GLOBAL_RAW_ENTRIES = [

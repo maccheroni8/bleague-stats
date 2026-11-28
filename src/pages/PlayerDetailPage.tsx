@@ -1,4 +1,6 @@
 import { seasonBoxColumnsWithFtrPpp } from "../lib/pppColumn";
+import { PlayerSeasonTtsTable } from "../components/PlayerSeasonTtsTable";
+import { PLAYER_TTS_TAB_LABEL } from "../lib/playerTts";
 import { matchesOpponentStrength, opponentStrengthChoices } from "../lib/opponentStrength";
 import { useOpponentRecords } from "../lib/useOpponentRecords";
 import { SaveMenu } from "../components/SaveMenu";
@@ -1023,7 +1025,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // タブ状態をactiveTab/onTabChangeで親（このコンポーネント）に持ち上げ、どちらかで
   // シューティングタブが選ばれたら、この選手のYahoo PBP対応シーズン分の出場試合のショットを
   // 遅延取得する（両セクションで共有。scheduleKeyごとにキャッシュするため二重取得しない）
-  const [seasonBreakdownTab, setSeasonBreakdownTab] = usePageState<SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff">(
+  const [seasonBreakdownTab, setSeasonBreakdownTab] = usePageState<SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff" | "tts">(
     pk("seasonBreakdownTab"),
     "traditional",
   );
@@ -2356,8 +2358,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
   //   シーズン別成績 → gameTypeFilter/seasonBreakdownPeriod/seasonDisplayMode/seasonBreakdownTab
   //   シチュエーション別成績・アシスト・オンコート → situationalStatsSeason/GameType（アシストのみPも）
   //   ショットチャート → gameTypeFilter（シーズン別成績と共通）・ページのseason・shotChartFilters/shotChartPeriod
-  const seasonBoxCategoryLabel = (key: SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff"): string =>
-    key === "onoff"
+  const seasonBoxCategoryLabel = (key: SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff" | "tts"): string =>
+    key === "tts"
+      ? PLAYER_TTS_TAB_LABEL
+      : key === "onoff"
       ? ONOFF_TAB_LABEL
       : key === "shooting"
       ? CATEGORY_LABELS.shooting
@@ -2653,9 +2657,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
               }),
             ]}
           />
-          {seasonBreakdownPeriod !== "all" && seasonBreakdownTab !== "shooting" && seasonBreakdownTab !== "scoringComposition" && breakdownPeriodSources.failedSeasons.length > 0 ? (
+          {seasonBreakdownPeriod !== "all" && seasonBreakdownTab !== "shooting" && seasonBreakdownTab !== "scoringComposition" && seasonBreakdownTab !== "tts" && breakdownPeriodSources.failedSeasons.length > 0 ? (
             <PeriodIndexFailure onRetry={breakdownPeriodSources.retry} />
-          ) : seasonBreakdownPeriod !== "all" && seasonBreakdownTab !== "shooting" && seasonBreakdownTab !== "scoringComposition" && breakdownPeriodSources.loading ? (
+          ) : seasonBreakdownPeriod !== "all" && seasonBreakdownTab !== "shooting" && seasonBreakdownTab !== "scoringComposition" && seasonBreakdownTab !== "tts" && breakdownPeriodSources.loading ? (
             <p className="loading">この期間の再集計中...</p>
           ) : seasonBreakdownTab === "shooting" && seasonBreakdownPeriod === "clutch" ? (
             <p className="empty-message">{SHOOTING_CLUTCH_UNSUPPORTED_REASON}</p>
@@ -3513,14 +3517,14 @@ function SeasonBreakdownTable({
    * BoxscoreTable.tsxのactiveTab/onTabChangeと同じパターン。DESIGN.md参照）。未指定なら
    * コンポーネント内部のstateでタブを管理する
    */
-  activeTab?: SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff";
-  onTabChange?: (tab: SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff") => void;
+  activeTab?: SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff" | "tts";
+  onTabChange?: (tab: SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff" | "tts") => void;
   /** シューティングタブ用: scheduleKeyごとのこの選手のショット（Yahoo PBP対応シーズンのみ） */
   careerShots: Map<string, YahooShotEvent[]>;
   careerShotsLoading: boolean;
 }) {
   const isRookie = useIsRookie();
-  const [internalTab, setInternalTab] = useState<SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff">("traditional");
+  const [internalTab, setInternalTab] = useState<SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff" | "tts">("traditional");
   const tab = controlledActiveTab ?? internalTab;
   const setTab = onTabChange ?? setInternalTab;
   // 列ヘッダークリックソート（RankingsPage等のSortableTableと同じ「1回目クリックで降順、
@@ -3628,7 +3632,7 @@ function SeasonBreakdownTable({
   }, [careerData, gameTypeFilter, seasonRows, displayMode, playerId, period, periodSources]);
 
   const columns =
-    tab === "shooting" || tab === "scoringComposition"
+    tab === "shooting" || tab === "scoringComposition" || tab === "tts"
       ? []
       : tab === "onoff"
         ? SEASON_ONOFF_COLUMNS
@@ -3751,9 +3755,32 @@ function SeasonBreakdownTable({
         <button className={`tab-button${tab === "onoff" ? " active" : ""}`} onClick={() => setTab("onoff")} type="button">
           {ONOFF_TAB_LABEL}
         </button>
+        <button className={`tab-button${tab === "tts" ? " active" : ""}`} onClick={() => setTab("tts")} type="button">
+          {PLAYER_TTS_TAB_LABEL}
+        </button>
       </div>
     </div>
   );
+
+  // 選手の Time to Shot（DESIGN.md 480章）。シーズン全体の値だけ（区間を選んだときは「-」）
+  if (tab === "tts") {
+    return (
+      <>
+        {tabBar}
+        <PlayerSeasonTtsTable
+          playerId={playerId}
+          seasons={careerData.map((cd) => cd.season)}
+          gameType={gameTypeFilter}
+          league={league}
+          blocked={period !== "all"}
+          teamNameOf={(season, teamId) => {
+            for (const t of teamData?.get(season)?.ownTeamByScheduleKey.values() ?? []) if (t.teamId === teamId) return t.teamName;
+            return teamId;
+          }}
+        />
+      </>
+    );
+  }
 
   // Scoring %（得点構成）のシーズン別推移（DESIGN.md 141章）。1行＝1シーズン、新しいシーズンが上、移籍したシーズンは1本
   if (tab === "scoringComposition") {

@@ -17,6 +17,7 @@ export function SavableBlock({
   unavailableReason,
   extraControls,
   extraButtons,
+  menuLabel,
   children,
 }: {
   filename: string;
@@ -28,6 +29,8 @@ export function SavableBlock({
   extraControls?: ReactNode;
   /** 「画像として保存」の隣に並べるボタン（「動画として保存」） */
   extraButtons?: ReactNode;
+  /** 「保存」のメニューでの名前（省略は「画像」） */
+  menuLabel?: string;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -35,7 +38,7 @@ export function SavableBlock({
     <div className="savable-block">
       <HeaderActions>
         <div className="savable-bar">
-          <ExportImageButton targetRef={ref} filename={filename} baseDate={baseDate} options={extraControls} disabledReason={unavailableReason} />
+          <ExportImageButton targetRef={ref} filename={filename} baseDate={baseDate} options={extraControls} disabledReason={unavailableReason} menuLabel={menuLabel} />
           {extraButtons}
         </div>
       </HeaderActions>

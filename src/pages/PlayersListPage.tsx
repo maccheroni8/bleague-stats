@@ -1,4 +1,5 @@
 import { SEASON_ADVANCED_COLUMNS_WITH_FTR } from "../lib/ftrColumn";
+import { formatPlayerTtsSeconds, PLAYER_TTS_FILTER_NOTE, PLAYER_TTS_MIN_SHOTS, PLAYER_TTS_TAB_LABEL, playerTtsAvg, playerTtsByTeam, playerTtsRanks, playerTtsSeasonTotal, usePlayerTts } from "../lib/playerTts";
 import { seasonBoxColumnsFor } from "../lib/playerColumnsView";
 import { buildOpponentRecords } from "../lib/opponentStrength";
 import { GamesPlayedRatioSlider } from "../components/GamesPlayedRatioSlider";
@@ -306,7 +307,7 @@ export function PlayersListPage({ season }: { season: string }) {
 //   一括取得済みのteams.jsonのシーズン合計値をそのまま使う（26チーム分のteam-games
 //   個別取得はしない）
 
-type PlayersPageTab = SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff";
+type PlayersPageTab = SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff" | "tts";
 
 interface PlayerRow {
   /** 表のシーズン（名前の右のルーキーの印を、このシーズンで判定する。DESIGN.md 217-3章） */
@@ -593,6 +594,7 @@ const TAB_LABELS: { key: PlayersPageTab; label: string }[] = [
   { key: "shooting", label: CATEGORY_LABELS.shooting },
   { key: "scoringComposition", label: CATEGORY_LABELS.scoringComposition },
   { key: "onoff", label: ONOFF_TAB_LABEL },
+  { key: "tts", label: PLAYER_TTS_TAB_LABEL },
 ];
 
 const DEFAULT_SORT: Record<PlayersPageTab, { key: string; dir: "asc" | "desc" }> = {
@@ -603,6 +605,7 @@ const DEFAULT_SORT: Record<PlayersPageTab, { key: string; dir: "asc" | "desc" }>
   shooting: { key: "name", dir: "asc" },
   scoringComposition: { key: "pts", dir: "desc" },
   onoff: { key: "onoffnetrtg", dir: "desc" },
+  tts: { key: "ptts", dir: "asc" },
 };
 
 const PAGE_SIZE = 50;
@@ -724,7 +727,7 @@ const RECENT_N_PARAM = choiceNumberParam<PlayerRecentFormRecentN>("n", RECENT_FO
 const PLAYERS_VIEW_PARAM = enumParam<PlayersOuterTab>("view", ["stats", "records", "awards", "recent"], "stats");
 const PLAYERS_TAB_PARAM = enumParam<PlayersPageTab>(
   "tab",
-  ["traditional", "advanced", "misc", "scoring", "shooting", "scoringComposition", "onoff"],
+  ["traditional", "advanced", "misc", "scoring", "shooting", "scoringComposition", "onoff", "tts"],
   "traditional",
   { traditional: "trad", advanced: "adv", shooting: "shoot", scoringComposition: "share" },
 );
@@ -815,6 +818,10 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
   const subsetIds = useMemo(() => (subsetPeriod && periodSource ? overtimeCandidates(periodSource, OVERTIME_MIN_GAMES, period === "clutch" ? "clutch" : "ot") : null), [subsetPeriod, periodSource, period]);
   // 試合ログから集計し直す表（条件を付けたとき、または区間を選んだとき）。区間だけを選んだときは、チームの試合ログは要らない
   const recompute = filterActive || periodActive;
+  // 選手の Time to Shot（480章）: 試合区分以外の条件・区間・登録区分の足し直しがあるときは「-」
+  const playerTtsBlocked = !isDefaultFilter(situationalFilter) || classRecompute || periodActive;
+  const { file: playerTtsFile, loading: playerTtsLoading } = usePlayerTts(season, tab === "tts", league);
+  const playerTtsMap = useMemo(() => (playerTtsFile ? playerTtsByTeam(playerTtsFile, gameType) : null), [playerTtsFile, gameType]);
   // ファウルの列は、2026-27以降だけの表ではTF1・TF2・FLAG・DISR、それ以外ではUFOUL・TF（DESIGN.md 16-8章）
   const foulSplit = foulColumnsSplit([season]);
   useFoulConditionCleanup(season, statConditions, setStatConditions);
@@ -1115,6 +1122,43 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
   );
 
   const shootingRows = conditionedRows.filter((r) => r.player.shotTypes);
+  // 選手の Time to Shot（DESIGN.md 480章）: シーズン全体の値だけ（試合区分は選べる）。並べ替え・順位は30本以上の選手だけ
+  const playerTtsTotalOf = (r: PlayerRow) => (playerTtsMap && !playerTtsBlocked ? playerTtsSeasonTotal(playerTtsMap, r.player.playerId) : null);
+  const playerTtsRankMap =
+    tab === "tts"
+      ? playerTtsRanks(
+          conditionedRows.map((r) => {
+            const t = playerTtsTotalOf(r);
+            return { id: r.player.playerId, avg: playerTtsAvg(t, "fg"), n: t?.fgN ?? 0 };
+          }),
+        )
+      : new Map<string, number>();
+  const ttsEligible = (r: PlayerRow) => (playerTtsTotalOf(r)?.fgN ?? 0) >= PLAYER_TTS_MIN_SHOTS;
+  const playerTtsColumns: Column<PlayerRow>[] = [
+    nameColumn,
+    teamColumn,
+    {
+      key: "pttsrank",
+      label: "順位",
+      sortValue: (r) => playerTtsRankMap.get(r.player.playerId) ?? Number.NaN,
+      format: (r) => String(playerTtsRankMap.get(r.player.playerId) ?? "-"),
+    },
+    {
+      key: "ptts",
+      label: "Player TTS",
+      sortValue: (r) => (ttsEligible(r) ? (playerTtsAvg(playerTtsTotalOf(r), "fg") ?? Number.NaN) : Number.NaN),
+      format: (r) => formatPlayerTtsSeconds(playerTtsAvg(playerTtsTotalOf(r), "fg")),
+    },
+    {
+      key: "pttsn",
+      label: "Player TTS N",
+      sortValue: (r) => (ttsEligible(r) ? (playerTtsTotalOf(r)?.fgN ?? Number.NaN) : Number.NaN),
+      format: (r) => {
+        const t = playerTtsTotalOf(r);
+        return t ? String(t.fgN) : "-";
+      },
+    },
+  ];
   const shotTypeKeys = sortShotTypeKeys([...new Set(shootingRows.flatMap((r) => Object.keys(r.player.shotTypes ?? {})))]);
   const shootingColumns: Column<PlayerRow>[] = [
     nameColumn,
@@ -1128,7 +1172,9 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
   ];
 
   const baseColumns =
-    tab === "shooting"
+    tab === "tts"
+      ? playerTtsColumns
+      : tab === "shooting"
       ? shootingColumns
       : tab === "traditional"
         ? recompute
@@ -1483,6 +1529,16 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
           {tab === "misc" && <RuleChangeFootnote seasons={[season]} />}
           <OnCourtShareNote tab={tab} rows={tableRows.map((r) => ({ season, gamesPlayed: r.ctx?.raw.gamesPlayed ?? 0, ocGames: r.ctx?.raw.ocGames ?? 0 }))} />
           {tab === "onoff" && <OnOffNote seasons={[season]} periodSelected={periodActive} />}
+          {tab === "tts" && (
+            <>
+              {playerTtsBlocked && <p className="page-subtitle">{PLAYER_TTS_FILTER_NOTE}</p>}
+              {!playerTtsLoading && !playerTtsFile && <p className="page-subtitle">このシーズンの選手の Time to Shot を読み込めませんでした（「-」にしています）。</p>}
+              <p className="page-subtitle">
+                Player TTS＝その選手が打ったFGの、攻撃が始まってからシュートまでの平均秒数（チームの Time to Shot と同じ数え方。途中のファウルでショットクロックが戻っても数え直しません）です。
+                並べ替えと順位（速い順）は{PLAYER_TTS_MIN_SHOTS}本以上の選手だけで、{PLAYER_TTS_MIN_SHOTS}本未満の選手は値だけ出しています。移籍した選手は全チームの合計です（チームごとの値は個人詳細にあります）。
+              </p>
+            </>
+          )}
           {periodActive && period === "ot" && <p className="rule-change-footnote">※ {OVERTIME_GAMES_NOTE}</p>}
           {periodActive && period !== "clutch" && gameType !== "regular" && hasShortGameSeason([season]) && <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>}
           {periodActive && period !== "clutch" && gameType !== "playoff" && hasManualBoxscoreSeason([season]) && <p className="rule-change-footnote">※ {MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
