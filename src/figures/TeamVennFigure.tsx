@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { fetchTeams, fetchTeamGameLogs, fetchDivisionHistory, teamLogoUrl } from '../lib/data';
 import { useJsonData } from '../lib/useJsonData';
 import { enumParam, situationalParam, useUrlState, type UrlCodec } from '../lib/urlState';
@@ -13,7 +13,7 @@ import { useTeamLabel } from '../lib/teamLabel';
 import type { AllTeamsRow } from '../lib/teamStatsColumns';
 import {
   allVennItems, isVennWinItem, selectionCodec, thresholdCodec, VENN_WINPCT_COND_ID, VENN_WINPCT_ITEMS, vennWinSpec,
-  DEFAULT_VENN_SELECTION, DEFAULT_VENN_TOP, VENN_CATEGORIES, VENN_PERSPECTIVES, VENN_TOP_OPTIONS, buildVennRows, computeTeamVenn, defaultVennThreshold, formatVennThreshold,
+  DEFAULT_VENN_SELECTION, DEFAULT_VENN_TOP, VENN_CATEGORIES, vennSelectionKey, buildVennRows, computeTeamVenn, defaultVennThreshold, formatVennThreshold,
   itemHasPerspective, resolveVennSelection, vennColumn, vennItemLabel, vennItems, vennLeagueRow, type VennBasis, type VennPerspective, type VennSelection, type VennTop,
 } from '../lib/figureVennItems';
 import { VENN_CENTERS, VENN_DESIGN_HEIGHT, VENN_DESIGN_WIDTH, VENN_RADIUS, layoutVenn, vennEmphasisScales, vennLabelBoxes, type VennMask } from '../lib/figureVenn';
@@ -44,7 +44,12 @@ const rangeCodec: UrlCodec<SituationalFilter> = {
   write: (p, v) => situationalParam.write(p, { range: v.range }),
 };
 const gameCodec = { ...enumParam<SeasonGameTypeFilter>('gt', ['regular', 'playoff', 'both'], 'regular'), read: GAME_TYPE_PARAM.read };
-const topCodec = enumParam<`${VennTop}`>('vtn', VENN_TOP_OPTIONS.map(String) as `${VennTop}`[], String(DEFAULT_VENN_TOP) as `${VennTop}`);
+// 順位で絞る「上位◯」は1位からチーム数までの整数（以前の 5・8・10 のリンク・保存した設定もそのまま開ける）
+const topCodec: UrlCodec<number> = {
+  keys: ['vtn'],
+  read: p => { const raw = p.get('vtn'); const n = raw === null || !/^\d+$/.test(raw) ? NaN : Number(raw); return Number.isInteger(n) && n >= 1 && n <= 99 ? n : undefined; },
+  write: (p, v) => { if (v !== DEFAULT_VENN_TOP) p.set('vtn', String(v)); },
+};
 const basisCodec = enumParam<VennBasis>('vbs', ['rank', 'value'], 'rank');
 const NO_THRESHOLDS: (number | null)[] = [null, null, null];
 const SLOT_NAMES = ['左上の円', '右上の円', '下の円'];
@@ -54,12 +59,11 @@ export default function TeamVennFigure({ season, category }: FigureProps) {
   const [filter, setFilter] = useUrlState(rangeCodec, DEFAULT);
   const [gameType, setGameType] = useUrlState(gameCodec, 'regular');
   const [venue, setVenue] = useUrlState(venueCodec, 'all');
-  const [topParam, setTop] = useUrlState(topCodec, String(DEFAULT_VENN_TOP) as `${VennTop}`);
+  const [topParam, setTop] = useUrlState(topCodec, DEFAULT_VENN_TOP);
   const [selParam, setSel] = useUrlState(selectionCodec, DEFAULT_VENN_SELECTION as unknown as VennSelection[]);
   const [basis, setBasis] = useUrlState(basisCodec, 'rank');
   const [thrParam, setThr] = useUrlState(thresholdCodec, NO_THRESHOLDS);
   const [hover, setHover] = useState<string | null>(null);
-  const top = Number(topParam) as VennTop;
   const target = useRef<HTMLDivElement>(null), teamLabel = useTeamLabel();
   const request = useJsonData(async () => {
     const teams = await fetchTeams(season, category);
@@ -70,6 +74,9 @@ export default function TeamVennFigure({ season, category }: FigureProps) {
     return { teams, divisions, missing: entries.filter(([, l]) => l === null).length, logs: new Map(entries.map(([id, l]) => [id, l ?? []])) };
   }, [season, category]);
   const rows = useMemo(() => request.data && !request.data.missing ? buildVennRows(request.data.teams, request.data.logs, { category, range: filter.range, gameType, venue }) : [], [request.data, category, filter, gameType, venue]);
+  // 順位で絞る範囲の上限＝そのシーズンのチーム数（B.PREMIER と B.ONE で違う）
+  const teamCount = Math.max(rows.length, request.data?.teams.length ?? 0, 1);
+  const top: VennTop = Math.max(1, Math.min(topParam, teamCount));
   const items = allVennItems(season);
   const boxItems = vennItems(season);
   const hl = useHighlightClubs({ season, category, teams: request.data?.teams ?? [], divisionOf: id => request.data?.divisions?.[category]?.[season]?.[id] });
@@ -111,12 +118,18 @@ export default function TeamVennFigure({ season, category }: FigureProps) {
   };
   const total = rows.length;
   const setSlot = (slot: number, next: Partial<VennSelection>) => {
+    if (next.item !== undefined) next = { ...next, perspective: perspectiveOk.get(next.item) ? selection[slot]!.perspective : 'own' };
     setSel(selection.map((s, i) => i === slot ? { ...s, ...next } : s));
     if (next.item !== undefined || next.perspective !== undefined) setThr(thrParam.map((t, i) => i === slot ? null : t));
   };
   const rangeAxes = situationalAxes(filter, v => setFilter({ range: v.range })).filter(a => a.id === 's.range' || (filter.range.kind === 'dateRange' && (a.id === 's.dateStart' || a.id === 's.dateEnd')))
     .map(a => a.kind === 'select' ? { ...a, options: a.options.filter(o => ['all', 'recent:5', 'recent:10', 'custom'].includes(o.value)) } : { ...a, tier: 'primary' as const });
-  const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), venueAxis(venue, setVenue), highlightAxis(hl.axis)];
+  // 「絞り方」と「上位◯」は、強調の右の空いている場所に並べる（上位◯は順位で絞るときだけ）
+  const basisAxis: FilterAxis = { kind: 'select', id: 'venn.basis', label: '絞り方', tier: 'primary', value: basis, defaultValue: 'rank', chip: false, onChange: v => setBasis(v === 'value' ? 'value' : 'rank'),
+    options: [{ value: 'rank', label: '順位で絞る' }, { value: 'value', label: '値で絞る' }] };
+  const topAxis: FilterAxis = { kind: 'range', id: 'venn.top', label: '上位', tier: 'primary', value: String(top), defaultValue: String(DEFAULT_VENN_TOP), chip: false, onChange: v => setTop(Number(v)),
+    min: 1, max: teamCount, step: 1, display: `${top}位` };
+  const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), venueAxis(venue, setVenue), highlightAxis(hl.axis), basisAxis, ...(basis === 'rank' ? [topAxis] : [])];
   const [periodLabel] = situationalFilterLabels(filter);
   const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], ...venueConditionLabel(venue), ...hl.labels];
   const baseDate = { kind: 'season' as const, season, gameType };
@@ -132,40 +145,37 @@ export default function TeamVennFigure({ season, category }: FigureProps) {
   // 負の値になりうる項目（+/-・NetRtg など）は、スマホの数字キーボードに無い「−」をボタンで足せるようにする
   const thrInputs = useRef<(NumberTextInputHandle | null)[]>([]);
   const signed = selection.map((s, i) => !isWin[i] && (s.perspective === 'diff' || (thresholds[i] ?? 0) < 0 || /^[+-]/.test(sample[i]!.trim()) || rows.some(r => Number(columns3[i]!.sortValue(r)) < 0)));
-  return <section aria-label="ベン図">
-    <FilterBar axes={axes} stateKey="figures:team-venn" onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setVenue('all'); setTop(String(DEFAULT_VENN_TOP) as `${VennTop}`); setSel([...DEFAULT_VENN_SELECTION]); setBasis('rank'); setThr(NO_THRESHOLDS); hl.setIds([]); setHover(null); }} />
-    <div className="venn-pickers">
-      {selection.map((s, i) => <div key={i} className={`venn-picker ${SLOT_COLORS[i]}`}>
-        <span className="venn-dot" aria-hidden="true" />
-        <label>{SLOT_NAMES[i]}の項目
-          <select value={s.item} onChange={e => setSlot(i, { item: e.target.value, perspective: 'own', cond: e.target.value === VENN_WINPCT_COND_ID ? (s.cond ?? DEFAULT_COND) : undefined, mode: undefined })}>
-            <optgroup label="勝率">{VENN_WINPCT_ITEMS.map(it => <option key={it.id} value={it.id} disabled={it.id !== VENN_WINPCT_COND_ID && selection.some((o, j) => j !== i && o.item === it.id)}>{it.label}</option>)}</optgroup>
-            {VENN_CATEGORIES.map(cat => <optgroup key={cat.key} label={cat.label}>
-              {boxItems.filter(it => it.category === cat.key).map(it => <option key={it.id} value={it.id} disabled={selection.some((o, j) => j !== i && o.item === it.id)}>{it.label}</option>)}
-            </optgroup>)}
-          </select>
-        </label>
-        {s.item === VENN_WINPCT_COND_ID && env && <CondPicker env={env} spec={condOf(s)} label={SLOT_NAMES[i]!} onChange={cond => setSlot(i, { cond })} />}
-        {basis === 'value' && <label>{isWin[i] ? '基準の勝率' : '基準の値'}（{dirText(i)}）
-          <NumberTextInput ref={h => { thrInputs.current[i] = h; }} kind="number" className="venn-threshold" value={thrParam[i] != null ? String(thrParam[i]) : thresholds[i] === null ? '' : String(Number(thresholds[i]!.toFixed(4)))} aria-label={`${labels[i]}の基準の値`}
-            onCommit={text => setThr(thrParam.map((t, j) => j === i ? (text === '' ? null : isWin[i] ? parseRateInput(text) : Number(text)) : t))} />
-        </label>}
-        {basis === 'value' && isWin[i] && <label>以上／未満
-          <select value={s.mode ?? 'ge'} onChange={e => setSlot(i, { mode: e.target.value === 'lt' ? 'lt' : 'ge' })}><option value="ge">以上</option><option value="lt">未満</option></select>
-        </label>}
-        {basis === 'value' && signed[i] && <button type="button" className="venn-sign" aria-label={`${labels[i]}の基準の値の符号（−）を付け外し`} onMouseDown={e => e.preventDefault()} onClick={() => thrInputs.current[i]?.toggleSign()}>−</button>}
-        {perspectiveOk.get(s.item) && <label>視点
-          <select value={s.perspective} onChange={e => setSlot(i, { perspective: e.target.value as VennPerspective })}>
-            <option value="own">自チーム</option><option value="opp">opp</option><option value="diff">+/-</option>
-          </select>
-        </label>}
-      </div>)}
-      <label className="venn-top">絞り方
-        <select value={basis} onChange={e => setBasis(e.target.value as VennBasis)}><option value="rank">順位で絞る</option><option value="value">値で絞る</option></select>
-      </label>
-      {basis === 'rank' && <label className="venn-top">上位
-        <select value={topParam} onChange={e => setTop(e.target.value as `${VennTop}`)}>{VENN_TOP_OPTIONS.map(n => <option key={n} value={n}>{n}チーム</option>)}</select>
-      </label>}
+  return <section aria-label="ベン図" className="venn-team-figure">
+    <FilterBar axes={axes} stateKey="figures:team-venn" onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setVenue('all'); setTop(DEFAULT_VENN_TOP); setSel([...DEFAULT_VENN_SELECTION]); setBasis('rank'); setThr(NO_THRESHOLDS); hl.setIds([]); setHover(null); }} />
+    <div className="venn-pickers-team">
+      {selection.map((s, i) => {
+        const others = selection.filter((_, j) => j !== i);
+        const taken = (item: string, perspective: VennPerspective) => others.some(o => vennSelectionKey(o) === vennSelectionKey({ item, perspective }));
+        return <div key={i} className={`filter-bar-grid filter-bar-primary venn-picker-team ${SLOT_COLORS[i]}`}>
+          <VennField label={<><span className="venn-dot" aria-hidden="true" />{SLOT_NAMES[i]}の項目</>}>{id =>
+            <select id={id} value={s.item} onChange={e => setSlot(i, { item: e.target.value, cond: e.target.value === VENN_WINPCT_COND_ID ? (s.cond ?? DEFAULT_COND) : undefined, mode: undefined })}>
+              <optgroup label="勝率">{VENN_WINPCT_ITEMS.map(it => <option key={it.id} value={it.id} disabled={it.id !== VENN_WINPCT_COND_ID && others.some(o => o.item === it.id)}>{it.label}</option>)}</optgroup>
+              {VENN_CATEGORIES.map(cat => <optgroup key={cat.key} label={cat.label}>
+                {boxItems.filter(it => it.category === cat.key).map(it => <option key={it.id} value={it.id} disabled={taken(it.id, perspectiveOk.get(it.id) ? s.perspective : 'own')}>{it.label}</option>)}
+              </optgroup>)}
+            </select>}
+          </VennField>
+          {perspectiveOk.get(s.item) && <VennField label="視点">{id =>
+            <select id={id} value={s.perspective} onChange={e => setSlot(i, { perspective: e.target.value as VennPerspective })}>
+              <option value="own" disabled={taken(s.item, 'own')}>自チーム</option><option value="opp" disabled={taken(s.item, 'opp')}>opp</option><option value="diff" disabled={taken(s.item, 'diff')}>+/-</option>
+            </select>}
+          </VennField>}
+          {s.item === VENN_WINPCT_COND_ID && env && <CondPicker fields env={env} spec={condOf(s)} label={SLOT_NAMES[i]!} onChange={cond => setSlot(i, { cond })} />}
+          {basis === 'value' && <VennField label={`${isWin[i] ? '基準の勝率' : '基準の値'}（${dirText(i)}）`}>{id =>
+            <NumberTextInput id={id} ref={h => { thrInputs.current[i] = h; }} kind="number" className="venn-threshold venn-threshold-team" value={thrParam[i] != null ? String(thrParam[i]) : thresholds[i] === null ? '' : String(Number(thresholds[i]!.toFixed(4)))} aria-label={`${labels[i]}の基準の値`}
+              onCommit={text => setThr(thrParam.map((t, j) => j === i ? (text === '' ? null : isWin[i] ? parseRateInput(text) : Number(text)) : t))} />}
+          </VennField>}
+          {basis === 'value' && isWin[i] && <VennField label="以上／未満">{id =>
+            <select id={id} value={s.mode ?? 'ge'} onChange={e => setSlot(i, { mode: e.target.value === 'lt' ? 'lt' : 'ge' })}><option value="ge">以上</option><option value="lt">未満</option></select>}
+          </VennField>}
+          {basis === 'value' && signed[i] && <div className="filter-field venn-sign-field"><button type="button" className="venn-sign" aria-label={`${labels[i]}の基準の値の符号（−）を付け外し`} onMouseDown={e => e.preventDefault()} onClick={() => thrInputs.current[i]?.toggleSign()}>−</button></div>}
+        </div>;
+      })}
     </div>
     {request.loading || (usesWin && envLoading && !request.error) ? <p role="status">読み込み中…</p> : request.error || request.data?.missing ? <p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p> : !model ? <p className="empty-message">この条件で表示できるチームがありません。</p> : <>
       <FigureExportButton targetRef={target} filename={`ベン図_${circleNames.join('_')}_${conditions.slice(0, 2).join('_')}`} baseDate={baseDate} />
@@ -180,6 +190,12 @@ export default function TeamVennFigure({ season, category }: FigureProps) {
         rowHighlightColor={r => hover === r.team.teamId || hl.has([r.team.teamId]) ? 'var(--accent)' : undefined} rowHighlightStrength={() => 'half'} /></div>
     </>}
   </section>;
+}
+
+/** 円ごとの欄。上の段の絞り込みの欄（filter-field）と同じ作り・同じ見た目 */
+function VennField({ label, children }: { label: React.ReactNode; children: (id: string) => React.ReactNode }) {
+  const id = useId();
+  return <div className="filter-field"><label htmlFor={id}>{label}</label>{children(id)}</div>;
 }
 
 type ChartModel = NonNullable<ReturnType<typeof computeTeamVenn>>;

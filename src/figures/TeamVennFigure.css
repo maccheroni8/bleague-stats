@@ -1,10 +1,22 @@
 /* ベン図。円の色はサイトの地区の色（青・緑・橙）の系統。保存画像（ライト固定）でも読める濃さの枠＋薄い塗り */
 .venn-a { --venn: #2878b5; } .venn-b { --venn: #218357; } .venn-c { --venn: #cd681b; }
+/* 円ごとの欄は、上の段の絞り込みの欄と同じ見た目（filter-field・filter-bar-grid）。円の色の点は項目の見出しに付ける */
+/* 上の段と円ごとの欄は同じ列の幅（広い画面では1段目に「強調」の右まで並べる。入りきらないときは行ごとにそろえて折り返す） */
+.venn-team-figure .filter-bar-primary, .venn-team-figure .venn-picker-team { grid-template-columns:repeat(auto-fill, minmax(136px, 1fr)); }
+@media (max-width: 560px) { .venn-team-figure .filter-bar-primary, .venn-team-figure .venn-picker-team { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+.venn-pickers-team { display:flex; flex-direction:column; gap:12px; margin:0 0 16px; }
+.venn-picker-team { --filter-cols:4; align-items:end; }
+.venn-picker-team .filter-field > input:not([type="range"]) { box-sizing:border-box; width:100%; height:36px; padding:0 8px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--fg); font-size:13px; font-family:inherit; }
+[data-design="v2"] .venn-picker-team .filter-field > input:not([type="range"]) { height:34px; border-radius:3px; }
+.venn-picker-team .filter-field > label { display:flex; align-items:center; }
+.venn-sign-field { justify-content:flex-end; }
+.venn-sign-field .venn-sign { height:36px; }
 .venn-pickers { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:flex-end; margin:8px 0 12px; }
 .venn-picker { display:flex; flex-wrap:wrap; gap:6px 10px; align-items:flex-end; }
 .venn-picker label, .venn-top { display:flex; flex-direction:column; gap:2px; font-size:12px; }
-.venn-dot { display:inline-block; width:12px; height:12px; border-radius:50%; background:var(--venn); margin-right:6px; vertical-align:-1px; flex-shrink:0; }
 .venn-picker .venn-dot { align-self:center; margin:0 -2px 6px 0; }
+.venn-threshold { width:96px; }
+.venn-dot { display:inline-block; width:12px; height:12px; border-radius:50%; background:var(--venn); margin-right:6px; vertical-align:-1px; flex-shrink:0; }
 .venn-export { margin-top:16px; }
 .venn-chart { width:100%; max-width:760px; margin:0 auto; }
 .venn-names { display:flex; flex-wrap:wrap; justify-content:center; gap:4px 18px; font-size:13px; margin-bottom:8px; }
@@ -39,7 +51,6 @@
 .export-rendering .venn-tooltip, .export-rendering .venn-none-tip { display:none !important; }
 .venn-circle-name { position:absolute; z-index:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; font-weight:700; line-height:1.2; color:var(--venn); pointer-events:none; white-space:nowrap; }
 .venn-circle-name span { display:block; }
-.venn-threshold { width:96px; }
 .export-rendering .venn-circle-name { color:var(--venn); }
 
 /* 選手のベン図: 円の中の名前（ロゴの代わりの文字の札）と、入りきらない領域の人数の札 */

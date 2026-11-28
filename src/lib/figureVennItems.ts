@@ -89,19 +89,25 @@ export type { VennTop };
  */
 export function resolveVennSelection(input: readonly VennSelection[], season: string, hasPerspective: (itemId: string) => boolean = () => true): [VennSelection, VennSelection, VennSelection] {
   const items = allVennItems(season), ids = new Set(items.map(i => i.id));
-  // 条件付きの勝率は、条件が違えば複数の円で選べる（同じ条件の同じ項目だけ重ねない）
-  const keyOf = (s: VennSelection) => (s.item === VENN_WINPCT_COND_ID ? `${s.item}|${condSpecToText(s.cond ?? DEFAULT_COND)}` : s.item);
+  const normal = (s: VennSelection): VennSelection => (hasPerspective(s.item) ? s : { ...s, perspective: 'own' });
   const used = new Set<string>();
   const out: VennSelection[] = [];
   for (let i = 0; i < 3; i++) {
-    let sel = input[i] ?? DEFAULT_VENN_SELECTION[i]!;
-    if (!ids.has(sel.item) || used.has(keyOf(sel))) {
-      sel = [DEFAULT_VENN_SELECTION[i]!, ...DEFAULT_VENN_SELECTION, ...items.map(it => ({ item: it.id, perspective: 'own' as const }))].find(s => ids.has(s.item) && !used.has(keyOf(s)))!;
+    let sel = normal(input[i] ?? DEFAULT_VENN_SELECTION[i]!);
+    // 同じ項目でも視点が違えば別の円に選べる。項目も視点も同じ組み合わせだけ重ねない
+    if (!ids.has(sel.item) || used.has(vennSelectionKey(sel))) {
+      sel = [DEFAULT_VENN_SELECTION[i]!, ...DEFAULT_VENN_SELECTION, ...items.map(it => ({ item: it.id, perspective: 'own' as const }))].map(normal).find(s => ids.has(s.item) && !used.has(vennSelectionKey(s)))!;
     }
-    used.add(keyOf(sel));
-    out.push(hasPerspective(sel.item) ? sel : { ...sel, perspective: 'own' });
+    used.add(vennSelectionKey(sel));
+    out.push(sel);
   }
   return out as [VennSelection, VennSelection, VennSelection];
+}
+
+/** 円の組み合わせの識別（項目＋視点。条件付きの勝率は条件も。勝率の項目は視点を持たない） */
+export function vennSelectionKey(s: VennSelection): string {
+  if (s.item === VENN_WINPCT_COND_ID) return `${s.item}|${condSpecToText(s.cond ?? DEFAULT_COND)}`;
+  return isVennWinItem(s.item) ? s.item : `${s.item}|${s.perspective}`;
 }
 
 /** 全チームスタッツと同じ順序: 期間を選び、その後に試合区分を適用して合計する（試合が0のチームは除く）。 */

@@ -205,6 +205,11 @@ function FilterField({ axis }: { axis: FilterAxis }) {
             ),
           )}
         </select>
+      ) : axis.kind === "range" ? (
+        <div className="filter-range">
+          <input id={id} type="range" min={axis.min} max={axis.max} step={axis.step} value={Number(axis.value)} disabled={disabled} title={axis.disabledReason} onChange={(e) => axis.onChange(e.target.value)} />
+          <output htmlFor={id}>{axis.display}</output>
+        </div>
       ) : (
         <input id={id} type="date" value={axis.value} disabled={disabled} title={axis.disabledReason} onChange={(e) => axis.onChange(e.target.value)} />
       )}

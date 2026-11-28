@@ -10058,3 +10058,30 @@ table.sortable-table.tts-table th {
 .export-rendering .name-text.name-text-exportline.name-text-wrap {
   white-space: normal;
 }
+
+/* スライダーの軸（FilterBar の kind: "range"。図解ベン図の「上位◯」）。つまみの右に今の値を出す */
+.filter-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  min-width: 0;
+}
+
+.filter-range input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.filter-range output {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+[data-design="v2"] .filter-range {
+  height: 34px;
+}

@@ -10,7 +10,7 @@ import { filterGameLogs, type SituationalRange } from "../src/lib/situational";
 import { sumTeamGameLogs, type AllTeamsRow } from "../src/lib/teamStatsColumns";
 import { computeVenn, displayNumber, layoutVenn, vennEmphasisScales, rankVennRows, thresholdVennRows, topVennRows, vennLabelBoxes, vennMaskAt, VENN_MASKS, VENN_DESIGN_WIDTH, type VennMask } from "../src/lib/figureVenn";
 import {
-  buildVennRows, computeTeamVenn, defaultVennThreshold, formatVennThreshold, vennLeagueRow, DEFAULT_VENN_SELECTION, itemHasPerspective, resolveVennSelection, vennColumn, vennItemId, vennItemLabel, vennItems, VENN_CATEGORIES, type VennSelection,
+  buildVennRows, computeTeamVenn, defaultVennThreshold, formatVennThreshold, vennLeagueRow, DEFAULT_VENN_SELECTION, itemHasPerspective, resolveVennSelection, vennSelectionKey, vennColumn, vennItemId, vennItemLabel, vennItems, VENN_CATEGORIES, type VennSelection,
 } from "../src/lib/figureVennItems";
 import { FIGURES } from "../src/figures/catalog";
 
@@ -139,10 +139,12 @@ function checkLayout(counts: Record<number, number>, size: number, labelFont: nu
     for (const sel of DEFAULT_VENN_SELECTION) assert.ok(vennColumn(items.find(i => i.id === sel.item)!, sel.perspective, season), "初期の項目の列がある");
   }
   assert.deepEqual(VENN_CATEGORIES.map(c => c.key), ["traditional", "advanced", "misc", "scoring"]);
-  // 同じ項目は2つの円で選べない
-  const dup = resolveVennSelection([{ item: "advanced.ortg", perspective: "own" }, { item: "advanced.ortg", perspective: "opp" }, { item: "nothing", perspective: "own" }], "2025-26");
-  assert.equal(new Set(dup.map(s => s.item)).size, 3, "同じ項目・存在しない項目は直される");
+  // 項目も視点も同じ組み合わせは2つの円で選べない（視点が違えば同じ項目を選べる）
+  const dup = resolveVennSelection([{ item: "advanced.ortg", perspective: "own" }, { item: "advanced.ortg", perspective: "own" }, { item: "nothing", perspective: "own" }], "2025-26");
+  assert.equal(new Set(dup.map(vennSelectionKey)).size, 3, "同じ組み合わせ・存在しない項目は直される");
   assert.equal(dup[0]!.item, "advanced.ortg"); assert.equal(dup[1]!.item, "advanced.drtg"); assert.equal(dup[2]!.item, "traditional.3ppct");
+  const sameItem = resolveVennSelection([{ item: "traditional.3ppct", perspective: "own" }, { item: "traditional.3ppct", perspective: "opp" }, DEFAULT_VENN_SELECTION[2]], "2025-26");
+  assert.deepEqual(sameItem.map(s => [s.item, s.perspective]), [["traditional.3ppct", "own"], ["traditional.3ppct", "opp"], ["advanced.ortg", "own"]], "同じ項目を自チームと opp で選べる");
   assert.equal(resolveVennSelection([{ item: "advanced.ortg", perspective: "opp" }, ...DEFAULT_VENN_SELECTION.slice(1)], "2025-26", () => false)[0]!.perspective, "own", "視点のない項目は自チームに固定");
   assert.equal(vennItemLabel(vennItems("2025-26").find(i => i.key === "efg")!, "opp"), "相手のeFG%");
   assert.ok(FIGURES.some(f => f.id === "team-venn" && f.entity === "team"), "図解（チーム）に登録");

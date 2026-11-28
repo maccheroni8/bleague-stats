@@ -3,7 +3,8 @@
 import { rankPositions } from "./seasonCompare";
 
 export const VENN_TOP_OPTIONS = [5, 8, 10] as const;
-export type VennTop = typeof VENN_TOP_OPTIONS[number];
+/** 順位で絞るときの「上位◯」。1位からそのシーズンのチーム数まで1刻みで選べる（VENN_TOP_OPTIONS は以前の選択肢。古い保存・リンクの値もそのまま開ける） */
+export type VennTop = number;
 export const DEFAULT_VENN_TOP: VennTop = 10;
 
 export interface VennValue<T> {

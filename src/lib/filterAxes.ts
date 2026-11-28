@@ -132,7 +132,16 @@ export interface FilterMultiAxis extends FilterAxisBase {
   summary: string;
 }
 
-export type FilterAxis = FilterSelectAxis | FilterDateAxis | FilterPopoverAxis | FilterMultiAxis;
+/** スライダー（整数）。value は数を文字にしたもの。display は今の値の表示（スライダーの横とチップ） */
+export interface FilterRangeAxis extends FilterAxisBase {
+  kind: "range";
+  min: number;
+  max: number;
+  step: number;
+  display: string;
+}
+
+export type FilterAxis = FilterSelectAxis | FilterDateAxis | FilterPopoverAxis | FilterMultiAxis | FilterRangeAxis;
 
 const MULTI_SHOWN_LABELS = 3;
 
@@ -263,6 +272,7 @@ function optionsFromLabels<K extends string>(labels: Record<K, string>, keys: K[
 export function axisValueLabel(axis: FilterAxis): string {
   if (axis.chipValue !== undefined) return axis.chipValue;
   if (axis.kind === "date") return axis.value;
+  if (axis.kind === "range") return axis.display;
   if (axis.kind === "popover" || axis.kind === "multi") return axis.summary;
   return axis.options.find((o) => o.value === axis.value)?.label ?? axis.value;
 }
