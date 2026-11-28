@@ -7,6 +7,7 @@ import { GlossaryNote } from "./GlossaryNote";
 import { TtsNameLegend, TtsTable, TtsViewControls, type TtsLeadingColumn } from "./TtsTable";
 import { useTtsView } from "../lib/ttsView";
 import { SavableBlock } from "./SavableBlock";
+import { ResponsiveTeamName } from "./ResponsiveTeamName";
 import { ConditionTitle } from "./ConditionTitle";
 import { buildExportFilename } from "../lib/conditionLabels";
 import { perspectiveFilePart, perspectiveTitleSuffix } from "../lib/titlePerspective";
@@ -84,7 +85,7 @@ export function TeamSeasonTtsTable({
 
   const leading: TtsLeadingColumn<SeasonRow>[] = [
     { key: "season", label: "シーズン", align: "left", sortValue: (r) => r.season, render: (r) => r.season },
-    { key: "teamName", label: "チーム名", align: "left", sortValue: (r) => r.teamName, render: (r) => r.teamName },
+    { key: "teamName", label: "チーム名", align: "left", sortValue: (r) => r.teamName, render: (r) => <ResponsiveTeamName teamId={teamId} name={r.teamName} /> },
     { key: "g", label: "G", sortValue: (r) => r.games, render: (r) => (r.status === "ready" && r.values ? String(r.games) : "-") },
   ];
   const loading = rows.filter((r) => r.status === "loading").length;

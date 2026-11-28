@@ -17696,3 +17696,8 @@ B.LEAGUE 公式の用語集（bleague.jp/glossary）の書き方に合わせる�
 ### 480-5 保存キー
 - 変わるファイル: `shared/timeToShot.ts`・`shared/ttsIndex.ts`・`shared/playerTts.ts`（新規）・`scripts/lib/ttsIndexBuild.ts`・`scripts/aggregate-tts-index.ts`・`scripts/lib/dataLayout.ts`（キーの対象）。全シーズンの作り直しが1回起きる。
 - 検証: `validate:tts-index`・`validate:time-to-shot`（480-1）、`validate:tts-table`（フリースローの件数・秒数の一致、Shooting Foul%＋Bonus%＝100%、列の無い古いファイルは「-」）、`validate:player-tts`（新規。選手×チーム×試合区分を生データから数え直して一致・移籍した選手の合計・FGA 1.0以上の順位の付け方）。
+
+### 480-6 push 後の追加（キー不変）
+- 個人詳細のシーズン別成績の Time to Shot タブに画像の保存（`PlayerSeasonTtsTable` を `SavableBlock` で包む。メニューは「画像（Time to Shot）」。個人詳細のシーズン別成績には今まで画像の保存が無かった）。
+- チーム詳細の Time to Shot の表のチーム名を `ResponsiveTeamName` に（スマホ幅で略称。もとから全名のままだった）。
+- 公開後の確認: デプロイ 46121585306 で全シーズンの作り直し（0／10）は約3分53秒、デプロイ全体は約6分（ふだんは約1分半）。公開の allKey は `0dd03820dc0502dfbcafd78614ec1d22`。

@@ -3773,6 +3773,7 @@ function SeasonBreakdownTable({
           gameType={gameTypeFilter}
           league={league}
           blocked={period !== "all"}
+          playerName={playerName}
           teamNameOf={(season, teamId) => {
             for (const t of teamData?.get(season)?.ownTeamByScheduleKey.values() ?? []) if (t.teamId === teamId) return t.teamName;
             return teamId;
