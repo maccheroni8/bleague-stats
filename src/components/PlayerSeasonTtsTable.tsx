@@ -17,6 +17,9 @@ import {
 } from "../lib/playerTts";
 import type { PlayerTtsFile } from "../../shared/playerTts";
 import { GlossaryNote } from "./GlossaryNote";
+import { SavableBlock } from "./SavableBlock";
+import { ConditionTitle } from "./ConditionTitle";
+import { buildExportFilename, composeLabels, gameTypeLabels } from "../lib/conditionLabels";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 
 interface Row {
@@ -43,7 +46,10 @@ export function PlayerSeasonTtsTable({
   league,
   blocked,
   teamNameOf,
+  playerName,
 }: {
+  /** 保存画像のタイトル・ファイル名（DESIGN.md 480章） */
+  playerName: string;
   playerId: string;
   seasons: readonly string[];
   gameType: SeasonGameTypeFilter;
@@ -92,6 +98,7 @@ export function PlayerSeasonTtsTable({
     return out;
   }, [seasons, files, gameType, playerId, teamNameOf]);
 
+  const conditions = composeLabels(gameTypeLabels(gameType, null));
   const loading = seasons.filter((s) => playerTtsSeasonSupported(s) && !files.has(s)).length;
   const cell = (r: Row, kind: "fg" | "ft") => {
     if (blocked || !r.totals) return ["-", "-"];
@@ -100,6 +107,13 @@ export function PlayerSeasonTtsTable({
   return (
     <>
       {loading > 0 && <p className="loading">読み込み中...（残り{loading}シーズン）</p>}
+      <SavableBlock
+        filename={buildExportFilename([playerName, "シーズン別成績", "Time to Shot", ...conditions])}
+        baseDate={{ kind: "allTime", gameType: gameType === "playoff" ? "playoff" : "regular" }}
+        className="export-target-standings"
+        menuLabel="画像（Time to Shot）"
+      >
+      <ConditionTitle title={playerName + "　シーズン別成績：Time to Shot"} conditions={conditions} />
       <div className="table-scroll">
         <table className="stats-table tts-table">
           <thead>
@@ -140,6 +154,7 @@ export function PlayerSeasonTtsTable({
           </tbody>
         </table>
       </div>
+      </SavableBlock>
       {blocked && <p className="page-subtitle">{PLAYER_TTS_FILTER_NOTE}</p>}
       <GlossaryNote anchor={GLOSSARY_ANCHORS.timeToShot} label="Time to Shot" />
     </>
