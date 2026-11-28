@@ -1,5 +1,5 @@
 import { SEASON_ADVANCED_COLUMNS_WITH_FTR } from "../lib/ftrColumn";
-import { formatPlayerTtsSeconds, PLAYER_TTS_FILTER_NOTE, PLAYER_TTS_MIN_SHOTS, PLAYER_TTS_TAB_LABEL, playerTtsAvg, playerTtsByTeam, playerTtsRanks, playerTtsSeasonTotal, usePlayerTts } from "../lib/playerTts";
+import { formatPlayerTtsSeconds, PLAYER_TTS_FILTER_NOTE, PLAYER_TTS_TAB_LABEL, playerTtsAvg, playerTtsEligible, playerTtsByTeam, playerTtsRanks, playerTtsSeasonTotal, usePlayerTts } from "../lib/playerTts";
 import { seasonBoxColumnsFor } from "../lib/playerColumnsView";
 import { buildOpponentRecords } from "../lib/opponentStrength";
 import { GamesPlayedRatioSlider } from "../components/GamesPlayedRatioSlider";
@@ -1122,18 +1122,17 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
   );
 
   const shootingRows = conditionedRows.filter((r) => r.player.shotTypes);
-  // 選手の Time to Shot（DESIGN.md 480章）: シーズン全体の値だけ（試合区分は選べる）。並べ替え・順位は30本以上の選手だけ
+  // 選手の Time to Shot（DESIGN.md 480章）: シーズン全体の値だけ（試合区分は選べる）。並べ替え・順位は FGA の1試合平均 1.0以上の選手だけ
   const playerTtsTotalOf = (r: PlayerRow) => (playerTtsMap && !playerTtsBlocked ? playerTtsSeasonTotal(playerTtsMap, r.player.playerId) : null);
+  // 順位の対象: ボックススコアの FGA の1試合平均が基準以上（試合区分で絞ったときは、その試合の値）
+  const ttsEligible = (r: PlayerRow) => {
+    const raw = r.ctx?.raw;
+    return playerTtsEligible(raw ? raw.fga : r.player.totals.fga, raw ? raw.gamesPlayed : r.player.gamesPlayed);
+  };
   const playerTtsRankMap =
     tab === "tts"
-      ? playerTtsRanks(
-          conditionedRows.map((r) => {
-            const t = playerTtsTotalOf(r);
-            return { id: r.player.playerId, avg: playerTtsAvg(t, "fg"), n: t?.fgN ?? 0 };
-          }),
-        )
+      ? playerTtsRanks(conditionedRows.map((r) => ({ id: r.player.playerId, avg: playerTtsAvg(playerTtsTotalOf(r), "fg"), eligible: ttsEligible(r) })))
       : new Map<string, number>();
-  const ttsEligible = (r: PlayerRow) => (playerTtsTotalOf(r)?.fgN ?? 0) >= PLAYER_TTS_MIN_SHOTS;
   const playerTtsColumns: Column<PlayerRow>[] = [
     nameColumn,
     teamColumn,
@@ -1533,10 +1532,6 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
             <>
               {playerTtsBlocked && <p className="page-subtitle">{PLAYER_TTS_FILTER_NOTE}</p>}
               {!playerTtsLoading && !playerTtsFile && <p className="page-subtitle">このシーズンの選手の Time to Shot を読み込めませんでした（「-」にしています）。</p>}
-              <p className="page-subtitle">
-                Player TTS＝その選手が打ったFGの、攻撃が始まってからシュートまでの平均秒数（チームの Time to Shot と同じ数え方。途中のファウルでショットクロックが戻っても数え直しません）です。
-                並べ替えと順位（速い順）は{PLAYER_TTS_MIN_SHOTS}本以上の選手だけで、{PLAYER_TTS_MIN_SHOTS}本未満の選手は値だけ出しています。移籍した選手は全チームの合計です（チームごとの値は個人詳細にあります）。
-              </p>
             </>
           )}
           {periodActive && period === "ot" && <p className="rule-change-footnote">※ {OVERTIME_GAMES_NOTE}</p>}

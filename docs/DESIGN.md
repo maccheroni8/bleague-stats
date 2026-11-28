@@ -17687,12 +17687,12 @@ B.LEAGUE 公式の用語集（bleague.jp/glossary）の書き方に合わせる�
 ### 480-3 選手の Time to Shot（t164）
 - 結び付け: 計測できた FG の `PlayerID1`（シュートを打った選手）。To FT はその回の最初の FT を打った選手（参考。個人詳細だけ）。
 - 導出データ `data/{season}/player-tts.json.gz`（`shared/playerTts.ts`。行＝選手×所属チーム×試合区分、FG・FT の件数と秒数の合計）。`team-tts` と同じ処理（`scripts/lib/ttsIndexBuild.ts` の `takePlayerTts`、`aggregate-tts-index.ts` が両方書く）。`dataLayout.ts` の `SEASON_DERIVED_ENTRIES` と `SEASON_OPTIONAL_DERIVED_ENTRIES`・`.gitignore` に足した。大きさは1シーズン約5KB（gzip）。
-- 画面（`src/lib/playerTts.ts`）: 個人詳細のシーズン別成績に「Time to Shot」タブ（`PlayerSeasonTtsTable`。シーズン×チーム、移籍した選手はチームごとの行と「複数チーム」の行、最後に通算。本数・件数を必ず並べる。試合区分は連動、区間を選んだら「-」）。全選手スタッツに「Time to Shot」タブ（`tab=tts`。順位・Player TTS・本数。**並べ替えと順位は30本以上だけ**〔30本未満は並べ替えの値を NaN にして常に最後〕、順位は速い順・同じ表示値は同じ順位。移籍した選手は全チームの合計〔チームごとは個人詳細〕。試合区分は選べ、ほかの条件・区間・登録区分の足し直しがあるときは「-」と理由）。
-- 実測 2025-26 B1（レギュラー・30本以上 346/409人）: 上位5人（全選手スタッツの既定の掲載基準で表示した中）＝ハーラー（北海道）9.51秒 353本・市岡（滋賀）9.94秒 34本・平岩（A東京）10.11秒 38本・エサトン（名古屋D）10.25秒 423本・長谷川比源（滋賀）10.33秒 116本。宇都宮＝ニュービル 13.70秒 748本（To FT 11.19秒 128件）・フォトゥ 12.17秒 512本（11.10秒 100件）。
+- 画面（`src/lib/playerTts.ts`）: 個人詳細のシーズン別成績に「Time to Shot」タブ（`PlayerSeasonTtsTable`。シーズン×チーム、移籍した選手はチームごとの行と「複数チーム」の行、最後に通算。本数・件数を必ず並べる。試合区分は連動、区間を選んだら「-」）。全選手スタッツに「Time to Shot」タブ（`tab=tts`。順位・Player TTS・本数。**並べ替えと順位は FGA（ボックススコアの値）の1試合平均 1.0以上だけ**〔`playerTtsEligible`。満たさない選手は並べ替えの値を NaN にして常に最後・値は出す。試合区分で絞ったときはその試合の FGA と試合数。出場率の基準はいつもどおり〕、順位は速い順・同じ表示値は同じ順位。移籍した選手は全チームの合計〔チームごとは個人詳細〕。試合区分は選べ、ほかの条件・区間・登録区分の足し直しがあるときは「-」と理由）。数え方・順位の対象の説明は用語集だけ（画面の注記は足さない。ユーザーの確認で外した）。
+- 当初の案（30本以上）での実測 2025-26 B1（レギュラー・30本以上 346/409人）: 上位5人（全選手スタッツの既定の掲載基準で表示した中）＝ハーラー（北海道）9.51秒 353本・市岡（滋賀）9.94秒 34本・平岩（A東京）10.11秒 38本・エサトン（名古屋D）10.25秒 423本・長谷川比源（滋賀）10.33秒 116本。宇都宮＝ニュービル 13.70秒 748本（To FT 11.19秒 128件）・フォトゥ 12.17秒 512本（11.10秒 100件）。
 
 ### 480-4 チーム詳細のシチュエーション別成績の +/-（t176）
 - 試合ログの合計には +/- が無く、試合全体では「-」、区間（索引から）では値はあるが `cleanNumericString` を通して符号が落ちていた。チームの +/- は得失点差（シーズン別成績の +/- と同じ）なので、無いときは PTS − 相手の PTS で埋め（`withTeamPlusMinus`）、平均は小数第2位・合計は整数で、符号付きで出す（`withAveragedPlusMinus`・`formatSituationalDiff`）。保存画像も同じ部品。試合詳細のボックススコアの +/- は変えていない。
 
 ### 480-5 保存キー
 - 変わるファイル: `shared/timeToShot.ts`・`shared/ttsIndex.ts`・`shared/playerTts.ts`（新規）・`scripts/lib/ttsIndexBuild.ts`・`scripts/aggregate-tts-index.ts`・`scripts/lib/dataLayout.ts`（キーの対象）。全シーズンの作り直しが1回起きる。
-- 検証: `validate:tts-index`・`validate:time-to-shot`（480-1）、`validate:tts-table`（フリースローの件数・秒数の一致、Shooting Foul%＋Bonus%＝100%、列の無い古いファイルは「-」）、`validate:player-tts`（新規。選手×チーム×試合区分を生データから数え直して一致・移籍した選手の合計・30本以上の順位の付け方）。
+- 検証: `validate:tts-index`・`validate:time-to-shot`（480-1）、`validate:tts-table`（フリースローの件数・秒数の一致、Shooting Foul%＋Bonus%＝100%、列の無い古いファイルは「-」）、`validate:player-tts`（新規。選手×チーム×試合区分を生データから数え直して一致・移籍した選手の合計・FGA 1.0以上の順位の付け方）。

@@ -11,8 +11,13 @@ import { TTS_FIRST_SEASON } from "../../shared/ttsIndex";
 import { fetchPlayerTtsIndex } from "./data";
 import { leagueCacheKey, type League } from "./league";
 
-/** 全選手スタッツで並べ替え・順位の対象にする本数の下限（未満の選手は値だけ出す） */
-export const PLAYER_TTS_MIN_SHOTS = 30;
+/** 全選手スタッツで並べ替え・順位の対象にする、ボックススコアの FGA の1試合平均の下限（未満の選手は値だけ出す） */
+export const PLAYER_TTS_MIN_FGA_PER_GAME = 1.0;
+
+/** 順位の対象か（FGA の1試合平均が下限以上。試合数0は対象外） */
+export function playerTtsEligible(fga: number, games: number): boolean {
+  return games > 0 && fga / games >= PLAYER_TTS_MIN_FGA_PER_GAME;
+}
 
 export const PLAYER_TTS_TAB_LABEL = "Time to Shot";
 
@@ -117,10 +122,10 @@ export function formatPlayerTtsSeconds(v: number | null): string {
 }
 
 /**
- * 全選手スタッツの順位（速い順＝秒の少ない順。同じ表示値は同じ順位・次は飛ばす）。PLAYER_TTS_MIN_SHOTS 本以上の選手だけ
+ * 全選手スタッツの順位（速い順＝秒の少ない順。同じ表示値は同じ順位・次は飛ばす）。順位の対象（playerTtsEligible）の選手だけ
  */
-export function playerTtsRanks(entries: readonly { id: string; avg: number | null; n: number }[]): Map<string, number> {
-  const eligible = entries.filter((e) => e.avg !== null && e.n >= PLAYER_TTS_MIN_SHOTS).map((e) => ({ id: e.id, v: Number(e.avg!.toFixed(2)) }));
+export function playerTtsRanks(entries: readonly { id: string; avg: number | null; eligible: boolean }[]): Map<string, number> {
+  const eligible = entries.filter((e) => e.avg !== null && e.eligible).map((e) => ({ id: e.id, v: Number(e.avg!.toFixed(2)) }));
   eligible.sort((a, b) => a.v - b.v);
   const ranks = new Map<string, number>();
   eligible.forEach((e, i) => {

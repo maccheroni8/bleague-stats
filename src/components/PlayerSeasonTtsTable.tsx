@@ -141,10 +141,6 @@ export function PlayerSeasonTtsTable({
         </table>
       </div>
       {blocked && <p className="page-subtitle">{PLAYER_TTS_FILTER_NOTE}</p>}
-      <p className="page-subtitle">
-        Player TTS＝この選手が打ったFGの、攻撃が始まってからシュートまでの平均秒数（チームの Time to Shot と同じ数え方）です。選手がボールを持っていた時間ではありません。
-        Player To FT＝この選手がFTを打った回の、ファウルを受けるまでの平均秒数（参考）です。どちらも攻撃の始まりから数え、途中のファウルでショットクロックが戻っても数え直しません。
-      </p>
       <GlossaryNote anchor={GLOSSARY_ANCHORS.timeToShot} label="Time to Shot" />
     </>
   );
