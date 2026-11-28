@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { GameType, TeamStintsFile } from "../../shared/types";
 import { seasonGameTypeLabels, SEASON_GAME_TYPE_KEYS, type SeasonGameTypeFilter } from "../../shared/gameType";
-import { composeLabels, displayModeLabels, gameTypeLabels, periodLabels, perspectiveLabels } from "../lib/conditionLabels";
+import { composeLabels, displayModeLabels, gameTypeLabels, joinLabels, periodLabels, perspectiveLabels, visibleConditionLabels } from "../lib/conditionLabels";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { formatDecimal, formatSigned } from "../lib/format";
 import { formatMinutesColon, formatSignedMinutesColon } from "../lib/minutesFormat";
@@ -665,7 +665,8 @@ function surnameOf(name: string): string {
 }
 
 /**
- * ラインナップ検索の保存画像の中身（見出し・表・短い注記）。条件の行（選手の名前）が表より広くなるときは、名字だけにして描き直す
+ * ラインナップ検索の保存画像の中身（見出し・表・短い注記）。条件の行（選手の名前）が表より広くなるときは、保存画像を組む側（PC幅で組まれた複製）で
+ * 名字だけの行に差し替える（data-export-short-conditions。lib/exportImage.ts の fitShortConditionsIn）
  */
 function LineupSearchExport({
   title,
@@ -680,19 +681,10 @@ function LineupSearchExport({
   render: (short: boolean) => ReactNode;
   note: string;
 }) {
-  const [short, setShort] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    if (short) return;
-    const root = rootRef.current;
-    const line = root?.querySelector<HTMLElement>(".condition-title-conditions");
-    const table = root?.querySelector<HTMLElement>("table");
-    if (line && table && line.scrollWidth > table.offsetWidth) setShort(true);
-  });
   return (
-    <div ref={rootRef} className="lineup-search-export">
-      <ConditionTitle title={title} exportScope={`${season}シーズン`} conditions={conditionsOf(short)} />
-      {render(short)}
+    <div className="lineup-search-export" data-export-short-conditions={joinLabels(visibleConditionLabels(conditionsOf(true)))}>
+      <ConditionTitle title={title} exportScope={`${season}シーズン`} conditions={conditionsOf(false)} />
+      {render(false)}
       <p className="rule-change-footnote">{note}</p>
     </div>
   );

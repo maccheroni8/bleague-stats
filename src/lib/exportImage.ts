@@ -313,6 +313,19 @@ function watchCloneFrame(frame: HTMLIFrameElement, done: () => boolean): void {
   setTimeout(probe, 2000);
 }
 
+/**
+ * 条件の行が表より広くなるときだけ、短い版（data-export-short-conditions。ラインナップ検索の選手を名字だけにした行）に差し替える。
+ * 複製側は画面幅1280pxで組まれるので、スマホから保存しても PC と同じ判定になる（DESIGN.md 483章）
+ */
+function fitShortConditionsIn(clonedEl: HTMLElement): void {
+  for (const box of Array.from(clonedEl.querySelectorAll<HTMLElement>("[data-export-short-conditions]"))) {
+    const line = box.querySelector<HTMLElement>(".condition-title-conditions");
+    const table = box.querySelector<HTMLElement>("table");
+    const short = box.dataset.exportShortConditions;
+    if (line && table && short && line.scrollWidth > table.offsetWidth) line.textContent = short;
+  }
+}
+
 /** 複製側（html2canvas の iframe の中）を、保存画像の型にする */
 function prepareClone(doc: Document, clonedEl: HTMLElement, options: ExportOptions): void {
   // 色の変数（--bg・--fg 等）を複製側だけライトにする（OSのダーク設定・手動のダーク切り替えのどちらでも）
@@ -324,6 +337,7 @@ function prepareClone(doc: Document, clonedEl: HTMLElement, options: ExportOptio
   if (options.top10) clonedEl.classList.add("export-top10");
   fitNamesIn(clonedEl);
   fitHeadingIn(clonedEl);
+  fitShortConditionsIn(clonedEl);
   convertModernColors(clonedEl);
   // フッターは画面の表の下に出している要素（ExportTarget）をそのまま使い、アカウント名だけを足す。基準日は保存のときに求めた値
   let footer = Array.from(clonedEl.children).find((c): c is HTMLElement => c.classList.contains("export-footer"));

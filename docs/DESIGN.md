@@ -17758,6 +17758,6 @@ B.LEAGUE 公式の用語集（bleague.jp/glossary）の書き方に合わせる�
 - ラインナップタブにはもともと保存が無かった。保存の窓（サイト共通の `ExportImageButton` の `multi`。チーム詳細のほかのタブと同じ形）で「オンザコート別」「よく使われるラインナップ」「ラインナップ検索の検索結果」をチェックで選ぶ（「すべて選ぶ」つき・1項目1枚）。
 - 画面の見た目は変えない: 保存の間だけ画面外の枠（`.lineup-save-target`。日程の保存〔399章〕と同じく見えない固定の枠）に、選んだ表を描いて写す（`lineupSaveKey`・`waitForSaveRender`）。オンザコート別・よく使われるラインナップは画面と同じ中身を関数（`renderLineupOc`・`renderLineupCommon`）にして、保存のときは見出しを保存画像の形（`ConditionTitle`）にし、ボタン（全パターンを表示・すべて表示）を出さない。
 - 見出しはチーム詳細のほかの保存画像と同じ「シーズン チーム名　表の名前」（ほかの保存画像にもロゴは無いので付けていない）。
-- ラインナップ検索の保存画像（`LineupSearch` の `exportTitle`）: 組み合わせの行はすべて開いて載せる・表は画面で選んでいるタブ（得失点・レーティング／Traditional／Advanced）と平均／合計・視点のまま・サブタイトルはシーズン・試合区分・区間・会場（サイトの決まりどおり、試合全体・すべての会場は書かない）・平均／合計と視点（Traditional／Advanced）・選手の名前で1行。名前の行が表より広くなるときは名字だけにする（`LineupSearchExport`）。表の下に短い説明。選手を選んでいないときは選べない（`ExportChoice.disabledReason`。窓のチェックを薄くする）。
+- ラインナップ検索の保存画像（`LineupSearch` の `exportTitle`）: 組み合わせの行はすべて開いて載せる・表は画面で選んでいるタブ（得失点・レーティング／Traditional／Advanced）と平均／合計・視点のまま・サブタイトルはシーズン・試合区分・区間・会場（サイトの決まりどおり、試合全体・すべての会場は書かない）・平均／合計と視点（Traditional／Advanced）・選手の名前で1行。名前の行が表より広くなるときは名字だけにする（保存画像を組む側〔PC幅で組まれた複製〕で測る `fitShortConditionsIn`〔lib/exportImage.ts〕。スマホから保存しても PC と同じ判定）。表の下に短い説明。選手を選んでいないときは選べない（`ExportChoice.disabledReason`。窓のチェックを薄くする）。
 - 宇都宮 2026-27・5人（エドワーズ・小川・比江島・フォトゥ・フレイジャー）: 得失点の画像 4059×4857px（3倍。約1620px）・Traditional 5844×4845px。名前は組み合わせの列が広いのでフルネームで1行に収まる。
 - 書き出しの確認は `node scripts/export-team-lineups-image.mjs <URL> <出力フォルダ> <チームID> <シーズン> [選手名,...] [rating|traditional|advanced] [幅]`（手で実行）。
