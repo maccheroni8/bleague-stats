@@ -6,7 +6,7 @@
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
 import { leagueCacheKey, type League } from "./league";
 import { useEffect, useState } from "react";
-import { TTS_ATOMS, TTS_FIRST_SEASON, TTS_FT_EXCLUDED, TTS_FT_KINDS, TTS_INDEX_CATEGORIES, TTS_INDEX_VERSION, ttsExcludedKey, ttsFtExcludedKey, ttsFtKey, ttsKey, type TtsFtExcluded, type TtsFtIndexKind, type TtsIndexCategory, type TtsIndexFile } from "../../shared/ttsIndex";
+import { TTS_ATOMS, TTS_FIRST_SEASON, TTS_FT_EXCLUDED, TTS_FT_KINDS, TTS_INDEX_CATEGORIES, TTS_INDEX_VERSION, TTS_POSS_KINDS, ttsExcludedKey, ttsFtExcludedKey, ttsFtKey, ttsKey, ttsPossExcludedKey, ttsPossKey, ttsPossOrCountKey, type TtsFtExcluded, type TtsPossIndexKind, type TtsFtIndexKind, type TtsIndexCategory, type TtsIndexFile } from "../../shared/ttsIndex";
 import type { TeamGameLog } from "../../shared/types";
 import { fetchTeamTtsIndex } from "./data";
 import { loadTeamGameIndex } from "./gameIndexLoad";
@@ -22,9 +22,10 @@ export type TtsPerspective = "own" | "opp" | "diff";
 
 /**
  * 画面に出す項目（キー）。all＝全シュート、first＝初回全体（その他を含む）。ほかは分類の本数。
- * ft〜ftAnd1 はフリースローをもらうまでの時間（480章。ft＝シュートファウル＋ボーナスの候補、ftAnd1 は ftShoot の一部）
+ * ft〜ftAnd1 はフリースローをもらうまでの時間（480章。ft＝シュートファウル＋ボーナスの候補、ftAnd1 は ftShoot の一部）。
+ * poss〜possScore は攻撃時間（481章。poss＝1回の攻撃の平均・possOr／possNoOr＝OR があった／なかった攻撃・orPerPoss＝1回の攻撃あたりの OR の数・possScore＝得点した攻撃）
  */
-export const TTS_ITEMS = ["all", "first", "score", "deadTo", "dreb", "steal", "quarter", "oreb", "ft", "ftShoot", "ftBonus", "ftAnd1"] as const;
+export const TTS_ITEMS = ["all", "first", "score", "deadTo", "dreb", "steal", "quarter", "oreb", "ft", "ftShoot", "ftBonus", "ftAnd1", "poss", "possOr", "possNoOr", "orPerPoss", "possScore"] as const;
 export type TtsItem = (typeof TTS_ITEMS)[number];
 
 export interface TtsSource {
@@ -89,6 +90,11 @@ export interface TtsTotals {
   ftGames: number;
   ft: Record<TtsFtIndexKind, { n: number; s: number }>;
   ftExcluded: Record<TtsFtExcluded, number>;
+  /** 攻撃時間（481章）。possGames＝攻撃時間の列がある試合（古いファイルでは0） */
+  possGames: number;
+  poss: Record<TtsPossIndexKind, { n: number; s: number }>;
+  possOrCount: number;
+  possExcluded: number;
 }
 
 export function emptyTtsTotals(): TtsTotals {
@@ -99,6 +105,10 @@ export function emptyTtsTotals(): TtsTotals {
     ftGames: 0,
     ft: Object.fromEntries(TTS_FT_KINDS.map((k) => [k, { n: 0, s: 0 }])) as TtsTotals["ft"],
     ftExcluded: Object.fromEntries(TTS_FT_EXCLUDED.map((k) => [k, 0])) as TtsTotals["ftExcluded"],
+    possGames: 0,
+    poss: Object.fromEntries(TTS_POSS_KINDS.map((k) => [k, { n: 0, s: 0 }])) as TtsTotals["poss"],
+    possOrCount: 0,
+    possExcluded: 0,
   };
 }
 
@@ -116,11 +126,19 @@ export function addTtsTotals(into: TtsTotals, from: TtsTotals): void {
     into.ft[k].s += from.ft[k].s;
   }
   for (const k of TTS_FT_EXCLUDED) into.ftExcluded[k] += from.ftExcluded[k];
+  into.possGames += from.possGames;
+  for (const k of TTS_POSS_KINDS) {
+    into.poss[k].n += from.poss[k].n;
+    into.poss[k].s += from.poss[k].s;
+  }
+  into.possOrCount += from.possOrCount;
+  into.possExcluded += from.possExcluded;
 }
 
 function addRow(t: TtsTotals, file: TtsIndexFile, row: number, atoms: readonly number[]): boolean {
   let any = false;
   let ftAny = false;
+  let possAny = false;
   for (const a of atoms) {
     const atom = TTS_ATOMS[a]!;
     const x = file.rows.counts[ttsExcludedKey(atom)]?.[row] ?? -1;
@@ -130,6 +148,17 @@ function addRow(t: TtsTotals, file: TtsIndexFile, row: number, atoms: readonly n
     for (const c of TTS_INDEX_CATEGORIES) {
       t.byCategory[c].n += file.rows.counts[ttsKey(atom, c, "n")]?.[row] ?? 0;
       t.byCategory[c].s += file.rows.counts[ttsKey(atom, c, "s")]?.[row] ?? 0;
+    }
+    // 攻撃時間の列（481章。古いファイルには無い）
+    const px = file.rows.counts[ttsPossExcludedKey(atom)]?.[row] ?? -1;
+    if (px >= 0) {
+      possAny = true;
+      t.possExcluded += px;
+      t.possOrCount += file.rows.counts[ttsPossOrCountKey(atom)]?.[row] ?? 0;
+      for (const k of TTS_POSS_KINDS) {
+        t.poss[k].n += file.rows.counts[ttsPossKey(atom, k, "n")]?.[row] ?? 0;
+        t.poss[k].s += file.rows.counts[ttsPossKey(atom, k, "s")]?.[row] ?? 0;
+      }
     }
     // フリースローの列（古いファイルには無い）
     const fx = file.rows.counts[ttsFtExcludedKey(atom, "u")]?.[row] ?? -1;
@@ -142,6 +171,7 @@ function addRow(t: TtsTotals, file: TtsIndexFile, row: number, atoms: readonly n
     for (const k of TTS_FT_EXCLUDED) t.ftExcluded[k] += file.rows.counts[ttsFtExcludedKey(atom, k)]?.[row] ?? 0;
   }
   if (ftAny) t.ftGames += 1;
+  if (possAny) t.possGames += 1;
   return any;
 }
 
@@ -168,6 +198,12 @@ export function ttsItemTotal(t: TtsTotals, item: TtsItem): { n: number; s: numbe
   if (item === "ftShoot") return t.ft.shoot;
   if (item === "ftBonus") return t.ft.bonus;
   if (item === "ftAnd1") return t.ft.and1;
+  if (item === "poss") return t.poss.all;
+  if (item === "possOr") return t.poss.or;
+  if (item === "possNoOr") return { n: t.poss.all.n - t.poss.or.n, s: t.poss.all.s - t.poss.or.s };
+  if (item === "possScore") return t.poss.pts;
+  // 1回の攻撃あたりの OR の数: 「秒」の代わりに OR の数を s に入れて、平均＝OR の数÷攻撃の回数にする
+  if (item === "orPerPoss") return { n: t.poss.all.n, s: t.possOrCount };
   const sum = (cats: readonly TtsIndexCategory[]) => cats.reduce((p, c) => ({ n: p.n + t.byCategory[c].n, s: p.s + t.byCategory[c].s }), { n: 0, s: 0 });
   if (item === "all") return sum(TTS_INDEX_CATEGORIES);
   if (item === "first") return sum(TTS_INDEX_CATEGORIES.filter((c) => c !== "oreb"));
@@ -179,6 +215,11 @@ export function isTtsFtItem(item: TtsItem): boolean {
   return item === "ft" || item === "ftShoot" || item === "ftBonus" || item === "ftAnd1";
 }
 
+/** 攻撃時間の項目か（481章） */
+export function isTtsPossItem(item: TtsItem): boolean {
+  return item === "poss" || item === "possOr" || item === "possNoOr" || item === "orPerPoss" || item === "possScore";
+}
+
 /**
  * 項目の平均の秒数（本数が 0 なら null）と割合（0〜100）。FG の項目の割合の分母は計測できた FG の総数、
  * フリースローの内訳の割合の分母は計測できたフリースローの件数（シュートファウル＋ボーナスの候補）。
@@ -186,6 +227,13 @@ export function isTtsFtItem(item: TtsItem): boolean {
  */
 export function ttsItemValues(t: TtsTotals, item: TtsItem): { avg: number | null; pct: number | null; n: number | null } {
   const x = ttsItemTotal(t, item);
+  if (isTtsPossItem(item)) {
+    // 割合の分母は秒数を出せた攻撃の回数（OR があった攻撃の割合・得点した攻撃の割合）。poss・orPerPoss は割合なし
+    if (t.possGames === 0) return { avg: null, pct: null, n: null };
+    const all = t.poss.all.n;
+    const hasPct = item === "possOr" || item === "possNoOr" || item === "possScore";
+    return { avg: x.n > 0 ? x.s / x.n : null, pct: hasPct && all > 0 ? (100 * x.n) / all : null, n: item === "orPerPoss" ? t.possOrCount : x.n };
+  }
   if (isTtsFtItem(item)) {
     if (t.ftGames === 0) return { avg: null, pct: null, n: null };
     const all = ttsItemTotal(t, "ft");
@@ -214,10 +262,21 @@ export function ttsPerspectiveValues(
 }
 
 /**
- * 表の項目の並び（TTS → 1st Shot → 初回の内訳 → After OR → To FT → フリースローの内訳）。abbr は statNames.ts の略称（割合の列は abbr＋「%」）。
+ * 表の項目の並び（TTS → 1st Shot → 初回の内訳 → After OR → To FT → フリースローの内訳 → Poss Time → 攻撃時間の内訳）。abbr は statNames.ts の略称（割合の列は abbr＋「%」）。
  * hasPct＝割合の列があるか（TTS・To FT は無い）、hasCount＝計測した本数（件数）の列を出すか、group＝折りたためる内訳（start＝起点ごと・ft＝種類ごと）
  */
-export const TTS_TABLE_ITEMS: readonly { item: TtsItem; abbr: string; hasPct: boolean; hasCount?: boolean; group?: "start" | "ft"; toggles?: "start" | "ft" }[] = [
+export const TTS_TABLE_ITEMS: readonly {
+  item: TtsItem;
+  abbr: string;
+  hasPct: boolean;
+  hasCount?: boolean;
+  group?: TtsTableGroup;
+  toggles?: TtsTableGroup;
+  /** 値が秒でなく数（1回の攻撃あたりの OR の数）。見出しは「数」 */
+  plain?: boolean;
+  /** 長い／多い＝緑（良し悪しの無い項目。攻撃時間。視点によらず同じ向き。481章） */
+  higherGreen?: boolean;
+}[] = [
   { item: "all", abbr: "TTS", hasPct: false, hasCount: true },
   { item: "first", abbr: "1st Shot", hasPct: true, toggles: "start" },
   { item: "score", abbr: "After Score", hasPct: true, group: "start" },
@@ -230,7 +289,15 @@ export const TTS_TABLE_ITEMS: readonly { item: TtsItem; abbr: string; hasPct: bo
   { item: "ftShoot", abbr: "Shooting Foul", hasPct: true, group: "ft" },
   { item: "ftBonus", abbr: "Bonus", hasPct: true, group: "ft" },
   { item: "ftAnd1", abbr: "And-1", hasPct: true, group: "ft" },
+  { item: "poss", abbr: "Poss Time", hasPct: false, hasCount: true, toggles: "poss", higherGreen: true },
+  { item: "possOr", abbr: "With OR", hasPct: true, group: "poss", higherGreen: true },
+  { item: "possNoOr", abbr: "No OR", hasPct: true, group: "poss", higherGreen: true },
+  { item: "orPerPoss", abbr: "OR/Poss", hasPct: false, group: "poss", plain: true, higherGreen: true },
+  { item: "possScore", abbr: "Scoring Poss", hasPct: true, group: "poss", higherGreen: true },
 ];
+
+/** 折りたためる内訳（start＝起点ごと・ft＝フリースローの種類・poss＝攻撃時間の内訳） */
+export type TtsTableGroup = "start" | "ft" | "poss";
 
 /** 表の1行の値。null は「-」（対象外のシーズンなど）。キーは項目。n が null は「-」（古いファイルのフリースロー） */
 export type TtsRowValues = Record<TtsItem, { avg: number | null; pct: number | null; n: number | null }>;

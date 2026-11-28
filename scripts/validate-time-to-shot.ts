@@ -64,6 +64,21 @@ assert.equal(sumTts(sides.shots,'B',[2]).quarter.seconds,5);fixtureChecks++;
  assert.deepEqual(k(calculateTimeToShot(ftFix([[22,'9:30','B',32,39,'(1-1:2)'],[22,'9:30','B',31,39,'(1-2:1)'],[7,'9:30','A',null,null],[7,'9:30','A',null,null]]))),[['overlap',null,false]]);
  fixtureChecks+=5;
 }
+// 攻撃時間（DESIGN.md 481章）: OR で続いた区間はつなげる・ファウルで区切らない・終わり方
+{
+ const pk=(rows: Parameters<typeof fixture>[0])=>calculateTimeToShot(fixture(rows)).possessions.map(p=>[p.team,p.endReason,p.seconds,p.orebs,p.scored]);
+ // A: Q開始10:00 → 9:50 外れ → 9:48 OR → 9:40 成功（20秒・OR 1・得点）。B: 9:40 → 9:20 成功（20秒）。A: 9:20 → Qの終わり（560秒）
+ assert.deepEqual(pk([[6,'9:50','A'],[10,'9:48','A'],[4,'9:40','A'],[4,'9:20','B']]),[['A','score',20,1,true],['B','score',20,0,true],['A','period',560,0,false]]);
+ // 途中の守備ファウル（FTなし）で区切らない: A 10:00 → 9:30 TO（30秒）
+ assert.deepEqual(pk([[22,'9:50','B'],[13,'9:30','A']]).slice(0,1),[['A','turnover',30,0,false]]);
+ // 相手のDR: A 10:00 → 9:50 外れ → 9:48 B のDR（12秒・得点なし）
+ assert.deepEqual(pk([[6,'9:50','A'],[9,'9:48','B']]).slice(0,1),[['A','dreb',12,0,false]]);
+ // 攻守が変わる最後のFT成功で終わる（ファウル 9:35、FT 2本とも成功 → 25秒・得点）
+ assert.deepEqual(pk([[4,'9:59','A'],[22,'9:35','A'],[7,'9:35','B'],[7,'9:35','B']]).slice(1,2),[['B','score',24,0,true]]);
+ // 1本目成功・2本目失敗→相手のDR は「得点した攻撃」で終わりはDR
+ assert.deepEqual(pk([[4,'9:59','A'],[22,'9:35','A'],[7,'9:35','B'],[8,'9:35','B'],[9,'9:33','A']]).slice(1,2),[['B','dreb',26,0,true]]);
+ fixtureChecks+=5;
+}
 const probe=calculateTimeToShot(fixture([[13,'9:50','A'],[4,'9:45','B',1,'ファストブレイク']]));
 assert.equal(probe.diagnostics.filter(d=>d.reason==='unpaired_to_fastbreak_no_stop').length,1);fixtureChecks++;
 

@@ -5,7 +5,7 @@ import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { DATA_DIR, readAllGames, readJson } from "./lib/storage.ts";
 import { calculateTimeToShot } from "../shared/timeToShot.ts";
-import { TTS_ATOMS, TTS_FIRST_SEASON, TTS_INDEX_CATEGORIES, ttsExcludedKey, ttsFtExcludedKey, ttsFtKey, ttsKey, type TtsAtom, type TtsIndexFile } from "../shared/ttsIndex.ts";
+import { TTS_ATOMS, TTS_FIRST_SEASON, TTS_INDEX_CATEGORIES, ttsExcludedKey, ttsFtExcludedKey, ttsFtKey, ttsKey, ttsPossExcludedKey, ttsPossKey, ttsPossOrCountKey, type TtsAtom, type TtsIndexFile } from "../shared/ttsIndex.ts";
 import type { PlayerTtsFile } from "../shared/playerTts.ts";
 import type { TeamGameIndexFile } from "../shared/gameIndex.ts";
 
@@ -24,7 +24,7 @@ for (const season of seasons) {
   assert.equal(tts.indexRows, idx.games.key.length * 2);
   const c = tts.rows.counts;
   const gameNumber = new Map(idx.games.key.map((k, i) => [k, i]));
-  let measured = 0, excluded = 0, boxFga = 0, noPbp = 0, ftMeasured = 0, ftExcluded = 0;
+  let measured = 0, excluded = 0, boxFga = 0, noPbp = 0, ftMeasured = 0, ftExcluded = 0, possOk = 0, possExcluded = 0;
   for (const game of await readAllGames(season)) {
     const gn = gameNumber.get(String(game.scheduleKey));
     if (gn === undefined) continue; // オールスター等は索引に無い（サイトに出ない）
@@ -64,6 +64,17 @@ for (const season of seasons) {
         assert.equal(c[ttsFtExcludedKey(a, "o")]![row], fts.filter((f) => f.kind === "overlap").length);
         assert.equal(c[ttsFtExcludedKey(a, "x")]![row], fts.filter((f) => f.kind === "unknown").length);
         ftExcluded += fts.filter((f) => f.seconds === null).length;
+        // 攻撃時間（481章）: 試合ごとの列が計算し直した値と一致
+        const pos = calc.possessions.filter((p) => p.team === team.id && atomOf(p.period) === a);
+        const ok = pos.filter((p) => p.seconds !== null);
+        for (const [k, list] of [["all", ok], ["or", ok.filter((p) => p.orebs > 0)], ["pts", ok.filter((p) => p.scored)]] as const) {
+          assert.equal(c[ttsPossKey(a, k, "n")]![row], list.length, `${season} ${game.scheduleKey} ${a} 攻撃 ${k} 回数`);
+          assert.equal(c[ttsPossKey(a, k, "s")]![row], list.reduce((n, p) => n + p.seconds!, 0), `${season} ${game.scheduleKey} ${a} 攻撃 ${k} 秒数`);
+        }
+        assert.equal(c[ttsPossOrCountKey(a)]![row], ok.reduce((n, p) => n + p.orebs, 0));
+        assert.equal(c[ttsPossExcludedKey(a)]![row], pos.length - ok.length);
+        possOk += ok.length;
+        possExcluded += pos.length - ok.length;
         // アンドワンの起点は同じ秒の成功FGの起点（シュートまでの時間にも同じ攻撃で入る）
         for (const f of and1) assert.ok(shots.some((sh) => sh.start && f.start && sh.start.index === f.start.index && sh.end.clock === f.end.clock), `${season} ${game.scheduleKey} アンドワンの起点がFGと違う`);
         fgOfTeam += shots.length;
@@ -92,6 +103,9 @@ for (const season of seasons) {
   assert.ok(sum(pt.rows.ftN) <= ftMeasured && sum(pt.rows.ftN) >= ftMeasured * 0.999, `${season}: 選手の FT 件数 ${sum(pt.rows.ftN)} とチーム ${ftMeasured}`);
   const keys = pt.rows.player.map((p, i) => `${p}|${pt.rows.team[i]}|${pt.rows.playoff[i]}`);
   assert.equal(new Set(keys).size, keys.length, `${season}: 選手の行が重複`);
+  // 攻撃時間: 数えなかった攻撃は 3% 未満（記録の食い違いが増えていないか。旧形式の 2016-17 は約2%、2020-21 以降は0.3〜0.4%）
+  assert.ok(possExcluded / (possOk + possExcluded) < 0.03, `${season}: 数えなかった攻撃が多い ${possExcluded}/${possOk + possExcluded}`);
+  console.log(`${season}: 攻撃時間 数えた ${possOk} / 数えなかった ${possExcluded}（${((100 * possExcluded) / (possOk + possExcluded)).toFixed(2)}%）`);
   console.log(`${season}: FTをもらうまで 計測 ${ftMeasured} / 数えなかった ${ftExcluded}（${((100 * ftExcluded) / (ftMeasured + ftExcluded)).toFixed(2)}%）／選手 ${new Set(pt.rows.player).size} 人`);
   checks++;
   console.log(`${season}: 計測 ${measured} / 除外 ${excluded} / FGA ${boxFga}（${((100 * measured) / boxFga).toFixed(3)}%）PBPなし ${noPbp} 試合`);

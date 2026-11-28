@@ -257,6 +257,16 @@ export const STAT_NAMES: Record<string, StatJaName> = {
   "Bonus%": "ボーナスのファウルの割合",
   "And-1": "アンドワンまでの平均秒数",
   "And-1%": "アンドワンの割合",
+  // 攻撃時間（DESIGN.md 481章）
+  "Poss Time": "攻撃時間の平均秒数",
+  "Poss Time N": "攻撃の回数",
+  "With OR": "ORがあった攻撃の平均秒数",
+  "With OR%": "ORがあった攻撃の割合",
+  "No OR": "ORがなかった攻撃の平均秒数",
+  "No OR%": "ORがなかった攻撃の割合",
+  "OR/Poss": "1回の攻撃あたりのORの数",
+  "Scoring Poss": "得点した攻撃の平均秒数",
+  "Scoring Poss%": "得点した攻撃の割合",
   // 選手の Time to Shot（480章）
   "Player TTS": "シュートまでの平均秒数（選手）",
   "Player TTS N": "計測したシュートの本数（選手）",

@@ -75,6 +75,16 @@ for (const season of ["2021-22", "2025-26"]) {
         assert.equal(got.ft[k].n, ftExp[k].n, `${season} ${period} ${own} FT ${k} n`);
         assert.equal(got.ft[k].s, ftExp[k].s, `${season} ${period} ${own} FT ${k} s`);
       }
+      // 攻撃時間（481章）: 計算し直した回数・秒数と一致、With OR%＋No OR%＝100%、OR/Poss＝ORの合計÷回数
+      const posOk = calc.flatMap((r) => r.possessions.filter((p) => (p.team === teamId) === own && fn(p.period) && p.seconds !== null));
+      assert.equal(got.poss.all.n, posOk.length, `${season} ${period} ${own} 攻撃 回数`);
+      assert.equal(got.poss.all.s, posOk.reduce((n, p) => n + p.seconds!, 0), `${season} ${period} ${own} 攻撃 秒数`);
+      assert.equal(got.poss.or.n, posOk.filter((p) => p.orebs > 0).length);
+      assert.equal(got.poss.pts.n, posOk.filter((p) => p.scored).length);
+      if (posOk.length > 0) {
+        assert.ok(Math.abs((ttsItemValues(got, "possOr").pct ?? 0) + (ttsItemValues(got, "possNoOr").pct ?? 0) - 100) < 1e-9);
+        assert.ok(Math.abs(ttsItemValues(got, "orPerPoss").avg! - posOk.reduce((n, p) => n + p.orebs, 0) / posOk.length) < 1e-9);
+      }
       const ft = ttsItemValues(got, "ft");
       if (ft.n! > 0) {
         assert.ok(Math.abs((ttsItemValues(got, "ftShoot").pct ?? 0) + (ttsItemValues(got, "ftBonus").pct ?? 0) - 100) < 1e-9);
@@ -97,10 +107,12 @@ for (const season of ["2021-22", "2025-26"]) {
   assert.equal(sumN("h1") + sumN("h2") + sumN("ot"), sumTtsTotals(source, logs, "all", "own").byCategory.score.s);
   checks++;
   // フリースローの列が無い古いファイル（デプロイ直後のキャッシュなど）では、フリースローの項目は「-」（0件にしない）
-  const oldFile: TtsIndexFile = { ...file, rows: { counts: Object.fromEntries(Object.entries(file.rows.counts).filter(([k]) => !k.includes(".ft."))) } };
+  const oldFile: TtsIndexFile = { ...file, rows: { counts: Object.fromEntries(Object.entries(file.rows.counts).filter(([k]) => !k.includes(".ft.") && !k.includes(".pos."))) } };
   const oldTotals = sumTtsTotals({ season, file: oldFile, gameNo }, logs, "all", "own");
   assert.equal(oldTotals.ftGames, 0);
   assert.deepEqual(ttsItemValues(oldTotals, "ft"), { avg: null, pct: null, n: null });
+  assert.equal(oldTotals.possGames, 0);
+  assert.deepEqual(ttsItemValues(oldTotals, "poss"), { avg: null, pct: null, n: null });
   assert.equal(ttsItemValues(oldTotals, "all").n, ttsItemValues(sumTtsTotals(source, logs, "all", "own"), "all").n);
   checks++;
 }

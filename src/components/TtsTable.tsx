@@ -3,7 +3,7 @@ import { SeasonLink } from "./SeasonLink";
 import { statDescription } from "../lib/statDescriptions";
 import { statJa } from "../lib/statNames";
 import { tierClassesFromValues } from "../lib/teamTierColors";
-import { formatTtsCount, formatTtsPct, formatTtsSeconds, TTS_TABLE_ITEMS, type TtsPerspective, type TtsRowValues } from "../lib/teamTts";
+import { formatTtsCount, formatTtsPct, formatTtsSeconds, TTS_TABLE_ITEMS, type TtsPerspective, type TtsRowValues, type TtsTableGroup } from "../lib/teamTts";
 import { DEFAULT_TTS_VIEW, type TtsView } from "../lib/ttsView";
 
 /** 先頭側の列（チーム・シーズン・G など）。見出しは2行分の高さ（rowSpan=2）。sortValue は並べ替え用 */
@@ -79,19 +79,20 @@ export function TtsTable<T>({ leading, rows, rowKey, valuesOf, perspective, link
   };
   const mark = (key: string) => (sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "");
   const aria = (key: string) => (sortKey === key ? (sortDir === "asc" ? ("ascending" as const) : ("descending" as const)) : undefined);
-  const toggle = (group: "start" | "ft") =>
+  const toggle = (group: TtsTableGroup) =>
     onViewChange?.({ ...view, open: view.open.includes(group) ? view.open.filter((g) => g !== group) : [...view.open, group] });
 
   // 秒の列ごとの色（teamId ではなく行のキーで引く）
   const tiers = useMemo(() => {
     const map = new Map<string, Map<string, string>>();
     if (!tierColors) return map;
-    for (const { item } of TTS_TABLE_ITEMS) {
+    for (const { item, higherGreen } of TTS_TABLE_ITEMS) {
       const entries = rows.map((r) => {
         const avg = valuesOf(r)?.[item]?.avg ?? null;
         return { id: rowKey(r), value: avg === null ? Number.NaN : avg, text: formatTtsSeconds(avg, perspective) };
       });
-      map.set(item, tierClassesFromValues(entries, perspective === "opp"));
+      // 攻撃時間（481章）は良し悪しが無いので、どの視点でも長い（多い）＝緑・短い＝赤
+      map.set(item, tierClassesFromValues(entries, higherGreen ? true : perspective === "opp"));
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -175,13 +176,13 @@ export function TtsTable<T>({ leading, rows, rowKey, valuesOf, perspective, link
             const name = kind === "pct" ? `${x.abbr}%` : x.abbr;
             return [
               <th key={key} className="align-right tts-sub-head" onClick={() => click(key)} aria-sort={aria(key)} title={`${statJa(name, "team")}（${name}）`}>
-                {kind === "pct" ? "%" : "秒"}
+                {kind === "pct" ? "%" : x.plain ? "数" : "秒"}
                 {mark(key)}
               </th>,
               ...(x.hasCount
                 ? [
                     <th key={`n:${x.item}`} className="align-right tts-sub-head" onClick={() => click(`n:${x.item}`)} aria-sort={aria(`n:${x.item}`)} title={`${statJa(`${x.abbr} N`, "team")}（${x.abbr} N）`}>
-                      {x.item === "ft" ? "件数" : "本数"}
+                      {x.item === "ft" ? "件数" : x.item === "poss" ? "回数" : "本数"}
                       {mark(`n:${x.item}`)}
                     </th>,
                   ]
@@ -213,7 +214,7 @@ export function TtsViewControls({ view, onChange }: { view: TtsView; onChange: (
           {u === "s" ? "秒" : "%"}
         </button>
       ))}
-      <span className="tts-view-hint">内訳は 1st Shot・To FT の見出しの ▸ で開閉できます</span>
+      <span className="tts-view-hint">内訳は 1st Shot・To FT・Poss Time の見出しの ▸ で開閉できます</span>
     </div>
   );
 }

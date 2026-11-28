@@ -1,4 +1,4 @@
-// Time to Shot の計算（DESIGN.md 290章・480章）。導出データ team-tts・player-tts の作成（scripts/lib/ttsIndexBuild.ts）と検証から読む（保存キーの対象）。
+// Time to Shot の計算（DESIGN.md 290章・480章・481章）。導出データ team-tts・player-tts の作成（scripts/lib/ttsIndexBuild.ts）と検証から読む（保存キーの対象）。
 // Times are PBP game-clock differences, not exact ball-control or shot-release times.
 import { chronologicalPlayByPlays } from './pbpOrder.ts';
 import { TECHNICAL_FT_FOUL_CODES as TECH, UNSPORTSMANLIKE_FT_FOUL_CODES as RETAIN } from './foulCodes.ts';
@@ -22,7 +22,15 @@ export interface TtsNoShot { team: string; start: TtsMark; end: TtsMark; reason:
 export type TtsFtKind = 'shoot' | 'bonus' | 'unclassified' | 'overlap' | 'unknown';
 export interface TtsFt { team: string; period: number; start: TtsMark | null; end: TtsMark; kind: TtsFtKind; andOne: boolean; seconds: number | null; shooter: string | null }
 export interface TtsDiagnostic { reason: string; event: TtsMark; detail?: string }
-export interface TtsResult { shots: TtsShot[]; noShots: TtsNoShot[]; diagnostics: TtsDiagnostic[]; events: TtsMark[]; fts: TtsFt[] }
+/**
+ * 1回の攻撃（DESIGN.md 481章）。始まりは Time to Shot と同じ起点で、OR で続いた区間はつなげて同じ1回の攻撃にする。
+ * 終わり: score（自チームの得点で攻守が変わった＝FG成功・攻守が変わる最後のFT成功など）／dreb（相手のDR）／turnover（TO・スティール・TOの付かないオフェンスファウル）／period（ピリオドの終わり）／
+ * unknown（どれか分からない・始まりが分からない・記録の食い違い。秒数は出さず件数だけ）。途中のファウル・タイムアウトでは区切らない。
+ * orebs＝その攻撃の中の OR の数、scored＝その攻撃の中で1点以上取った
+ */
+export type TtsPossessionEnd = 'score' | 'dreb' | 'turnover' | 'period' | 'unknown';
+export interface TtsPossession { team: string; period: number; start: TtsMark; end: TtsMark; endReason: TtsPossessionEnd; orebs: number; scored: boolean; seconds: number | null }
+export interface TtsResult { shots: TtsShot[]; noShots: TtsNoShot[]; diagnostics: TtsDiagnostic[]; events: TtsMark[]; fts: TtsFt[]; possessions: TtsPossession[] }
 export interface TtsTotal { count: number; seconds: number }
 const FG = new Set([1, 2, 3, 4, 5, 6]);
 const MADE = new Set([1, 3, 4]);
@@ -48,7 +56,7 @@ interface Segment { team: string; start: TtsMark; category: TtsCategory; reason:
 export function calculateTimeToShot(game: StoredGame): TtsResult {
   const es = chronologicalPlayByPlays(game.raw.PlayByPlays ?? []);
   const events = es.map(mark);
-  const result: TtsResult = { shots: [], noShots: [], diagnostics: [], events, fts: [] };
+  const result: TtsResult = { shots: [], noShots: [], diagnostics: [], events, fts: [], possessions: [] };
   const home = game.homeTeam.id, away = game.awayTeam.id;
   const opponent = (t: string) => t === home ? away : home;
   const validTeam = (t: string | null): t is string => t === home || t === away;
@@ -119,17 +127,52 @@ export function calculateTimeToShot(game: StoredGame): TtsResult {
     const k: TtsFtKind = (kind === 'shoot' || kind === 'bonus') && seconds === null ? 'unknown' : kind;
     result.fts.push({ team: t, period: m.period, start: k === 'unknown' ? null : start, end, kind: k, andOne, seconds, shooter: es[i]!.PlayerID1 ?? null });
   };
+  // 1回の攻撃（481章）。startKnown が false（OR から始まった・前の攻撃が分からない）ものは、終わっても秒数を出さない
+  const ps: { cur: { team: string; start: TtsMark; orebs: number; scored: boolean; startKnown: boolean } | null } = { cur: null };
+  const endPoss = (end: TtsMark, reason: TtsPossessionEnd) => {
+    if (!ps.cur) return;
+    let seconds: number | null = null;
+    let endReason = reason;
+    if (reason !== 'unknown' && ps.cur.startKnown && end.period === ps.cur.start.period) {
+      const a = ttsRemaining(ps.cur.start.clock, ps.cur.start.period), b = ttsRemaining(end.clock, end.period);
+      if (a !== null && b !== null && a - b >= 0) seconds = a - b;
+    }
+    if (seconds === null) endReason = 'unknown';
+    result.possessions.push({ team: ps.cur.team, period: ps.cur.start.period, start: ps.cur.start, end, endReason, orebs: ps.cur.orebs, scored: ps.cur.scored, seconds });
+    ps.cur = null;
+  };
+  const possBegin = (team: string, start: TtsMark, category: TtsCategory, reason: string) => {
+    if (category === 'oreb') {
+      if (ps.cur && ps.cur.team === team) { ps.cur.orebs++; return; }
+      endPoss(start, 'unknown');
+      ps.cur = { team, start, orebs: 1, scored: false, startKnown: false };
+      return;
+    }
+    if (ps.cur && ps.cur.team === team) {
+      // アンスポーツマン系の FT のあと、同じチームが攻撃を続ける
+      if (category === 'other' && reason === 'retained_penalty') return;
+      endPoss(start, 'unknown');
+    } else if (ps.cur) {
+      endPoss(start, category === 'score' ? 'score' : category === 'dreb' ? 'dreb' : category === 'steal' || category === 'deadTo' || reason === 'offensive_foul_without_to' ? 'turnover' : 'unknown');
+    }
+    ps.cur = { team, start, orebs: 0, scored: false, startKnown: true };
+  };
+  const possScored = (t: string) => { if (ps.cur && ps.cur.team === t) ps.cur.scored = true; };
   const close = (end: TtsMark, reason: string) => {
     if (state.segment) result.noShots.push({ team: state.segment.team, start: state.segment.start, end, reason: reason==='quarter_end' && state.segment.start.clock==='0:00' ? 'zero_time_at_period_end' : reason });
     state.segment = null;
   };
   const begin = (team: string, start: TtsMark, category: TtsCategory, reason = category as string) => {
     state.segment = { team, start, category, reason, flags: [] }; owner = team; missingReason = 'unknown_start';
+    possBegin(team, start, category, reason);
   };
   for (let i = 0; i < es.length; i++) {
     const e = es[i]!, m = events[i]!, c = e.ActionCD1, t = e.TeamID;
     if (e.Period !== period) {
-      if (period) close({ index: i-1, period, clock: '0:00', code: 83, team: null, text: 'Q終了' }, 'quarter_end');
+      if (period) {
+        const qEnd: TtsMark = { index: i-1, period, clock: '0:00', code: 83, team: null, text: 'Q終了' };
+        close(qEnd, 'quarter_end'); endPoss(qEnd, 'period');
+      }
       period = e.Period; owner = null; missingReason = 'unknown_quarter_owner';
       // Infer only the opening controlling team, not each team's first possession.
       const first = es.slice(i).find(x => x.Period === period && validTeam(x.TeamID) && (FG.has(x.ActionCD1) || TO.has(x.ActionCD1) || x.ActionCD1 === 9 || x.ActionCD1 === 10 || x.ActionCD1 === 14 || x.ActionCD1 === 22 || x.ActionCD1 === 23));
@@ -139,7 +182,7 @@ export function calculateTimeToShot(game: StoredGame): TtsResult {
         begin(team, { index: i, period, clock: period <= 4 ? '10:00' : '5:00', code: 82, team, text: 'Q開始（最初のプレーから保持チームを判定）' }, 'quarter');
       }
     }
-    if (c === 83 || c === 81) { close(m, 'quarter_end'); owner = null; continue; }
+    if (c === 83 || c === 81) { close(m, 'quarter_end'); endPoss(m, 'period'); owner = null; continue; }
     if (FOUL.has(c) && c !== 20 && c !== 21 && validTeam(t)) {
       const fk = `${e.Period <= 4 ? e.Period : 4}|${t}`;
       teamFouls.set(fk, (teamFouls.get(fk) ?? 0) + 1);
@@ -154,7 +197,7 @@ export function calculateTimeToShot(game: StoredGame): TtsResult {
     }
     const remaining = ttsRemaining(m.clock, period);
     if (CONTROL.has(c) && remaining === null) {
-      close(m, 'invalid_clock'); owner = null; missingReason = 'invalid_clock'; diag('invalid_clock', m);
+      close(m, 'invalid_clock'); endPoss(m, 'unknown'); owner = null; missingReason = 'invalid_clock'; diag('invalid_clock', m);
       if (FG.has(c)) result.shots.push({team:t,period,start:null,end:m,category:null,seconds:null,reason:'invalid_clock',flags:[]});
       continue;
     }
@@ -162,6 +205,7 @@ export function calculateTimeToShot(game: StoredGame): TtsResult {
     if (c === 14 && pairedSteals.has(i)) continue;
     if (TO.has(c)) {
       close(m, owner === t ? 'turnover' : 'implicit_change');
+      if (ps.cur && ps.cur.team !== t) endPoss(m, 'unknown');
       const st = pairs.get(i);
       begin(opponent(t), st === undefined ? m : events[st]!, st === undefined ? 'deadTo' : 'steal');
       if (st === undefined) {
@@ -204,8 +248,10 @@ export function calculateTimeToShot(game: StoredGame): TtsResult {
       const usable = seconds !== null && seconds>=0;
       result.shots.push({team:t,period,start:usable?s!.start:null,end:m,category:usable?s!.category:null,seconds:usable?seconds:null,reason:usable?s!.reason:(owner===t || owner===null ? missingReason : 'implicit_change'),flags:usable?[...s!.flags]:[]});
       if (s && s.team !== t) close(m,'implicit_change');
+      if (ps.cur && ps.cur.team !== t) endPoss(m, 'unknown');
       state.segment=null; owner=t; missingReason='missing_rebound';
       if (MADE.has(c)) {
+        possScored(t);
         const next=es.slice(i+1).find(x=>x.Period!==period || CONTROL.has(x.ActionCD1));
         const andOne=next && next.Period===period && next.RestTime===e.RestTime && FT.has(next.ActionCD1) && next.TeamID===t && next.PlayerID1===e.PlayerID1;
         if (!andOne) begin(opponent(t),m,'score','opponent_fg');
@@ -225,10 +271,11 @@ export function calculateTimeToShot(game: StoredGame): TtsResult {
       const hasNormal=block.some(x=>x.ActionCD1===22 || x.ActionCD1===23);
       if ((hasTech && (hasRetain || hasNormal)) || (hasRetain && hasNormal)) {
         if (firstFt) pushFt(i,t,null,'overlap',null,!!pendingAndOne);
-        close(m,'ambiguous_ft'); owner=null; missingReason='ambiguous_ft'; diag('ambiguous_ft',m); continue;
+        close(m,'ambiguous_ft'); endPoss(m,'unknown'); owner=null; missingReason='ambiguous_ft'; diag('ambiguous_ft',m); continue;
       }
       if (hasTech) { diag('technical_ft_kept',m); continue; }
       if (hasRetain) {
+        if (c===7) possScored(t);
         if (firstFt) pushFt(i,t,null,'unclassified',null,!!pendingAndOne);
         if (owner!==t || !state.segment) { close(m,'retained_penalty'); begin(t,m,'other','retained_penalty'); }
         diag('retained_ft',m); continue;
@@ -239,6 +286,8 @@ export function calculateTimeToShot(game: StoredGame): TtsResult {
         const start = pendingAndOne ? (pendingAndOne.start) : seg && seg.team===t ? seg.start : null;
         pushFt(i,t,start,kind,foul,!!pendingAndOne);
       }
+      if (ps.cur && ps.cur.team !== t) endPoss(m, 'unknown');
+      if (c===7) possScored(t);
       close(m,'free_throws'); owner=t; missingReason='awaiting_ft_rebound';
       const next=es.slice(i+1).find(x=>x.Period!==period || CONTROL.has(x.ActionCD1));
       const continues=next && next.Period===period && next.RestTime===e.RestTime && FT.has(next.ActionCD1) && next.TeamID===t && next.PlayerID1===e.PlayerID1;
@@ -249,9 +298,10 @@ export function calculateTimeToShot(game: StoredGame): TtsResult {
     if (c===23 && !es.some(x=>x.Period===period && x.RestTime===e.RestTime && x.TeamID===t && TO.has(x.ActionCD1))) {
       close(m,'offensive_foul'); begin(opponent(t),m,'other','offensive_foul_without_to');
     }
-    if (c===44) { close(m,'non_fga_score'); begin(opponent(t),m,'score','opponent_non_fga_score'); diag('non_fga_score',m); }
+    if (c===44) { possScored(t); close(m,'non_fga_score'); begin(opponent(t),m,'score','opponent_non_fga_score'); diag('non_fga_score',m); }
   }
   if (state.segment) close({index:events.length,period,clock:'0:00',code:83,team:null,text:'Q終了'},'quarter_end');
+  endPoss({index:events.length,period,clock:'0:00',code:83,team:null,text:'Q終了'},'period');
   return result;
 }
 export function sumTts(shots: readonly TtsShot[], team?: string, periods?: readonly number[]): Record<TtsCategory,TtsTotal> {

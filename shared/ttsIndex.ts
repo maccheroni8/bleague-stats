@@ -46,6 +46,23 @@ export function ttsFtExcludedKey(atom: TtsAtom, kind: TtsFtExcluded): string {
   return `${atom}.ft.${kind}`;
 }
 
+/**
+ * 攻撃時間（DESIGN.md 481章。shared/timeToShot.ts の TtsPossession）。区間は攻撃が始まったピリオド。
+ * 「区間.pos.all|or|pts.n／s」: all＝秒数を出せた攻撃・or＝その中で OR があった攻撃・pts＝その中で得点した攻撃。
+ * 「区間.pos.orc」＝秒数を出せた攻撃の中の OR の数の合計、「区間.pos.x」＝数えなかった攻撃の数。古いファイルには無い（画面は「-」）
+ */
+export const TTS_POSS_KINDS = ["all", "or", "pts"] as const;
+export type TtsPossIndexKind = (typeof TTS_POSS_KINDS)[number];
+export function ttsPossKey(atom: TtsAtom, kind: TtsPossIndexKind, value: "n" | "s"): string {
+  return `${atom}.pos.${kind}.${value}`;
+}
+export function ttsPossOrCountKey(atom: TtsAtom): string {
+  return `${atom}.pos.orc`;
+}
+export function ttsPossExcludedKey(atom: TtsAtom): string {
+  return `${atom}.pos.x`;
+}
+
 export interface TtsIndexFile {
   version: typeof TTS_INDEX_VERSION;
   generatedAt: string;
