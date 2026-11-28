@@ -81,6 +81,8 @@ export interface ExportChoice {
   activate?: () => Promise<void>;
   /** activate のあとに求めるファイル名（切り替えた画面の条件で決まる名前。指定したら filename より優先） */
   filenameOf?: () => string;
+  /** 選べないときの理由（multi のチェックを薄くして選べなくする。「すべて選ぶ」・保存の対象にも入らない） */
+  disabledReason?: string;
 }
 
 /** 「まとめて保存」の選択肢（窓の中の最後のボタン。keys の対象を続けて保存する） */
@@ -201,7 +203,7 @@ export function ExportImageButton({
     const multiKeys = multi && choices ? (checkedKeys ?? defaultChoiceKeys ?? [defaultChoiceKey ?? choices[0]?.key ?? ""]) : null;
     const items: { targetRef: RefObject<HTMLElement | null>; filename: string; baseDate?: BaseDateSpec; activate?: () => Promise<void>; filenameOf?: () => string }[] =
       multiKeys && choices
-        ? choices.filter((c) => multiKeys.includes(c.key)).map((c) => ({ ...c, filename: exportFilenameWithLeague(c.filename, LEAGUE_LABELS[league]) }))
+        ? choices.filter((c) => multiKeys.includes(c.key) && !c.disabledReason).map((c) => ({ ...c, filename: exportFilenameWithLeague(c.filename, LEAGUE_LABELS[league]) }))
         : chosenAll && choices
         ? choices.filter((c) => allChoice!.keys.includes(c.key)).map((c) => ({ ...c, filename: exportFilenameWithLeague(c.filename, LEAGUE_LABELS[league]) }))
         : [{ targetRef, filename, baseDate, activate: chosen?.activate }];
@@ -310,7 +312,9 @@ export function ExportImageButton({
       : { all: `上位${ranking.top}${ranking.unit}`, ten: `上位10${ranking.unit}` }
     : null;
 
-  const multiSelected = multi && choices ? (checkedKeys ?? defaultChoiceKeys ?? [defaultChoiceKey ?? choices[0]?.key ?? ""]) : null;
+  const enabledChoices = choices?.filter((c) => !c.disabledReason) ?? [];
+  const multiSelected =
+    multi && choices ? (checkedKeys ?? defaultChoiceKeys ?? [defaultChoiceKey ?? choices[0]?.key ?? ""]).filter((k) => enabledChoices.some((c) => c.key === k)) : null;
   const saveDisabled = busy || !!disabledReason || (!!multiSelected && multiSelected.length === 0);
   const saveEntry = useSaveMenuEntry({
     label: menuLabel ?? "画像",
@@ -343,18 +347,18 @@ export function ExportImageButton({
               <label className="export-multi-item export-multi-all">
                 <input
                   type="checkbox"
-                  checked={multiSelected.length === choices.length}
-                  disabled={busy}
-                  onChange={(e) => setCheckedKeys(e.target.checked ? choices.map((c) => c.key) : [])}
+                  checked={enabledChoices.length > 0 && multiSelected.length === enabledChoices.length}
+                  disabled={busy || enabledChoices.length === 0}
+                  onChange={(e) => setCheckedKeys(e.target.checked ? enabledChoices.map((c) => c.key) : [])}
                 />
                 すべて選ぶ
               </label>
               {choices.map((c) => (
-                <label key={c.key} className="export-multi-item">
+                <label key={c.key} className={`export-multi-item${c.disabledReason ? " export-multi-disabled" : ""}`} title={c.disabledReason}>
                   <input
                     type="checkbox"
                     checked={multiSelected.includes(c.key)}
-                    disabled={busy}
+                    disabled={busy || !!c.disabledReason}
                     onChange={(e) => setCheckedKeys(e.target.checked ? [...multiSelected, c.key] : multiSelected.filter((k) => k !== c.key))}
                   />
                   {c.label}

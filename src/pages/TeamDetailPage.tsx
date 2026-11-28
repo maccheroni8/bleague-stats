@@ -3110,6 +3110,10 @@ export function TeamDetailPage({ season }: { season: string }) {
   const overviewRecordRef = useRef<HTMLDivElement>(null);
   const overviewLeadRef = useRef<HTMLDivElement>(null);
   const overviewLeadWasOpen = useRef<boolean | null>(null);
+  // ラインナップタブの保存（オンザコート別・よく使われるラインナップ・ラインナップ検索。保存の間だけ画面外の枠に描く。DESIGN.md 483章）
+  const lineupSaveRef = useRef<HTMLDivElement>(null);
+  const [lineupSaveKey, setLineupSaveKey] = useState<"oc" | "common" | "search" | null>(null);
+  const [lineupSearchInfo, setLineupSearchInfo] = useState<{ selected: number; gameType: SeasonGameTypeFilter }>({ selected: 0, gameType: "regular" });
   // 「シチュエーション別勝敗」（概要タブ）「シチュエーション別成績」（チームスタッツタブ）の
   // 各グループの説明文。個人詳細ページの同名セクションと同じ「デフォルト非表示・▶説明ボタンで
   // 開閉」の仕組みをそのまま踏襲する
@@ -4191,6 +4195,234 @@ export function TeamDetailPage({ season }: { season: string }) {
   };
 
   const radarData = teams && teams.length > 1 ? buildRadarData(team, teams) : [];
+
+  const lineupSaveName = [`${season}シーズン`, team.teamName];
+  const lineupSaveChoices: ExportChoice[] = (
+    [
+      {
+        key: "oc",
+        label: "オンザコート別",
+        gameType: lineupOcFromIndex ? lineupOcGameType : "both",
+        disabledReason: lineupOcSummary ? undefined : "オンザコート別の表がありません。",
+      },
+      { key: "common", label: "よく使われるラインナップ", gameType: lineupTableGameType, disabledReason: undefined },
+      {
+        key: "search",
+        label: "ラインナップ検索の検索結果",
+        gameType: lineupSearchInfo.gameType,
+        disabledReason: !lineupStintsSupported ? "このシーズンはラインナップ検索を使えません。" : lineupSearchInfo.selected === 0 ? "ラインナップ検索で選手を選ぶと保存できます。" : undefined,
+      },
+    ] as const
+  ).map((c) => ({
+    key: c.key,
+    label: c.label,
+    targetRef: lineupSaveRef,
+    filename: buildExportFilename([...lineupSaveName, c.key === "search" ? "ラインナップ検索" : c.label]),
+    baseDate: { kind: "season", season, gameType: c.gameType },
+    disabledReason: c.disabledReason,
+    activate: async () => {
+      setLineupSaveKey(c.key);
+      await waitForSaveRender(() => lineupSaveRef.current, c.key);
+    },
+  }));
+  const lineupSaveBaseGameType =
+    lineupSaveKey === "oc" ? (lineupOcFromIndex ? lineupOcGameType : "both") : lineupSaveKey === "search" ? lineupSearchInfo.gameType : lineupTableGameType;
+
+  // ラインナップタブの「オンザコート別」「よく使われるラインナップ」。画面と保存画像（exporting。見出しを保存画像の形にし、操作の部品を出さない）で同じ中身（DESIGN.md 483章）
+  const renderLineupOc = (exporting: boolean, summary: NonNullable<typeof lineupOcSummary>) => (
+    <>
+                  {exporting ? (
+                    <ConditionTitle title={`${season}シーズン ${team.teamName}　オンザコート別`} exportScope={`${season}シーズン`} conditions={composeLabels(
+                      lineupOcFromIndex ? displayModeLabels(lineupOcDisplay) : displayModeLabels("total"),
+                      lineupOcFromIndex ? gameTypeLabels(lineupOcGameType, season) : gameTypeLabels("both", season),
+                      lineupOcFromIndex ? periodLabels(seasonPeriodOption(lineupOcPeriodValue)) : null,
+                    )} />
+                  ) : (
+                    <>
+                      <h4 className="lineup-oc-heading">オンザコート別</h4>
+                  <ConditionLine
+                    conditions={composeLabels(
+                      lineupOcFromIndex ? displayModeLabels(lineupOcDisplay) : displayModeLabels("total"),
+                      lineupOcFromIndex ? gameTypeLabels(lineupOcGameType, season) : gameTypeLabels("both", season),
+                      lineupOcFromIndex ? periodLabels(seasonPeriodOption(lineupOcPeriodValue)) : null,
+                    )}
+                  />
+                    </>
+                  )}
+                  {lineupOcFromIndex && lineupOcFromIndex.games === 0 ? (
+                    <p className="empty-message">この条件に当てはまる試合はありません</p>
+                  ) : (
+                    <TeamLineupOnCourtSummary
+                      rows={summary.rows}
+                      totals={lineupOcTotals}
+                      totalRatings={summary.total}
+                      real={summary.real}
+                      color={accentColor ?? "var(--accent)"}
+                      selected={activeLineupOc}
+                      onSelect={exporting ? () => undefined : (c) => setLineupOcFilter(activeLineupOc === c ? undefined : c)}
+                      perGame={lineupOcPerGame}
+                    />
+                  )}
+                  {lineupOcFromIndex && lineupOcDisplay === "perGame" && (
+                    <p className="rule-change-footnote">
+                      ※ 1試合平均は、
+                      {lineupOcPeriodValue === "ot"
+                        ? `延長のあった${lineupOcFromIndex.games}試合`
+                        : lineupOcPeriodValue === "clutch"
+                          ? `クラッチタイムになった${lineupOcFromIndex.games}試合`
+                          : `この条件のチームの全${lineupOcFromIndex.games}試合`}
+                      で割っています（その人数の時間が無かった試合も含みます）。
+                    </p>
+                  )}
+                  {lineupOcFromIndex && lineupOcPeriodValue === "ot" && lineupOcDisplay !== "perGame" && (
+                    <p className="rule-change-footnote">※ 延長は、延長のあった{lineupOcFromIndex.games}試合のすべての延長の合計です。</p>
+                  )}
+                  {lineupOcFromIndex && lineupOcPeriodValue !== "all" && lineupOcPeriodValue !== "ot" && lineupOcPeriodValue !== "clutch" && lineupOcGameType !== "regular" && hasShortGameSeason([season]) && (
+                    <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>
+                  )}
+                  {lineupOcFromIndex && lineupOcPeriodValue !== "all" && lineupOcPeriodValue !== "ot" && lineupOcPeriodValue !== "clutch" && lineupOcGameType !== "playoff" && hasManualBoxscoreSeason([season]) && (
+                    <p className="rule-change-footnote">※ {MANUAL_BOXSCORE_PERIOD_NOTE}</p>
+                  )}
+                  {!summary.real && (
+                    <p className="rule-change-footnote">
+                      ※ ORtg・DRtg・NetRtg は、{ESTIMATED_RATING_NOTE}
+                      {lineupOcFromIndex ? "（この条件のチームの攻撃回数を、時間の割合で人数ごとに分けています）" : "（チームのシーズン平均のペースで時間から按分）"}
+                    </p>
+                  )}
+                </>
+  );
+  const renderLineupCommon = (exporting: boolean) => (
+    <>
+              {exporting ? (
+                <ConditionTitle
+                  title={`${season}シーズン ${team.teamName}　よく使われるラインナップ`}
+                  exportScope={`${season}シーズン`}
+                  conditions={[`${ocEligibleLineups.length}パターン（全${ocAllLineups.length}パターン中）`, ...composeLabels(
+                  displayModeLabels(lineupTableColumns),
+                  gameTypeLabels(lineupTableGameType, season),
+                  periodLabels(seasonPeriodOption(lineupTablePeriod)),
+                  `使われた試合の平均${formatBasisSeconds(lineupTableByCondition ? lineupMinAvgSeconds(lineupTablePeriod) : MIN_LINEUP_AVG_SECONDS)}秒以上`,
+                  lineupTableByCondition && !lineupTableDefaultCondition
+                    ? `使われた試合数が、条件に合うチームの${lineupBasisGames}試合の${Math.round(MIN_LINEUP_GAME_SHARE * 100)}%以上`
+                    : `使われた試合数がチームの${Math.round(MIN_LINEUP_GAME_SHARE * 100)}%以上`,
+                  lineupOcLabel ? `${lineupOcLabel}の組み合わせ` : null,
+                  !lineupTableByCondition && !lineupStintsSupported ? "このシーズンは条件を選べません（この表は合算・試合全体）" : null,
+                )]}
+                />
+              ) : (
+                <>
+              <h4 className="lineup-oc-heading lineup-frequent-heading">{`よく使われるラインナップ ${ocEligibleLineups.length}パターン（全${ocAllLineups.length}パターン中）`}</h4>
+              <ConditionLine
+                conditions={composeLabels(
+                  displayModeLabels(lineupTableColumns),
+                  gameTypeLabels(lineupTableGameType, season),
+                  periodLabels(seasonPeriodOption(lineupTablePeriod)),
+                  `使われた試合の平均${formatBasisSeconds(lineupTableByCondition ? lineupMinAvgSeconds(lineupTablePeriod) : MIN_LINEUP_AVG_SECONDS)}秒以上`,
+                  lineupTableByCondition && !lineupTableDefaultCondition
+                    ? `使われた試合数が、条件に合うチームの${lineupBasisGames}試合の${Math.round(MIN_LINEUP_GAME_SHARE * 100)}%以上`
+                    : `使われた試合数がチームの${Math.round(MIN_LINEUP_GAME_SHARE * 100)}%以上`,
+                  lineupOcLabel ? `${lineupOcLabel}の組み合わせ` : null,
+                  !lineupTableByCondition && !lineupStintsSupported ? "このシーズンは条件を選べません（この表は合算・試合全体）" : null,
+                )}
+              />
+                </>
+              )}
+              {lineupStintsSupported && !lineupTableByCondition && lineupStintsError && (
+                <p className="rule-change-footnote">※ 条件別のデータを読めなかったため、合算・試合全体で表示しています。</p>
+              )}
+              {lineupOcLabel && !exporting && (
+                <p className="game-oc-filter-note">
+                  {lineupOcLabel}の組み合わせだけを表示しています
+                  <button type="button" onClick={() => setLineupOcFilter(undefined)}>
+                    すべて表示
+                  </button>
+                </p>
+              )}
+          {displayedLineups.length === 0 ? (
+            <>
+              <p className="empty-message">
+                {lineupTableByCondition && tableLineups.length === 0
+                  ? "この条件に当てはまる試合はありません"
+                  : lineupOcLabel
+                    ? "条件を満たす組み合わせはありません"
+                    : "条件を満たす組み合わせがまだありません（試合数が増えると表示されます）"}
+              </p>
+              {!lineupsExpanded && ocAllLineups.length > 0 && !exporting && (
+                <button className="load-more-button" type="button" onClick={() => setLineupsExpanded(true)}>
+                  {`全パターンを表示（全${ocAllLineups.length}パターン）`}
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="table-scroll">
+                <table className="sortable-table team-lineups-table">
+                  <thead>
+                    <tr>
+                      <th className="align-left" title={statDescription("OC", "team")}>OC</th>
+                      <th className="align-left">5人の組み合わせ</th>
+                      <th className="align-right" title={statDescription("試合数")}>試合数</th>
+                      <th className="align-right" title={statDescription(lineupTableColumns === "perGame" ? "平均出場時間" : "出場時間")}>出場時間</th>
+                      <th className="align-right" title={statDescription(lineupTableColumns === "perGame" ? "平均得点" : "得点")}>得点</th>
+                      <th className="align-right" title={statDescription(lineupTableColumns === "perGame" ? "平均失点" : "失点")}>失点</th>
+                      <th className="align-right" title={statDescription(lineupTableColumns === "perGame" ? "平均得失点" : "得失点")}>得失点</th>
+                      <th className="align-right" title={statDescription(lineupRatingsReal ? "ラインナップORtg" : "ORtg（推定）")}>{lineupRatingsReal ? "ORtg" : "ORtg（推定）"}</th>
+                      <th className="align-right" title={statDescription(lineupRatingsReal ? "ラインナップDRtg" : "DRtg（推定）")}>{lineupRatingsReal ? "DRtg" : "DRtg（推定）"}</th>
+                      <th className="align-right" title={statDescription(lineupRatingsReal ? "ラインナップNetRtg" : "NetRtg（推定）")}>{lineupRatingsReal ? "NetRtg" : "NetRtg（推定）"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedLineups.map((l) => {
+                      const ratings = lineupRatingsOf(l);
+                      const oc = lineupForeignCount(l, classifyLineupPlayer);
+                      // 試合詳細のラインナップ別成績と同じ塗り（4人はチームカラー、3人はその半分の濃さ）
+                      const strength = highlightStrength(oc, lineupMaxForeign);
+                      return (
+                      <tr
+                        key={l.lineupKey}
+                        className={[strength ? "row-highlight" : "", strength === "half" ? "row-highlight-half" : ""].filter(Boolean).join(" ") || undefined}
+                        style={strength ? ({ "--row-highlight-color": accentColor ?? "var(--accent)" } as CSSProperties) : undefined}
+                      >
+                        <td className="align-left">{oc === null ? "−" : oc}</td>
+                        <td className="align-left">{l.playerIds.map((id) => playerLabel(playerNameById.get(id) ?? id)).join(" / ")}</td>
+                        <td className="align-right">{l.gamesPlayed}</td>
+                        {/* 平均は、そのラインナップが使われた試合の数（試合数の列）で割る（DESIGN.md 184章） */}
+                        {lineupTableColumns === "perGame" ? (
+                          <>
+                            <td className="align-right">{formatMinutesColon(safeDiv(l.secondsPlayed / 60, l.gamesPlayed))}</td>
+                            <td className="align-right">{formatDecimal(safeDiv(l.ownPoints, l.gamesPlayed))}</td>
+                            <td className="align-right">{formatDecimal(safeDiv(l.oppPoints, l.gamesPlayed))}</td>
+                            <td className="align-right">{formatSigned(safeDiv(l.netPoints, l.gamesPlayed))}</td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="align-right">{formatMinutesColon(l.secondsPlayed / 60)}</td>
+                            <td className="align-right">{l.ownPoints}</td>
+                            <td className="align-right">{l.oppPoints}</td>
+                            <td className="align-right">{formatSigned(l.netPoints, 0)}</td>
+                          </>
+                        )}
+                        <td className="align-right">{ratings.off !== null ? formatDecimal(ratings.off) : "-"}</td>
+                        <td className="align-right">{ratings.def !== null ? formatDecimal(ratings.def) : "-"}</td>
+                        <td className="align-right">{ratings.net !== null ? formatSigned(ratings.net) : "-"}</td>
+                      </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {lineupTableColumns === "perGame" && <p className="rule-change-footnote">※ 平均は、その組み合わせが一緒に出た試合で割った平均です。</p>}
+              {!lineupRatingsReal && <p className="rule-change-footnote">※ {ESTIMATED_RATING_NOTE}</p>}
+              {ocAllLineups.length > ocEligibleLineups.length && !exporting && (
+                <button className="load-more-button" type="button" onClick={() => setLineupsExpanded((v) => !v)}>
+                  {lineupsExpanded ? "条件を満たすパターンだけを表示" : `全パターンを表示（全${ocAllLineups.length}パターン）`}
+                </button>
+              )}
+            </>
+          )}
+
+            </>
+  );
 
   return (
     <TeamDetailPublicMediaScope season={season} pageTeamId={teamId ?? ""}>
@@ -5901,6 +6133,16 @@ export function TeamDetailPage({ season }: { season: string }) {
       {tab === "lineups" && (
         <div className="team-tab-panel team-lineups-panel">
           <ConditionTitle title="ラインナップ" exportScope={`${season}シーズン`} conditions={composeLabels(seasonLabel)} />
+          {pbpSupported && allLineups.length > 0 && (
+            <ExportImageButton
+              multi
+              choicesLabel="保存する表"
+              choices={lineupSaveChoices}
+              defaultChoiceKey={lineupSaveChoices.find((c) => !c.disabledReason)?.key ?? "common"}
+              restoreAfterSave={() => setLineupSaveKey(null)}
+              disabledReason={coverageLoading ? "記録を読み込み中です。" : undefined}
+            />
+          )}
           {coverageLoading ? (
             <p className="loading">読み込み中...</p>
           ) : !pbpSupported ? (
@@ -5924,165 +6166,8 @@ export function TeamDetailPage({ season }: { season: string }) {
                   ]}
                 />
               )}
-              {lineupOcSummary && (
-                <>
-                  <h4 className="lineup-oc-heading">オンザコート別</h4>
-                  <ConditionLine
-                    conditions={composeLabels(
-                      lineupOcFromIndex ? displayModeLabels(lineupOcDisplay) : displayModeLabels("total"),
-                      lineupOcFromIndex ? gameTypeLabels(lineupOcGameType, season) : gameTypeLabels("both", season),
-                      lineupOcFromIndex ? periodLabels(seasonPeriodOption(lineupOcPeriodValue)) : null,
-                    )}
-                  />
-                  {lineupOcFromIndex && lineupOcFromIndex.games === 0 ? (
-                    <p className="empty-message">この条件に当てはまる試合はありません</p>
-                  ) : (
-                    <TeamLineupOnCourtSummary
-                      rows={lineupOcSummary.rows}
-                      totals={lineupOcTotals}
-                      totalRatings={lineupOcSummary.total}
-                      real={lineupOcSummary.real}
-                      color={accentColor ?? "var(--accent)"}
-                      selected={activeLineupOc}
-                      onSelect={(c) => setLineupOcFilter(activeLineupOc === c ? undefined : c)}
-                      perGame={lineupOcPerGame}
-                    />
-                  )}
-                  {lineupOcFromIndex && lineupOcDisplay === "perGame" && (
-                    <p className="rule-change-footnote">
-                      ※ 1試合平均は、
-                      {lineupOcPeriodValue === "ot"
-                        ? `延長のあった${lineupOcFromIndex.games}試合`
-                        : lineupOcPeriodValue === "clutch"
-                          ? `クラッチタイムになった${lineupOcFromIndex.games}試合`
-                          : `この条件のチームの全${lineupOcFromIndex.games}試合`}
-                      で割っています（その人数の時間が無かった試合も含みます）。
-                    </p>
-                  )}
-                  {lineupOcFromIndex && lineupOcPeriodValue === "ot" && lineupOcDisplay !== "perGame" && (
-                    <p className="rule-change-footnote">※ 延長は、延長のあった{lineupOcFromIndex.games}試合のすべての延長の合計です。</p>
-                  )}
-                  {lineupOcFromIndex && lineupOcPeriodValue !== "all" && lineupOcPeriodValue !== "ot" && lineupOcPeriodValue !== "clutch" && lineupOcGameType !== "regular" && hasShortGameSeason([season]) && (
-                    <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>
-                  )}
-                  {lineupOcFromIndex && lineupOcPeriodValue !== "all" && lineupOcPeriodValue !== "ot" && lineupOcPeriodValue !== "clutch" && lineupOcGameType !== "playoff" && hasManualBoxscoreSeason([season]) && (
-                    <p className="rule-change-footnote">※ {MANUAL_BOXSCORE_PERIOD_NOTE}</p>
-                  )}
-                  {!lineupOcSummary.real && (
-                    <p className="rule-change-footnote">
-                      ※ ORtg・DRtg・NetRtg は、{ESTIMATED_RATING_NOTE}
-                      {lineupOcFromIndex ? "（この条件のチームの攻撃回数を、時間の割合で人数ごとに分けています）" : "（チームのシーズン平均のペースで時間から按分）"}
-                    </p>
-                  )}
-                </>
-              )}
-              <h4 className="lineup-oc-heading lineup-frequent-heading">{`よく使われるラインナップ ${ocEligibleLineups.length}パターン（全${ocAllLineups.length}パターン中）`}</h4>
-              <ConditionLine
-                conditions={composeLabels(
-                  displayModeLabels(lineupTableColumns),
-                  gameTypeLabels(lineupTableGameType, season),
-                  periodLabels(seasonPeriodOption(lineupTablePeriod)),
-                  `使われた試合の平均${formatBasisSeconds(lineupTableByCondition ? lineupMinAvgSeconds(lineupTablePeriod) : MIN_LINEUP_AVG_SECONDS)}秒以上`,
-                  lineupTableByCondition && !lineupTableDefaultCondition
-                    ? `使われた試合数が、条件に合うチームの${lineupBasisGames}試合の${Math.round(MIN_LINEUP_GAME_SHARE * 100)}%以上`
-                    : `使われた試合数がチームの${Math.round(MIN_LINEUP_GAME_SHARE * 100)}%以上`,
-                  lineupOcLabel ? `${lineupOcLabel}の組み合わせ` : null,
-                  !lineupTableByCondition && !lineupStintsSupported ? "このシーズンは条件を選べません（この表は合算・試合全体）" : null,
-                )}
-              />
-              {lineupStintsSupported && !lineupTableByCondition && lineupStintsError && (
-                <p className="rule-change-footnote">※ 条件別のデータを読めなかったため、合算・試合全体で表示しています。</p>
-              )}
-              {lineupOcLabel && (
-                <p className="game-oc-filter-note">
-                  {lineupOcLabel}の組み合わせだけを表示しています
-                  <button type="button" onClick={() => setLineupOcFilter(undefined)}>
-                    すべて表示
-                  </button>
-                </p>
-              )}
-          {displayedLineups.length === 0 ? (
-            <>
-              <p className="empty-message">
-                {lineupTableByCondition && tableLineups.length === 0
-                  ? "この条件に当てはまる試合はありません"
-                  : lineupOcLabel
-                    ? "条件を満たす組み合わせはありません"
-                    : "条件を満たす組み合わせがまだありません（試合数が増えると表示されます）"}
-              </p>
-              {!lineupsExpanded && ocAllLineups.length > 0 && (
-                <button className="load-more-button" type="button" onClick={() => setLineupsExpanded(true)}>
-                  {`全パターンを表示（全${ocAllLineups.length}パターン）`}
-                </button>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="table-scroll">
-                <table className="sortable-table team-lineups-table">
-                  <thead>
-                    <tr>
-                      <th className="align-left" title={statDescription("OC", "team")}>OC</th>
-                      <th className="align-left">5人の組み合わせ</th>
-                      <th className="align-right" title={statDescription("試合数")}>試合数</th>
-                      <th className="align-right" title={statDescription(lineupTableColumns === "perGame" ? "平均出場時間" : "出場時間")}>出場時間</th>
-                      <th className="align-right" title={statDescription(lineupTableColumns === "perGame" ? "平均得点" : "得点")}>得点</th>
-                      <th className="align-right" title={statDescription(lineupTableColumns === "perGame" ? "平均失点" : "失点")}>失点</th>
-                      <th className="align-right" title={statDescription(lineupTableColumns === "perGame" ? "平均得失点" : "得失点")}>得失点</th>
-                      <th className="align-right" title={statDescription(lineupRatingsReal ? "ラインナップORtg" : "ORtg（推定）")}>{lineupRatingsReal ? "ORtg" : "ORtg（推定）"}</th>
-                      <th className="align-right" title={statDescription(lineupRatingsReal ? "ラインナップDRtg" : "DRtg（推定）")}>{lineupRatingsReal ? "DRtg" : "DRtg（推定）"}</th>
-                      <th className="align-right" title={statDescription(lineupRatingsReal ? "ラインナップNetRtg" : "NetRtg（推定）")}>{lineupRatingsReal ? "NetRtg" : "NetRtg（推定）"}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayedLineups.map((l) => {
-                      const ratings = lineupRatingsOf(l);
-                      const oc = lineupForeignCount(l, classifyLineupPlayer);
-                      // 試合詳細のラインナップ別成績と同じ塗り（4人はチームカラー、3人はその半分の濃さ）
-                      const strength = highlightStrength(oc, lineupMaxForeign);
-                      return (
-                      <tr
-                        key={l.lineupKey}
-                        className={[strength ? "row-highlight" : "", strength === "half" ? "row-highlight-half" : ""].filter(Boolean).join(" ") || undefined}
-                        style={strength ? ({ "--row-highlight-color": accentColor ?? "var(--accent)" } as CSSProperties) : undefined}
-                      >
-                        <td className="align-left">{oc === null ? "−" : oc}</td>
-                        <td className="align-left">{l.playerIds.map((id) => playerLabel(playerNameById.get(id) ?? id)).join(" / ")}</td>
-                        <td className="align-right">{l.gamesPlayed}</td>
-                        {/* 平均は、そのラインナップが使われた試合の数（試合数の列）で割る（DESIGN.md 184章） */}
-                        {lineupTableColumns === "perGame" ? (
-                          <>
-                            <td className="align-right">{formatMinutesColon(safeDiv(l.secondsPlayed / 60, l.gamesPlayed))}</td>
-                            <td className="align-right">{formatDecimal(safeDiv(l.ownPoints, l.gamesPlayed))}</td>
-                            <td className="align-right">{formatDecimal(safeDiv(l.oppPoints, l.gamesPlayed))}</td>
-                            <td className="align-right">{formatSigned(safeDiv(l.netPoints, l.gamesPlayed))}</td>
-                          </>
-                        ) : (
-                          <>
-                            <td className="align-right">{formatMinutesColon(l.secondsPlayed / 60)}</td>
-                            <td className="align-right">{l.ownPoints}</td>
-                            <td className="align-right">{l.oppPoints}</td>
-                            <td className="align-right">{formatSigned(l.netPoints, 0)}</td>
-                          </>
-                        )}
-                        <td className="align-right">{ratings.off !== null ? formatDecimal(ratings.off) : "-"}</td>
-                        <td className="align-right">{ratings.def !== null ? formatDecimal(ratings.def) : "-"}</td>
-                        <td className="align-right">{ratings.net !== null ? formatSigned(ratings.net) : "-"}</td>
-                      </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              {lineupTableColumns === "perGame" && <p className="rule-change-footnote">※ 平均は、その組み合わせが一緒に出た試合で割った平均です。</p>}
-              {!lineupRatingsReal && <p className="rule-change-footnote">※ {ESTIMATED_RATING_NOTE}</p>}
-              {ocAllLineups.length > ocEligibleLineups.length && (
-                <button className="load-more-button" type="button" onClick={() => setLineupsExpanded((v) => !v)}>
-                  {lineupsExpanded ? "条件を満たすパターンだけを表示" : `全パターンを表示（全${ocAllLineups.length}パターン）`}
-                </button>
-              )}
-            </>
-          )}
+              {lineupOcSummary && renderLineupOc(false, lineupOcSummary)}
+              {renderLineupCommon(false)}
               <GlossaryNote anchor={GLOSSARY_ANCHORS.teamLineups} label="よく使われるラインナップ" />
             </>
           )}
@@ -6098,7 +6183,31 @@ export function TeamDetailPage({ season }: { season: string }) {
             stints={lineupStints}
             stintsLoading={lineupStintsLoading}
             stintsError={!!lineupStintsError}
+            onSaveInfo={setLineupSearchInfo}
           />
+          {lineupSaveKey && (
+            <ExportTarget ref={lineupSaveRef} className="export-target-standings lineup-save-target" baseDate={{ kind: "season", season, gameType: lineupSaveBaseGameType }}>
+              <div data-save-key={lineupSaveKey}>
+                {lineupSaveKey === "oc" && lineupOcSummary && renderLineupOc(true, lineupOcSummary)}
+                {lineupSaveKey === "common" && renderLineupCommon(true)}
+                {lineupSaveKey === "search" && (
+                  <LineupSearch
+                    season={season}
+                    teamId={teamId ?? ""}
+                    playerNameById={playerNameById}
+                    games={(gameLogs ?? []).map((g) => ({ scheduleKey: g.scheduleKey, gameType: g.gameType, isHome: g.isHome }))}
+                    stateKey={pk}
+                    playerLabel={(name) => name}
+                    supported={lineupStintsSupported}
+                    stints={lineupStints}
+                    stintsLoading={lineupStintsLoading}
+                    stintsError={!!lineupStintsError}
+                    exportTitle={`${season}シーズン ${team.teamName}　ラインナップ検索`}
+                  />
+                )}
+              </div>
+            </ExportTarget>
+          )}
         </div>
       )}
 

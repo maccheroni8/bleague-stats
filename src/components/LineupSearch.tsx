@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { GameType, TeamStintsFile } from "../../shared/types";
 import { seasonGameTypeLabels, SEASON_GAME_TYPE_KEYS, type SeasonGameTypeFilter } from "../../shared/gameType";
 import { composeLabels, displayModeLabels, gameTypeLabels, periodLabels, perspectiveLabels } from "../lib/conditionLabels";
@@ -68,13 +68,30 @@ interface Props {
   stints: TeamStintsFile | null;
   stintsLoading: boolean;
   stintsError: boolean;
+  /** 保存画像の版（チーム詳細の保存の枠の中だけ）。見出し（チーム名を含む）を渡す。操作の部品を出さず、組み合わせの行をすべて開く */
+  exportTitle?: string;
+  /** 画面の版で、保存に要る状態（選んだ人数・試合区分）を親に知らせる */
+  onSaveInfo?: (info: { selected: number; gameType: SeasonGameTypeFilter }) => void;
 }
 
 /**
  * ラインナップ検索（チーム詳細）。選んだ選手（1〜5人）が全員コートにいた時間帯（Players On）と、全員ベンチにいた時間帯（Players Off）の成績を
  * 上下に並べ、差（On−Off）の行を付けて出す。出場区間ごとの数え上げ（team-stints）から計算する。DESIGN.md 207章
  */
-export function LineupSearch({ season, teamId, playerNameById, games, stateKey, playerLabel, supported, stints, stintsLoading: loading, stintsError: error }: Props) {
+export function LineupSearch({
+  season,
+  teamId,
+  playerNameById,
+  games,
+  stateKey,
+  playerLabel,
+  supported,
+  stints,
+  stintsLoading: loading,
+  stintsError: error,
+  exportTitle,
+  onSaveInfo,
+}: Props) {
   const narrow = useNarrow();
   const [selectedRaw, setSelected] = usePageState<string[]>(stateKey("lineupSearchSelected"), []);
   const [gameType, setGameType] = usePageState<SeasonGameTypeFilter>(stateKey("lineupSearchGameType"), "regular");
@@ -95,6 +112,10 @@ export function LineupSearch({ season, teamId, playerNameById, games, stateKey, 
     return [...seconds.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id);
   }, [file]);
   const selected = selectedRaw.filter((id) => candidates.includes(id));
+  useEffect(() => {
+    if (!exportTitle) onSaveInfo?.({ selected: selected.length, gameType });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected.length, gameType, exportTitle]);
 
   // 区間は1Q〜4Q・前半・後半・延長（すべての延長の合計。第1延長・第2延長は分けない。DESIGN.md 273章）
   // 出場区間（team-stints）はピリオドで絞るので、クラッチは選べない（設計書375章）
@@ -134,6 +155,45 @@ export function LineupSearch({ season, teamId, playerNameById, games, stateKey, 
     resultTab !== "rating" && perspectiveLabels(perspective),
     selected.length > 0 && `選手：${selected.map((id) => playerLabel(nameOf(id))).join("・")}`,
   );
+
+  if (exportTitle) {
+    if (!file || result === null) return <p className="empty-message">選手を選んでいません</p>;
+    const tabLabel = RESULT_TABS.find((t) => t.key === resultTab)!.label;
+    return (
+      <LineupSearchExport
+        title={`${exportTitle}：${tabLabel}`}
+        season={season}
+        conditionsOf={(short) =>
+          composeLabels(
+            `${season}シーズン`,
+            gameTypeLabels(gameType, season),
+            periodLabels(periodOption),
+            venue !== "all" && VENUE_LABELS[venue],
+            resultTab !== "rating" && displayModeLabels(statsMode),
+            resultTab !== "rating" && perspectiveLabels(perspective),
+            `選手：${selected.map((id) => (short ? surnameOf(nameOf(id)) : nameOf(id))).join("・")}`,
+          )
+        }
+        render={(short) => (
+          <ResultView
+            split={result}
+            selected={selected}
+            labelOf={(id) => (short ? surnameOf(nameOf(id)) : nameOf(id))}
+            narrow={false}
+            tab={resultTab}
+            mode={statsMode}
+            perspective={perspective}
+            allExpanded
+          />
+        )}
+        note={
+          selected.length <= 1
+            ? "※ Players Onはコートにいる時間、Players Offはベンチにいる時間（選んだ選手が出場した試合だけ）。平均はその状態が起きた試合の数で割ります。"
+            : "※ 選んだ選手のうち何人がコートにいたかで時間を分けています（選んだ誰かが出場した試合だけ）。平均はその状態が起きた試合の数で割ります。差は 全員出場 − 全員ベンチ。"
+        }
+      />
+    );
+  }
 
   return (
     <>
@@ -402,6 +462,7 @@ function ResultView({
   tab,
   mode,
   perspective,
+  allExpanded = false,
 }: {
   split: LineupSplitResult;
   selected: string[];
@@ -410,8 +471,11 @@ function ResultView({
   tab: ResultTab;
   mode: LineupStatsMode;
   perspective: TeamPerspective;
+  /** 保存画像: 組み合わせの行をすべて開いて載せる（開閉の印は出さない） */
+  allExpanded?: boolean;
 }) {
-  const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
+  const [expandedState, setExpanded] = useState<Set<number>>(() => new Set());
+  const expanded = allExpanded ? new Set(Array.from({ length: split.size + 1 }, (_, c) => c)) : expandedState;
   if (split.size === 0) return <p className="empty-message">この条件に当てはまる時間帯がありません</p>;
   const size = split.size;
   const full = split.byCount[size]!;
@@ -498,7 +562,7 @@ function ResultView({
                 const row = lineupSearchRow(splitTotalsToResult(r.totals));
                 return (
                   <tr key={r.key} className={r.child ? "lineup-search-child-row" : undefined}>
-                    <RowHeader row={r} expanded={expanded.has(r.count)} onToggle={toggle} />
+                    <RowHeader row={r} expanded={expanded.has(r.count)} onToggle={toggle} staticLabel={allExpanded} />
                     {METRICS.map((m) => (
                       <td key={m.label} className="align-right">
                         {cell(row, m)}
@@ -551,7 +615,7 @@ function ResultView({
           <tbody>
             {rows.map((r) => (
               <tr key={r.key} className={r.child ? "lineup-search-child-row" : undefined}>
-                <RowHeader row={r} expanded={expanded.has(r.count)} onToggle={toggle} />
+                <RowHeader row={r} expanded={expanded.has(r.count)} onToggle={toggle} staticLabel={allExpanded} />
                 {cols.map((c, ci) => (
                   <td key={c.key} className="align-right">
                     {statCell(r.totals, ci)}
@@ -577,8 +641,8 @@ function ResultView({
   );
 }
 
-function RowHeader({ row, expanded, onToggle }: { row: RowSpec; expanded: boolean; onToggle: (count: number) => void }) {
-  if (row.expandable) {
+function RowHeader({ row, expanded, onToggle, staticLabel = false }: { row: RowSpec; expanded: boolean; onToggle: (count: number) => void; staticLabel?: boolean }) {
+  if (row.expandable && !staticLabel) {
     return (
       <th className="align-left" scope="row">
         <button type="button" className="lineup-search-expand" aria-expanded={expanded} onClick={() => onToggle(row.count)}>
@@ -591,5 +655,45 @@ function RowHeader({ row, expanded, onToggle }: { row: RowSpec; expanded: boolea
     <th className={`align-left${row.child ? " lineup-search-child" : ""}`} scope="row">
       {row.label}
     </th>
+  );
+}
+
+/** 名字（「・」で区切られた外国籍の名前は最後の部分、日本人の名前は空白の前） */
+function surnameOf(name: string): string {
+  if (name.includes("・")) return name.split("・").pop()!;
+  return name.split(/[\s\u3000]+/)[0]!;
+}
+
+/**
+ * ラインナップ検索の保存画像の中身（見出し・表・短い注記）。条件の行（選手の名前）が表より広くなるときは、名字だけにして描き直す
+ */
+function LineupSearchExport({
+  title,
+  season,
+  conditionsOf,
+  render,
+  note,
+}: {
+  title: string;
+  season: string;
+  conditionsOf: (short: boolean) => string[];
+  render: (short: boolean) => ReactNode;
+  note: string;
+}) {
+  const [short, setShort] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (short) return;
+    const root = rootRef.current;
+    const line = root?.querySelector<HTMLElement>(".condition-title-conditions");
+    const table = root?.querySelector<HTMLElement>("table");
+    if (line && table && line.scrollWidth > table.offsetWidth) setShort(true);
+  });
+  return (
+    <div ref={rootRef} className="lineup-search-export">
+      <ConditionTitle title={title} exportScope={`${season}シーズン`} conditions={conditionsOf(short)} />
+      {render(short)}
+      <p className="rule-change-footnote">{note}</p>
+    </div>
   );
 }

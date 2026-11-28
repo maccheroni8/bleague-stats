@@ -10123,3 +10123,26 @@ table.sortable-table.lineup-search-table thead th:first-child {
   z-index: 1;
   background: var(--bg);
 }
+
+.export-multi-item.export-multi-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* チーム詳細 > ラインナップの保存画像の枠（保存の間だけ作る。画面には見せない。DESIGN.md 483章） */
+.export-target.lineup-save-target {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: max-content;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.export-rendering.lineup-save-target {
+  position: static;
+  visibility: visible;
+  pointer-events: auto;
+  z-index: auto;
+}
